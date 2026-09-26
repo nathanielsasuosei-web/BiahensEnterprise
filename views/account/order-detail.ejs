@@ -1,0 +1,167 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<%
+  const sm = STATUS_META[order.status] || { label: order.status, tone: 'muted' };
+  const flow = ['pending_payment', 'paid', 'processing', 'shipped', 'delivered'];
+  const curIdx = flow.indexOf(order.status);
+  const canCancel = ['pending_payment', 'paid', 'processing'].includes(order.status);
+  const deliveryLabel = order.delivery_method === 'express' ? 'Express (within 24 hours)' : order.delivery_method === 'pickup' ? 'Warehouse pickup' : 'Standard delivery';
+%>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark">
+    <a href="/">Home</a><span class="sep">/</span><a href="/account">Account</a><span class="sep">/</span>
+    <a href="/account/orders">Orders</a><span class="sep">/</span><span class="cur"><%= order.order_number %></span>
+  </nav>
+
+  <div class="row between wrap" style="gap:.6rem;margin-bottom:1.1rem">
+    <div>
+      <h1 style="margin:0">Order <%= order.order_number %></h1>
+      <p class="muted" style="margin:.2rem 0 0">Placed <%= dateFmt(order.placed_at, 'dddd, D MMMM YYYY [at] h:mm a') %> · last update <%= timeAgo(order.updated_at) %></p>
+    </div>
+    <div class="row" style="gap:.4rem;flex-wrap:wrap">
+      <span class="badge <%= sm.tone %> big"><%= sm.label %></span>
+      <span class="badge <%= order.payment_status === 'paid' ? 'success' : 'warn' %> big"><%= order.payment_status.replace(/_/g, ' ') %></span>
+    </div>
+  </div>
+
+  <div class="account-layout">
+    <%- include('../partials/account-nav') %>
+
+    <div>
+      <% if (curIdx >= 0 && !['cancelled', 'refunded'].includes(order.status)) { %>
+        <div class="order-progress">
+          <% flow.forEach(function (s, i) { %>
+            <div class="seg <%= i < curIdx ? 'done' : '' %> <%= i === curIdx ? 'current' : '' %>"><%= STATUS_META[s].label %></div>
+          <% }); %>
+        </div>
+      <% } %>
+      <% if (order.status === 'cancelled') { %>
+        <div class="inline-alert danger">This order was cancelled<%= order.cancel_reason ? ': ' + order.cancel_reason : '' %>.<% if (order.payment_status === 'refunded' || order.payment_status === 'partially_refunded') { %> Any amount paid has been refunded to your original payment method within 5–7 working days.<% } %></div>
+      <% } %>
+      <% if (order.status === 'refunded') { %>
+        <div class="inline-alert">This order was refunded. The money returns to the payment method you used within 5–7 working days.</div>
+      <% } %>
+
+      <div class="card" style="margin-top:1rem">
+        <div class="summary-head row between"><span><%- icon('box') %> Items in this order</span><span class="small"><%= order.item_count %> item<%= order.item_count === 1 ? '' : 's' %></span></div>
+        <div class="summary-body">
+          <% order.items.forEach(function (i) { %>
+            <div class="row" style="gap:.75rem;padding:.7rem 0;border-bottom:1px dashed #E8EDF3;align-items:flex-start">
+              <a href="<%= i.slug ? '/p/' + i.slug : '#' %>" style="flex:none">
+                <img src="<%= imgSrc(i.image, { w: 160, h: 160, hint: settings.store_name, name: i.name }) %>" alt="" loading="lazy" style="width:62px;height:62px;border-radius:10px;object-fit:cover;border:1px solid #E8EDF3">
+              </a>
+              <div class="grow">
+                <b style="display:block;font-size:.9rem;line-height:1.35"><%= i.slug ? '<a href="/p/' + i.slug + '">' + i.name + '</a>' : i.name %></b>
+                <span class="small muted">
+                  <% if (i.variant_title) { %>Option: <%= i.variant_title %> · <% } %>
+                  <% if (i.sku) { %>SKU <%= i.sku %> · <% } %>
+                  <%= settings.currency_symbol %> <%= money(i.price) %> × <%= i.qty %>
+                </span>
+                <% const rev = reviewedIds.has(i.product_id); %>
+                <div class="row" style="gap:.4rem;margin-top:.45rem">
+                  <% if (i.slug && i.product_id) { %>
+                    <a class="btn ghost xs" href="/p/<%= i.slug %>"><%- icon('eye') %> View product</a>
+                    <% if (order.status === 'delivered') { %>
+                      <a class="btn ghost xs" href="/p/<%= i.slug %>#reviews"><%- icon('star') %> <%= rev ? 'See your review' : 'Write a review' %></a>
+                    <% } %>
+                  <% } %>
+                </div>
+              </div>
+              <b style="flex:none"><%= settings.currency_symbol %> <%= money(i.total) %></b>
+            </div>
+          <% }); %>
+          <div style="padding-top:.9rem;max-width:340px;margin-left:auto">
+            <div class="sum-row"><span>Subtotal</span><b><%= settings.currency_symbol %> <%= money(order.subtotal) %></b></div>
+            <% if (order.discount > 0) { %><div class="sum-row"><span>Discount <%= order.coupon_code ? '(' + order.coupon_code + ')' : '' %></span><b class="save">− <%= settings.currency_symbol %> <%= money(order.discount) %></b></div><% } %>
+            <div class="sum-row"><span>Delivery</span><b><%= order.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(order.shipping_fee) : 'FREE' %></b></div>
+            <% if (order.tax > 0) { %><div class="sum-row"><span>Tax</span><b><%= settings.currency_symbol %> <%= money(order.tax) %></b></div><% } %>
+            <div class="sum-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= money(order.total) %></b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid g-2" style="gap:1rem;margin-top:1.1rem">
+        <div class="card">
+          <div class="summary-head"><span><%- icon('pin') %> Delivery address</span></div>
+          <div class="summary-body small">
+            <b style="display:block;margin-bottom:.2rem"><%= order.ship_name %></b>
+            <span class="muted">
+              <%= order.ship_line %><% if (order.ship_landmark) { %><br>Near: <%= order.ship_landmark %><% } %><br>
+              <%= order.ship_city %>, <%= order.ship_region %>
+            </span>
+            <div class="divider" style="margin:.8rem 0"></div>
+            <span class="row" style="gap:.4rem"><%- icon('phone') %> <%= order.ship_phone %></span>
+            <% if (order.ship_email) { %><span class="row" style="gap:.4rem;margin-top:.3rem"><%- icon('mail') %> <%= order.ship_email %></span><% } %>
+            <div class="divider" style="margin:.8rem 0"></div>
+            <span class="row" style="gap:.4rem"><%- icon('truck') %> <%= deliveryLabel %></span>
+            <% if (order.tracking_number) { %>
+              <span class="row" style="gap:.4rem;margin-top:.35rem"><%- icon('tag') %> <b><%= order.tracking_number %></b><% if (order.carrier) { %> · <%= order.carrier %><% } %></span>
+            <% } %>
+            <% if (order.delivery_note) { %><p class="muted" style="margin-top:.6rem;font-style:italic">Note: “<%= order.delivery_note %>”</p><% } %>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="summary-head"><span><%- icon('wallet') %> Payment</span></div>
+          <div class="summary-body small">
+            <span class="row between"><span class="muted">Method</span><b><%= order.payment_method === 'momo' ? 'Mobile Money' : order.payment_method === 'cod' ? 'Cash on delivery' : 'Card' %></b></span>
+            <span class="row between" style="margin-top:.35rem"><span class="muted">Status</span><b><%= order.payment_status.replace(/_/g, ' ') %></b></span>
+            <% order.payments.forEach(function (p) { %>
+              <div class="divider" style="margin:.7rem 0"></div>
+              <span class="row between"><span class="muted">Reference</span><b style="font-size:.76rem"><%= p.reference %></b></span>
+              <span class="row between" style="margin-top:.3rem"><span class="muted">Gateway status</span>
+                <span class="badge <%= p.status === 'success' ? 'success' : p.status === 'failed' ? 'danger' : 'outline' %>"><%= p.status %></span></span>
+              <span class="row between" style="margin-top:.3rem"><span class="muted">Amount</span><b><%= settings.currency_symbol %> <%= money(p.amount) %></b></span>
+              <% if (p.last4) { %><span class="row between" style="margin-top:.3rem"><span class="muted">Card</span><b>•••• <%= p.last4 %></b></span><% } %>
+              <% if (p.payer) { %><span class="row between" style="margin-top:.3rem"><span class="muted">Payer</span><b><%= p.payer %></b></span><% } %>
+              <% if (p.paid_at) { %><span class="row between" style="margin-top:.3rem"><span class="muted">Paid at</span><b><%= dateFmt(p.paid_at, 'D MMM YYYY, h:mm a') %></b></span><% } %>
+              <% if (p.error) { %><span class="row between" style="margin-top:.3rem"><span class="muted">Error</span><b style="color:#D64545"><%= p.error %></b></span><% } %>
+            <% }); %>
+            <% if (order.payment_status !== 'paid' && canCancel) { %>
+              <div class="inline-alert" style="margin-top:.8rem">This order is not paid yet.
+                <% const ref = order.payments.length ? order.payments[0].reference : null; %>
+                <% if (ref) { %><a href="/pay/<%= ref %>" style="font-weight:800">Complete payment</a> or <% } %>
+                cancel below.
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1.1rem">
+        <div class="summary-head"><span><%- icon('activity') %> Order history</span></div>
+        <div class="summary-body">
+          <div class="timeline">
+            <% order.events.forEach(function (e) { %>
+              <div class="tl-item">
+                <span class="dot"></span>
+                <div>
+                  <b class="small"><%= STATUS_META[e.status] ? STATUS_META[e.status].label : e.status %></b>
+                  <span class="tiny" style="color:#64748B;display:block"><%= dateFmt(e.created_at, 'D MMM YYYY, h:mm a') %> · <%= e.actor %></span>
+                  <% if (e.note) { %><p class="small" style="margin:.2rem 0 0"><%= e.note %></p><% } %>
+                </div>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+      </div>
+
+      <div class="row wrap" style="gap:.5rem;margin-top:1.1rem">
+        <a class="btn ghost" href="/account/orders"><%- icon('arrow-left') %> All orders</a>
+        <a class="btn ghost" href="/account/orders/<%= order.order_number %>/receipt" target="_blank"><%- icon('printer') %> Print receipt</a>
+        <form action="/account/orders/<%= order.order_number %>/reorder" method="post" style="display:inline">
+          <button class="btn primary" type="submit"><%- icon('refresh') %> Buy these again</button>
+        </form>
+        <% if (canCancel) { %>
+          <form action="/account/orders/<%= order.order_number %>/cancel" method="post" style="display:inline"
+                onsubmit="var r=prompt('Why are you cancelling? (optional)','Changed my mind');if(r===null)return false;this.querySelector('[name=reason]').value=r;return true;">
+            <input type="hidden" name="reason" value="">
+            <button class="btn ghost" type="submit" style="color:#D64545"><%- icon('x') %> Cancel this order</button>
+          </form>
+        <% } %>
+        <a class="btn ghost" href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>?text=Hello,%20about%20order%20<%= order.order_number %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Ask support</a>
+      </div>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

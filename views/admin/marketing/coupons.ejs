@@ -1,0 +1,221 @@
+<%- include('../partials/head') %>
+<% const e = editing || {}; %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Coupons' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Discount coupons</h1>
+          <p class="sub"><%= coupons.length %> coupon<%= coupons.length === 1 ? '' : 's' %> · <%= ordersWithCoupon %> order<%= ordersWithCoupon === 1 ? '' : 's' %> used one · <%= settings.currency_symbol %> <%= money(revenueAttributed) %> in discounts given.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/marketing/promotions"><%- icon('fire') %> Promotions</a>
+          <% if (editing) { %><a class="btn ghost" href="/admin/marketing/coupons"><%- icon('x') %> Cancel edit</a><% } %>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div class="card">
+          <div class="card-head"><div><h2>All coupons</h2><span class="sub">Active first</span></div>
+            <span class="badge outline"><%= coupons.filter(function (c) { return c.is_active; }).length %> active</span></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table class="table" style="min-width:900px">
+                <thead><tr><th>Code</th><th>Discount</th><th>Conditions</th><th>Scope</th><th class="num">Used</th><th>Window</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+                <tbody>
+                  <% if (!coupons.length) { %>
+                    <tr><td colspan="8"><div class="empty"><span class="ico">&#127915;</span><h3>No coupons yet</h3><p class="muted">Create your first discount code with the form.</p></div></td></tr>
+                  <% } %>
+                  <% coupons.forEach(function (c) { %>
+                    <% const expired = c.expires_at && new Date(c.expires_at.replace(' ', 'T')) < new Date(); %>
+                    <% const exhausted = c.usage_limit && c.used_count >= c.usage_limit; %>
+                    <tr>
+                      <td><b class="mono" style="font-size:.9rem"><%= c.code %></b>
+                        <% if (c.description) { %><span class="muted" style="display:block;font-size:.72rem"><%= truncate(c.description, 46) %></span><% } %></td>
+                      <td>
+                        <% if (c.type === 'percent') { %><span class="badge brand"><%= c.value %>% off</span>
+                        <% } else if (c.type === 'fixed') { %><span class="badge success"><%= settings.currency_symbol %> <%= money(c.value) %> off</span>
+                        <% } else { %><span class="badge gold">Free delivery</span><% } %>
+                        <% if (c.max_discount) { %><span class="muted tiny" style="display:block">capped at <%= settings.currency_symbol %> <%= money(c.max_discount) %></span><% } %>
+                      </td>
+                      <td class="small muted">
+                        <% if (c.min_subtotal > 0) { %>min. <%= settings.currency_symbol %> <%= money(c.min_subtotal) %><br><% } %>
+                        <%= c.per_user_limit %> per customer<% if (c.usage_limit) { %> · <%= c.usage_limit %> total<% } %>
+                      </td>
+                      <td class="small"><%= c.scope === 'all' ? 'Everything' : (c.scope.charAt(0).toUpperCase() + c.scope.slice(1) + (c.scope_name ? ': ' + c.scope_name : '')) %></td>
+                      <td class="num strong"><%= c.used_count %><%= c.usage_limit ? '<span class="muted"> / ' + c.usage_limit + '</span>' : '' %></td>
+                      <td class="small muted">
+                        <%= c.starts_at ? dateFmt(c.starts_at, 'D MMM') : 'now' %> →
+                        <%= c.expires_at ? dateFmt(c.expires_at, 'D MMM YYYY') : 'no end' %>
+                      </td>
+                      <td>
+                        <% if (!c.is_active) { %><span class="badge muted">Disabled</span>
+                        <% } else if (expired) { %><span class="badge danger">Expired</span>
+                        <% } else if (exhausted) { %><span class="badge warn">Exhausted</span>
+                        <% } else { %><span class="badge success">Live</span><% } %>
+                      </td>
+                      <td>
+                        <div class="row-actions">
+                          <a class="btn ghost xs" href="/admin/marketing/coupons?edit=<%= c.id %>" title="Edit"><%- icon('edit') %></a>
+                          <form action="/admin/marketing/coupons/<%= c.id %>/toggle" method="post" style="display:inline">
+                            <button class="btn ghost xs" type="submit" title="<%= c.is_active ? 'Disable' : 'Enable' %>"><%- icon(c.is_active ? 'eye-off' : 'eye') %></button>
+                          </form>
+                          <button class="btn ghost xs" type="button" title="Copy code" data-copy="<%= c.code %>"><%- icon('copy') %></button>
+                          <form action="/admin/marketing/coupons/<%= c.id %>/delete" method="post" style="display:inline"
+                                onsubmit="return confirm('Delete coupon <%= c.code %>? Orders that already used it keep their discount.')">
+                            <button class="btn ghost xs" type="submit" style="color:var(--red)" title="Delete"><%- icon('trash') %></button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <form class="card" action="/admin/marketing/coupons" method="post">
+          <div class="card-head"><div><h2><%= editing ? 'Edit coupon' : 'Create a coupon' %></h2>
+            <span class="sub">Codes are uppercased and stripped of spaces</span></div></div>
+          <div class="card-body">
+            <% if (editing) { %><input type="hidden" name="id" value="<%= editing.id %>"><% } %>
+            <div class="field">
+              <label class="label" for="cCode">Code <span style="color:var(--red)">*</span></label>
+              <input class="input mono" id="cCode" name="code" value="<%= e.code || '' %>" required minlength="3" maxlength="32" placeholder="AKWAABA" style="text-transform:uppercase">
+              <div class="row" style="gap:.3rem;margin-top:.4rem;flex-wrap:wrap">
+                <% ['AKWAABA', 'WELCOME10', 'FLASH20', 'FREESHIP', 'MOBO25'].forEach(function (s) { %>
+                  <button class="btn ghost xs" type="button" data-set-code="<%= s %>"><%= s %></button>
+                <% }); %>
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="cDesc">Description <span class="muted">(shown to the shopper)</span></label>
+              <input class="input" id="cDesc" name="description" value="<%= e.description || '' %>" maxlength="140" placeholder="e.g. 10% off your first order">
+            </div>
+            <div class="field">
+              <label class="label" for="cType">Discount type</label>
+              <select class="select" id="cType" name="type" data-coupon-type>
+                <option value="percent" <%= e.type === 'percent' ? 'selected' : '' %>>Percentage off</option>
+                <option value="fixed" <%= e.type === 'fixed' ? 'selected' : '' %>>Fixed amount off (<%= settings.currency_symbol %>)</option>
+                <option value="free_shipping" <%= e.type === 'free_shipping' ? 'selected' : '' %>>Free delivery</option>
+              </select>
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field" data-value-field>
+                <label class="label" for="cValue">Value <span style="color:var(--red)">*</span></label>
+                <input class="input" id="cValue" name="value" type="number" step="0.01" min="0" value="<%= e.value !== undefined && e.value !== null ? e.value : 10 %>">
+                <span class="hint" data-value-hint>Percentage (e.g. 10 = 10%) or cedis.</span>
+              </div>
+              <div class="field" data-cap-field>
+                <label class="label" for="cMax">Max discount</label>
+                <input class="input" id="cMax" name="max_discount" type="number" step="0.01" min="0" value="<%= e.max_discount || '' %>" placeholder="no cap">
+                <span class="hint">Caps a percentage discount.</span>
+              </div>
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field">
+                <label class="label" for="cMin">Minimum subtotal</label>
+                <input class="input" id="cMin" name="min_subtotal" type="number" step="0.01" min="0" value="<%= e.min_subtotal || 0 %>">
+                <span class="hint">0 means no minimum.</span>
+              </div>
+              <div class="field">
+                <label class="label" for="cPerUser">Uses per customer</label>
+                <input class="input" id="cPerUser" name="per_user_limit" type="number" min="1" step="1" value="<%= e.per_user_limit || 1 %>">
+              </div>
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field">
+                <label class="label" for="cLimit">Total usage limit</label>
+                <input class="input" id="cLimit" name="usage_limit" type="number" min="1" step="1" value="<%= e.usage_limit || '' %>" placeholder="unlimited">
+              </div>
+              <div class="field">
+                <label class="label" for="cScope">Applies to</label>
+                <select class="select" id="cScope" name="scope" data-coupon-scope>
+                  <% [['all', 'Everything'], ['category', 'A category'], ['brand', 'A brand'], ['product', 'A single product']].forEach(function (s) { %>
+                    <option value="<%= s[0] %>" <%= e.scope === s[0] ? 'selected' : '' %>><%= s[1] %></option>
+                  <% }); %>
+                </select>
+              </div>
+            </div>
+            <div class="field" data-scope-field <%= (e.scope && e.scope !== 'all') ? '' : 'hidden' %>>
+              <label class="label" for="cScopeId">Restrict to</label>
+              <select class="select" id="cScopeId" name="scope_id">
+                <option value="">— choose —</option>
+                <optgroup label="Categories">
+                  <% categories.forEach(function (c) { %>
+                    <option value="<%= c.id %>" <%= Number(e.scope_id) === c.id ? 'selected' : '' %>><%= c.name %></option>
+                    <% (c.children || []).forEach(function (sc) { %>
+                      <option value="<%= sc.id %>" <%= Number(e.scope_id) === sc.id ? 'selected' : '' %>>&nbsp;&nbsp;└ <%= sc.name %></option>
+                    <% }); %>
+                  <% }); %>
+                </optgroup>
+                <optgroup label="Brands">
+                  <% brands.forEach(function (b) { %>
+                    <option value="<%= b.id %>" <%= Number(e.scope_id) === b.id ? 'selected' : '' %>><%= b.name %></option>
+                  <% }); %>
+                </optgroup>
+              </select>
+              <span class="hint">For a single product, enter the product ID here.</span>
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field">
+                <label class="label" for="cStarts">Starts</label>
+                <input class="input" id="cStarts" name="starts_at" type="datetime-local" value="<%= e.starts_at ? String(e.starts_at).slice(0, 16).replace(' ', 'T') : '' %>">
+              </div>
+              <div class="field">
+                <label class="label" for="cExpires">Expires</label>
+                <input class="input" id="cExpires" name="expires_at" type="datetime-local" value="<%= e.expires_at ? String(e.expires_at).slice(0, 16).replace(' ', 'T') : '' %>">
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" name="is_active" value="1" <%= (e.is_active === undefined ? 1 : e.is_active) ? 'checked' : '' %>>
+              <span></span><b style="font-size:.85rem;margin-left:.6rem">Active — customers can use it now</b>
+            </label>
+          </div>
+          <div class="card-foot">
+            <% if (editing) { %><a class="btn ghost" href="/admin/marketing/coupons">Cancel</a><% } %>
+            <button class="btn primary block" type="submit"><%- icon('save') %> <%= editing ? 'Save coupon' : 'Create coupon' %></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var type = document.querySelector('[data-coupon-type]');
+    var scope = document.querySelector('[data-coupon-scope]');
+    var scopeField = document.querySelector('[data-scope-field]');
+    var valueField = document.querySelector('[data-value-field]');
+    var capField = document.querySelector('[data-cap-field]');
+    function sync() {
+      var t = type ? type.value : 'percent';
+      if (scopeField) scopeField.hidden = !(scope && scope.value !== 'all');
+      if (valueField) valueField.style.opacity = t === 'free_shipping' ? '.45' : '1';
+      if (capField) capField.style.opacity = t === 'percent' ? '1' : '.45';
+      var hint = document.querySelector('[data-value-hint]');
+      if (hint) hint.textContent = t === 'percent' ? 'Percentage, e.g. 10 = 10% off.'
+        : t === 'fixed' ? 'Amount in <%= settings.currency_symbol %> taken off the subtotal.' : 'Ignored for free-delivery coupons.';
+    }
+    if (type) type.addEventListener('change', sync);
+    if (scope) scope.addEventListener('change', sync);
+    document.querySelectorAll('[data-set-code]').forEach(function (b) {
+      b.addEventListener('click', function () { document.getElementById('cCode').value = b.getAttribute('data-set-code'); });
+    });
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-copy');
+        if (navigator.clipboard) navigator.clipboard.writeText(t);
+        b.innerHTML = '✓';
+        setTimeout(function () { b.innerHTML = 'copied'; }, 1200);
+      });
+    });
+    sync();
+  });
+</script>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

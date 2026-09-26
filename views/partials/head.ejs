@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en-GH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F2A43">
+<title><%= typeof pageTitle !== 'undefined' && pageTitle ? pageTitle : settings.store_name %></title>
+<meta name="description" content="<%= typeof metaDescription !== 'undefined' && metaDescription ? metaDescription : settings.meta_description %>">
+<% if (typeof metaKeywords !== 'undefined' && metaKeywords) { %><meta name="keywords" content="<%= metaKeywords %>"><% } %>
+<meta name="author" content="<%= settings.store_name %>">
+<meta name="robots" content="index,follow">
+<% if (typeof canonical !== 'undefined' && canonical) { %><link rel="canonical" href="<%= cfg.publicUrl %><%= canonical %>"><% } %>
+
+<!-- Open Graph / Twitter -->
+<meta property="og:site_name" content="<%= settings.store_name %>">
+<meta property="og:title" content="<%= typeof pageTitle !== 'undefined' && pageTitle ? pageTitle : settings.meta_title %>">
+<meta property="og:description" content="<%= typeof metaDescription !== 'undefined' ? metaDescription : settings.meta_description %>">
+<meta property="og:type" content="website">
+<meta property="og:url" content="<%= cfg.publicUrl %><%= typeof currentPath !== 'undefined' ? currentPath : '/' %>">
+<% if (typeof ogImage !== 'undefined' && ogImage) { %><meta property="og:image" content="<%= ogImage %>"><% } %>
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/css/site.css?v=1.0">
+<% if (typeof extraCss !== 'undefined' && extraCss) { %><link rel="stylesheet" href="<%= extraCss %>"><% } %>
+
+<script>
+  window.BIAHENS = {
+    currency: <%- JSON.stringify(settings.currency_symbol) %>,
+    freeShipping: <%- JSON.stringify(Number(settings.free_shipping_threshold) || 0) %>,
+    support: <%- JSON.stringify(settings.support_whatsapp || settings.support_phone) %>,
+    user: <%- JSON.stringify(user ? { id: user.id, name: user.name, role: user.role } : null) %>
+  };
+</script>
+<% if (typeof product !== 'undefined' && product) { %>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": <%- JSON.stringify(product.name) %>,
+  "sku": <%- JSON.stringify(product.sku || product.slug) %>,
+  "description": <%- JSON.stringify((product.short_description || '').slice(0, 300)) %>,
+  "brand": { "@type": "Brand", "name": <%- JSON.stringify(product.brand_name || settings.store_name) %> },
+  "category": <%- JSON.stringify(product.category_name || '') %>,
+  "offers": {
+    "@type": "Offer",
+    "url": "<%= cfg.publicUrl %>/p/<%= product.slug %>",
+    "priceCurrency": "<%= settings.currency %>",
+    "price": "<%= Number(product.price).toFixed(2) %>",
+    "availability": "https://schema.org/<%= product.in_stock ? 'InStock' : 'OutOfStock' %>",
+    "itemCondition": "https://schema.org/NewCondition",
+    "seller": { "@type": "Organization", "name": <%- JSON.stringify(settings.store_name) %> }
+  }<% if (product.rating_count) { %>,
+  "aggregateRating": { "@type": "AggregateRating", "ratingValue": "<%= Number(product.rating_avg).toFixed(1) %>", "reviewCount": "<%= product.rating_count %>" }<% } %>
+}
+</script>
+<% } %>
+</head>
+<body class="<%= typeof bodyClass !== 'undefined' ? bodyClass : '' %>">
+<%- include('flash') %>

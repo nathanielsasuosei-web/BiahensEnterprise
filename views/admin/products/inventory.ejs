@@ -1,0 +1,149 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Inventory' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Inventory &amp; stock valuation</h1>
+          <p class="sub">Everything physically on the shelf, what it cost you, and what needs reordering now.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/products"><%- icon('arrow-left') %> All products</a>
+          <a class="btn ghost" href="/admin/products/export.csv"><%- icon('download') %> Export CSV</a>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#0F2A43">
+          <div class="k"><span class="ico"><%- icon('layers') %></span> Units in stock</div>
+          <div class="v"><%= value.units %></div>
+          <div class="d">Across all non-archived products</div>
+        </div>
+        <div class="kpi" style="--accent:#12805C">
+          <div class="k"><span class="ico"><%- icon('cash') %></span> Stock value at cost</div>
+          <div class="v"><%= settings.currency_symbol %> <%= moneyShort(value.v) %></div>
+          <div class="d">Capital tied up in inventory</div>
+        </div>
+        <div class="kpi" style="--accent:#FFB300">
+          <div class="k"><span class="ico"><%- icon('alert') %></span> Low stock</div>
+          <div class="v"><%= low.length %></div>
+          <div class="d">At or below their reorder point</div>
+        </div>
+        <div class="kpi" style="--accent:#D64545">
+          <div class="k"><span class="ico"><%- icon('x-circle') %></span> Out of stock</div>
+          <div class="v"><%= outOfStock.length %></div>
+          <div class="d">Lost sales until restocked</div>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start;margin-bottom:1rem">
+        <div class="card">
+          <div class="card-head"><div><h2>Stock by category</h2><span class="sub">Units held and retail value</span></div></div>
+          <div class="card-body">
+            <% const maxU = Math.max.apply(null, byCategory.map(function (c) { return c.units; }).concat([1])); %>
+            <div class="hbar">
+              <% byCategory.forEach(function (c) { %>
+                <div class="hbar-row" style="grid-template-columns:150px 1fr 130px">
+                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700"><%= c.name || 'Uncategorised' %></span>
+                  <span class="track"><i style="width:<%= Math.max(2, Math.round(c.units / maxU * 100)) %>%"></i></span>
+                  <span class="v"><%= c.units %> u · <%= moneyShort(c.retail_value) %></span>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Reorder advice</h2></div></div>
+          <div class="card-body">
+            <div class="stat-line row between"><span class="muted">Products needing restock</span><b><%= low.length + outOfStock.length %></b></div>
+            <div class="stat-line row between"><span class="muted">Of those, best sellers (sold &gt; 0)</span><b><%= low.concat(outOfStock).filter(function (p) { return (p.sold_count || 0) > 0; }).length %></b></div>
+            <div class="stat-line row between"><span class="muted">Estimated reorder cost</span><b><%= settings.currency_symbol %> <%= moneyShort(low.concat(outOfStock).reduce(function (s, p) { return s + (Number(p.cost_price) || p.price * 0.65) * Math.max(10, (p.low_stock_at || 5) * 2 - p.stock); }, 0)) %></b></div>
+            <div class="stat-line row between"><span class="muted">Categories affected</span><b><%= new Set(low.concat(outOfStock).map(function (p) { return p.category_name || '—'; })).size %></b></div>
+            <div class="divider"></div>
+            <p class="small muted" style="margin:0">Reorder cost assumes you restock to twice the low-stock point, using cost price where recorded and 65% of retail price otherwise.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-head"><div><h2>Out of stock</h2><span class="sub">Ordered by units sold — restock the best sellers first</span></div>
+          <a class="btn ghost sm" href="/admin/products?stock=out">Filter product list</a></div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table class="table" style="min-width:900px">
+              <thead><tr><th>Product</th><th>Category</th><th>SKU</th><th class="num">Price</th><th class="num">Sold</th><th class="num">Views</th><th style="min-width:150px">Restock to</th><th></th></tr></thead>
+              <tbody>
+                <% if (!outOfStock.length) { %>
+                  <tr><td colspan="8"><div class="empty"><span class="ico">&#10003;</span><h3>Nothing is out of stock</h3><p class="muted">Every live product has units available.</p></div></td></tr>
+                <% } %>
+                <% outOfStock.forEach(function (p) { %>
+                  <tr>
+                    <td><div class="prod">
+                      <img class="thumb" src="<%= imgSrc(p.image, { w: 120, h: 120, hint: settings.store_name, name: p.name }) %>" alt="" loading="lazy">
+                      <span><b><a href="/admin/products/<%= p.id %>/edit"><%= p.name %></a></b><span class="muted"><%= p.status %></span></span>
+                    </div></td>
+                    <td class="small"><%= p.category_name || '—' %></td>
+                    <td class="small muted"><%= p.sku || '—' %></td>
+                    <td class="num"><%= settings.currency_symbol %> <%= money(p.price) %></td>
+                    <td class="num"><%= p.sold_count || 0 %></td>
+                    <td class="num muted"><%= p.views_count || 0 %></td>
+                    <td>
+                      <form class="row" style="gap:.3rem" action="/admin/products/<%= p.id %>/stock" method="post">
+                        <input class="input" type="number" name="absolute" min="0" step="1" value="<%= Math.max(10, (p.low_stock_at || 5) * 2) %>" style="max-width:88px" aria-label="Restock quantity">
+                        <button class="btn primary xs" type="submit">Set</button>
+                      </form>
+                    </td>
+                    <td style="text-align:right"><a class="btn ghost xs" href="/admin/products/<%= p.id %>/edit"><%- icon('edit') %></a></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><h2>Low stock</h2><span class="sub">At or below the reorder point</span></div>
+          <a class="btn ghost sm" href="/admin/products?stock=low">Filter product list</a></div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table class="table" style="min-width:900px">
+              <thead><tr><th>Product</th><th>Category</th><th class="num">Stock</th><th class="num">Reorder at</th><th class="num">Sold</th><th class="num">Cost</th><th style="min-width:190px">Adjust</th></tr></thead>
+              <tbody>
+                <% if (!low.length) { %>
+                  <tr><td colspan="7"><div class="empty"><span class="ico">&#10003;</span><h3>No low-stock items</h3><p class="muted">Every product is comfortably above its reorder point.</p></div></td></tr>
+                <% } %>
+                <% low.forEach(function (p) { %>
+                  <tr>
+                    <td><div class="prod">
+                      <img class="thumb" src="<%= imgSrc(p.image, { w: 120, h: 120, hint: settings.store_name, name: p.name }) %>" alt="" loading="lazy">
+                      <span><b><a href="/admin/products/<%= p.id %>/edit"><%= p.name %></a></b><span class="muted"><%= p.sku || 'no SKU' %></span></span>
+                    </div></td>
+                    <td class="small"><%= p.category_name || '—' %></td>
+                    <td class="num"><span class="stock-pill <%= p.stock <= 0 ? 'out' : 'low' %>"><%= p.stock %></span></td>
+                    <td class="num muted"><%= p.low_stock_at %></td>
+                    <td class="num"><%= p.sold_count || 0 %></td>
+                    <td class="num muted"><%= p.cost_price ? settings.currency_symbol + ' ' + money(p.cost_price) : '—' %></td>
+                    <td>
+                      <form class="row" style="gap:.3rem" action="/admin/products/<%= p.id %>/stock" method="post">
+                        <input class="input" type="number" name="absolute" min="0" step="1" value="<%= Math.max(10, (p.low_stock_at || 5) * 2) %>" style="max-width:88px" aria-label="Set stock level">
+                        <button class="btn primary xs" type="submit">Set stock</button>
+                        <a class="btn ghost xs" href="/admin/products/<%= p.id %>/edit"><%- icon('edit') %></a>
+                      </form>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

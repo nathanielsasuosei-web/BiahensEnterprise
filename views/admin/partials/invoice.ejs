@@ -1,0 +1,136 @@
+<%- include('head') %>
+<%
+  const s = order;
+  const billed = s.customer_name || s.ship_name;
+  const email = s.customer_email || s.ship_email || s.guest_email;
+  const methodLabel = { card: 'Debit / credit card', momo: 'Mobile Money', cod: 'Cash on delivery' }[s.payment_method] || s.payment_method;
+  const deliveryLabel = { standard: 'Standard delivery', express: 'Express delivery', pickup: 'Warehouse pickup' }[s.delivery_method] || s.delivery_method;
+  const paid = s.payment_status === 'paid' || s.payment_status === 'partially_refunded';
+%>
+<div class="print-bar no-print">
+  <div class="row between wrap" style="gap:.6rem">
+    <span class="muted small"><%- icon('printer') %> Invoice <%= s.order_number %> — print or save as PDF for the customer.</span>
+    <span class="row" style="gap:.4rem">
+      <a class="btn ghost sm" href="/admin/orders/<%= s.id %>"><%- icon('arrow-left') %> Back to order</a>
+      <button class="btn primary sm" type="button" onclick="window.print()"><%- icon('printer') %> Print</button>
+    </span>
+  </div>
+</div>
+
+<div class="invoice">
+  <div class="invoice-head">
+    <div>
+      <h1>Invoice</h1>
+      <div class="meta">
+        <b style="color:var(--navy);font-size:1rem"><%= s.order_number %></b><br>
+        Placed <%= dateFmt(s.placed_at, 'dddd D MMMM YYYY, h:mm a') %><br>
+        <%= paid ? 'Paid' : 'Payment outstanding' %> · <%= methodLabel %>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:1.25rem;font-weight:900;color:var(--navy);letter-spacing:-.02em"><%= settings.store_name %></div>
+      <div class="meta">
+        <%= settings.address_line %><br>
+        <%= settings.address_city %>, <%= settings.address_region %>, Ghana<br>
+        <%= settings.support_phone %> · <%= settings.support_email %><br>
+        <%= settings.support_hours %>
+      </div>
+    </div>
+  </div>
+
+  <div class="invoice-parties">
+    <div>
+      <h4>Billed to</h4>
+      <div class="meta" style="color:#17222E">
+        <b><%= billed %></b><br>
+        <% if (email) { %><%= email %><br><% } %>
+        <%= s.ship_phone %><br>
+        <% if (s.customer_user_id) { %>Customer ID #<%= s.customer_user_id %><% } else { %>Guest checkout<% } %>
+      </div>
+    </div>
+    <div>
+      <h4>Deliver to</h4>
+      <div class="meta" style="color:#17222E">
+        <b><%= s.ship_name %></b><br>
+        <%= s.ship_line %><br>
+        <% if (s.ship_landmark) { %>Near <%= s.ship_landmark %><br><% } %>
+        <%= s.ship_city %>, <%= s.ship_region %><br>
+        <%= deliveryLabel %><% if (s.tracking_number) { %> · tracking <%= s.tracking_number %><% } %>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th style="width:44%">Item</th><th>SKU</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit price</th><th style="text-align:right">Line total</th></tr>
+    </thead>
+    <tbody>
+      <% s.items.forEach(function (i) { %>
+        <tr>
+          <td><b><%= i.name %></b><% if (i.variant_title) { %><br><span style="color:var(--muted);font-size:.78rem"><%= i.variant_title %></span><% } %></td>
+          <td style="color:var(--muted)"><%= i.sku || '—' %></td>
+          <td style="text-align:center"><%= i.qty %></td>
+          <td style="text-align:right"><%= settings.currency_symbol %> <%= money(i.price) %></td>
+          <td style="text-align:right"><b><%= settings.currency_symbol %> <%= money(i.total) %></b></td>
+        </tr>
+      <% }); %>
+      <% if (!s.items.length) { %>
+        <tr><td colspan="5" style="color:var(--muted)">No line items recorded.</td></tr>
+      <% } %>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="row"><span>Subtotal (<%= s.item_count %> item<%= s.item_count === 1 ? '' : 's' %>)</span><b><%= settings.currency_symbol %> <%= money(s.subtotal) %></b></div>
+    <% if (s.discount > 0) { %>
+      <div class="row"><span>Discount<%= s.coupon_code ? ' — ' + s.coupon_code : '' %></span><b style="color:var(--green)">− <%= settings.currency_symbol %> <%= money(s.discount) %></b></div>
+    <% } %>
+    <div class="row"><span><%= deliveryLabel %></span><b><%= s.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(s.shipping_fee) : 'Free' %></b></div>
+    <% if (s.tax > 0) { %>
+      <div class="row"><span>Tax</span><b><%= settings.currency_symbol %> <%= money(s.tax) %></b></div>
+    <% } %>
+    <div class="row grand"><span>Total</span><span><%= settings.currency_symbol %> <%= money(s.total) %></span></div>
+    <div class="row" style="margin-top:.4rem;font-size:.8rem;color:var(--muted)">
+      <span>Payment status</span><b style="color:<%= paid ? 'var(--green)' : 'var(--red)' %>"><%= s.payment_status.replace(/_/g, ' ').toUpperCase() %></b>
+    </div>
+  </div>
+
+  <% if (s.payments && s.payments.length) { %>
+    <table style="margin-top:1.6rem">
+      <thead><tr><th>Reference</th><th>Method</th><th>Channel</th><th style="text-align:right">Amount</th><th>Status</th><th>Date</th></tr></thead>
+      <tbody>
+        <% s.payments.forEach(function (p) { %>
+          <tr>
+            <td style="font-family:var(--mono);font-size:.76rem"><%= p.reference %></td>
+            <td><%= p.method %></td>
+            <td style="color:var(--muted)"><%= p.channel || '—' %><%= p.last4 ? ' •••• ' + p.last4 : '' %></td>
+            <td style="text-align:right"><%= settings.currency_symbol %> <%= money(p.amount) %></td>
+            <td><%= p.status %></td>
+            <td style="color:var(--muted)"><%= p.paid_at ? dateFmt(p.paid_at, 'D MMM YYYY, h:mm a') : dateFmt(p.created_at, 'D MMM YYYY, h:mm a') %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+
+  <% if (s.delivery_note || s.admin_notes) { %>
+    <div style="margin-top:1.2rem;font-size:.82rem">
+      <% if (s.delivery_note) { %><p style="margin:0 0 .35rem"><b>Delivery note:</b> <span style="color:var(--muted)"><%= s.delivery_note %></span></p><% } %>
+      <% if (s.admin_notes) { %><p style="margin:0"><b>Internal notes:</b> <span style="color:var(--muted)"><%= s.admin_notes %></span></p><% } %>
+    </div>
+  <% } %>
+
+  <div class="invoice-foot">
+    <p style="margin:0 0 .3rem">Thank you for shopping with <%= settings.store_name %>. <%= settings.tagline %></p>
+    <p style="margin:0">
+      Returns accepted within <%= settings.return_days %> days · <%= settings.warranty_note %><br>
+      Questions? Call <%= settings.support_phone %> or WhatsApp <%= settings.support_whatsapp %> · Track this order at <%= settings.store_short %> → order <%= s.order_number %>
+    </p>
+    <p class="no-print" style="margin:.9rem 0 0">
+      <button class="btn primary sm" type="button" onclick="window.print()"><%- icon('printer') %> Print / save as PDF</button>
+    </p>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

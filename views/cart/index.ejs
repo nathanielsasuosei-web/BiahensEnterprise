@@ -1,0 +1,173 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.4rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur">Shopping cart</span></nav>
+
+  <div class="row between wrap" style="margin-bottom:1.2rem">
+    <div>
+      <h1 style="margin:0">Your shopping cart</h1>
+      <p class="muted" style="margin:.2rem 0 0"><%= cart.count %> item<%= cart.count === 1 ? '' : 's' %><% if (cart.savings > 0) { %> · you are saving <b style="color:#12805C"><%= settings.currency_symbol %> <%= cart.savings.toFixed(2) %></b><% } %></p>
+    </div>
+    <div class="row" style="gap:.5rem">
+      <a class="btn ghost" href="/"><%- icon('arrow-left') %> Continue shopping</a>
+      <% if (!cart.isEmpty) { %>
+        <form action="/cart/clear" method="post" onsubmit="return confirm('Empty your entire cart?')">
+          <button class="btn ghost" type="submit"><%- icon('trash') %> Empty cart</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (cart.isEmpty) { %>
+    <div class="empty-state">
+      <div class="ico">&#128722;</div>
+      <h3>Your cart is empty</h3>
+      <p>Nothing here yet. Browse today’s deals or pick a department below — delivery in Greater Accra is free above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %>.</p>
+      <div class="row" style="justify-content:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1.6rem">
+        <a class="btn primary lg" href="/deals"><%- icon('fire') %> Today’s deals</a>
+        <a class="btn ghost lg" href="/categories"><%- icon('layers') %> All categories</a>
+        <a class="btn ghost lg" href="/best-sellers"><%- icon('medal') %> Best sellers</a>
+      </div>
+    </div>
+    <% if (suggestions.length) { %>
+      <div class="section">
+        <div class="section-head"><h2>Popular with other shoppers</h2><a class="link" href="/best-sellers">See more</a></div>
+        <div class="p-grid"><% suggestions.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }); %></div>
+      </div>
+    <% } %>
+  <% } else { %>
+  <div class="cart-layout">
+    <div>
+      <% if (cart.freeShippingGap > 0) { %>
+        <div class="ship-progress">
+          &#128666; Add <b><%= settings.currency_symbol %> <%= cart.freeShippingGap.toFixed(2) %></b> more to unlock <b>FREE delivery</b>
+          <div class="bar"><i style="width:<%= Math.min(100, Math.round(cart.subtotal / (Number(settings.free_shipping_threshold) || 1) * 100)) %>%"></i></div>
+        </div>
+      <% } else { %>
+        <div class="ship-progress" style="background:#E6F5EF;border-color:#BFE5D4;color:#0B5A41">&#10003; You have unlocked <b>FREE delivery</b> — thank you!</div>
+      <% } %>
+
+      <div class="card">
+        <% cart.items.forEach(function (i) { %>
+          <div class="cart-line" data-line="<%= i.id %>">
+            <a class="thumb" href="/p/<%= i.product.slug %>">
+              <img src="<%= imgSrc(i.image, { w: 200, h: 200, hint: i.product.category_name, name: i.product.name }) %>" alt="<%= i.product.name %>" loading="lazy">
+            </a>
+            <div class="info">
+              <b><a href="/p/<%= i.product.slug %>"><%= i.product.name %></a></b>
+              <div class="meta">
+                <% if (i.variant) { %>Option: <b><%= i.variant.title %></b> · <% } %>
+                <% if (i.product.brand_name) { %><a href="/b/<%= i.product.brand_slug %>"><%= i.product.brand_name %></a> · <% } %>
+                <%= i.product.sku ? 'SKU ' + i.product.sku : '' %>
+              </div>
+              <div class="row wrap" style="gap:.5rem">
+                <span class="badge success"><%= settings.currency_symbol %> <%= i.unit_price.toFixed(2) %> each</span>
+                <% if (i.product.compare_at_price > i.unit_price) { %>
+                  <span class="badge outline" style="text-decoration:line-through"><%= settings.currency_symbol %> <%= i.product.compare_at_price.toFixed(2) %></span>
+                <% } %>
+                <% if (i.over_stock) { %><span class="badge danger">Only <%= i.available %> left</span>
+                <% } else if (i.available <= i.product.low_stock_at) { %><span class="badge warn">Low stock — <%= i.available %> left</span><% } %>
+              </div>
+              <div class="row wrap" style="gap:.5rem;margin-top:.6rem">
+                <div class="qty-box" style="transform:scale(.9);transform-origin:left">
+                  <button type="button" data-qty-change="-1" data-item="<%= i.id %>" aria-label="Decrease">−</button>
+                  <input type="number" value="<%= i.qty %>" min="0" max="<%= i.available %>" data-qty-input="<%= i.id %>" aria-label="Quantity for <%= i.product.name %>">
+                  <button type="button" data-qty-change="1" data-item="<%= i.id %>" aria-label="Increase">+</button>
+                </div>
+                <button class="btn ghost sm" type="button" data-wish="<%= i.product.id %>"><%- icon('heart') %> Save for later</button>
+                <form action="/cart/remove" method="post" style="display:inline">
+                  <input type="hidden" name="item_id" value="<%= i.id %>">
+                  <button class="btn ghost sm" type="submit" style="color:#D64545"><%- icon('trash') %> Remove</button>
+                </form>
+              </div>
+            </div>
+            <div class="right">
+              <div class="line-total"><%= settings.currency_symbol %> <%= i.line_total.toFixed(2) %></div>
+              <span class="small muted"><%= i.qty %> × <%= settings.currency_symbol %> <%= i.unit_price.toFixed(2) %></span>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+
+      <div class="card pad mt" style="margin-top:1rem">
+        <h3 style="margin-bottom:.7rem"><%- icon('truck') %> Estimate your delivery</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label class="label" for="cartRegion">Region</label>
+            <select class="select" id="cartRegion" data-ship-region>
+              <option value="">Select your region…</option>
+              <% h.GHANA_REGIONS.forEach(function (r) { %>
+                <option value="<%= r %>" <%= (typeof shipRegion !== 'undefined' && shipRegion === r) ? 'selected' : '' %>><%= r %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="cartMethod">Delivery method</label>
+            <select class="select" id="cartMethod" data-ship-method>
+              <option value="standard">Standard (1–6 days)</option>
+              <option value="express">Express within 24h (Accra)</option>
+              <option value="pickup">Warehouse pickup (free)</option>
+            </select>
+          </div>
+        </div>
+        <div class="inline-alert" data-ship-quote style="margin:0">Choose a region to see the exact delivery fee and estimated arrival.</div>
+      </div>
+    </div>
+
+    <%# ─────────────────────── summary ─────────────────────── %>
+    <aside class="summary">
+      <div class="card">
+        <div class="summary-head"><%- icon('wallet') %> Order summary</div>
+        <div class="summary-body">
+          <div class="sum-row"><span>Subtotal (<%= cart.count %> item<%= cart.count === 1 ? '' : 's' %>)</span><b><%= settings.currency_symbol %> <%= cart.subtotal.toFixed(2) %></b></div>
+          <% if (cart.savings > 0) { %><div class="sum-row"><span class="save">Catalogue savings</span><b class="save">− <%= settings.currency_symbol %> <%= cart.savings.toFixed(2) %></b></div><% } %>
+          <% if (cart.discount > 0) { %>
+            <div class="sum-row"><span>Coupon <%= cart.coupon ? '(' + cart.coupon.code + ')' : '' %></span><b class="save">− <%= settings.currency_symbol %> <%= cart.discount.toFixed(2) %></b></div>
+          <% } %>
+          <div class="sum-row"><span>Delivery</span><b><%= cart.shipping > 0 ? settings.currency_symbol + ' ' + cart.shipping.toFixed(2) : 'FREE' %></b></div>
+          <% if (cart.tax > 0) { %><div class="sum-row"><span>Tax</span><b><%= settings.currency_symbol %> <%= cart.tax.toFixed(2) %></b></div><% } %>
+          <div class="sum-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= cart.total.toFixed(2) %></b></div>
+
+          <form action="/cart/coupon" method="post" style="margin:.9rem 0">
+            <label class="label" for="couponCode">Have a coupon?</label>
+            <div class="row" style="gap:.4rem;margin-top:.3rem">
+              <input class="input" id="couponCode" name="code" placeholder="e.g. AKWAABA" value="<%= cart.coupon ? cart.coupon.code : '' %>" style="text-transform:uppercase">
+              <button class="btn ghost" type="submit">Apply</button>
+            </div>
+            <% if (cart.couponError) { %><div class="error-text" style="margin-top:.3rem"><%= cart.couponError %></div><% } %>
+            <% if (cart.coupon) { %>
+              <div class="row between" style="margin-top:.4rem;font-size:.8rem">
+                <span style="color:#12805C;font-weight:800">&#10003; <%= cart.coupon.description || cart.coupon.code %></span>
+                <form action="/cart/coupon/remove" method="post"><button class="btn-link" type="submit">Remove</button></form>
+              </div>
+            <% } else { %>
+              <div class="hint small muted" style="margin-top:.3rem">Try <b>AKWAABA</b> (GH&#8373;50 off GH&#8373;300) or <b>WELCOME10</b> (10% off).</div>
+            <% } %>
+          </form>
+
+          <a class="btn primary lg block" href="/checkout"><%- icon('lock') %> Proceed to secure checkout</a>
+          <% if (!user) { %>
+            <p class="small muted center" style="margin:.7rem 0 0">Already have an account? <a href="/login" style="color:#F26B21;font-weight:800">Sign in</a> to check out faster and track this order.</p>
+          <% } %>
+
+          <div class="divider" style="margin:1rem 0"></div>
+          <div class="stack small" style="gap:.45rem">
+            <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('shield') %></span> Buyer protection on every order</span>
+            <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('wallet') %></span> MoMo, Visa/Mastercard or cash on delivery</span>
+            <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('refresh') %></span> <%= settings.return_days %>-day returns</span>
+            <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('truck') %></span> Delivery to all 16 regions</span>
+          </div>
+          <div class="pay-badges" style="margin-top:.9rem;justify-content:center">
+            <span class="pay-badge" style="background:#F4F7FA;border-color:#DFE6EE;color:#475569">VISA</span>
+            <span class="pay-badge" style="background:#F4F7FA;border-color:#DFE6EE;color:#475569">MASTERCARD</span>
+            <span class="pay-badge" style="background:#F4F7FA;border-color:#DFE6EE;color:#475569">MTN MoMo</span>
+            <span class="pay-badge" style="background:#F4F7FA;border-color:#DFE6EE;color:#475569">TELECEL</span>
+            <span class="pay-badge" style="background:#F4F7FA;border-color:#DFE6EE;color:#475569">AT MONEY</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <% } %>
+</main>
+<%- include('../partials/footer') %>

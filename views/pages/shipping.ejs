@@ -1,0 +1,109 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+  <h1>Shipping &amp; delivery</h1>
+  <p class="muted" style="max-width:82ch;margin:0 0 1.4rem">
+    We deliver to all 16 regions of Ghana from our warehouse in <%= settings.address_city || 'Accra' %>. Every order is packed,
+    labelled and handed to a rider we employ or contract directly — there is no third-party seller shipping from an unknown location.
+  </p>
+
+  <div class="grid g-3" style="gap:.9rem;margin-bottom:1.4rem">
+    <div class="card pad stat" style="text-align:left">
+      <span style="color:#12805C"><%- icon('truck') %></span>
+      <b style="font-size:1.15rem;display:block;margin:.2rem 0">Free above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %></b>
+      <span class="small muted">Standard delivery is free anywhere in Ghana once your subtotal passes this amount.</span>
+    </div>
+    <div class="card pad stat" style="text-align:left">
+      <span style="color:#F26B21"><%- icon('zap') %></span>
+      <b style="font-size:1.15rem;display:block;margin:.2rem 0">Same day in Accra &amp; Tema</b>
+      <span class="small muted">Order before 2pm and choose express — <%= settings.currency_symbol %> <%= Number(settings.express_shipping_fee).toFixed(0) %>.</span>
+    </div>
+    <div class="card pad stat" style="text-align:left">
+      <span style="color:#0F2A43"><%- icon('store') %></span>
+      <b style="font-size:1.15rem;display:block;margin:.2rem 0">Free warehouse pickup</b>
+      <span class="small muted">Ready in 2–6 hours at <%= settings.address_line %>, <%= settings.address_city %>.</span>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1.4rem">
+    <div class="summary-head"><span><%- icon('map') %> Delivery fees &amp; times by region</span><span class="small">Standard method · prices in <%= settings.currency %></span></div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Region</th><th>Standard delivery</th><th>Estimated arrival</th><th class="num">Express (24h)</th><th class="num">Pickup</th></tr></thead>
+        <tbody>
+          <% zones.forEach(function (z) { %>
+            <tr>
+              <td><b><%= z.region %></b></td>
+              <td>
+                <% if (Number(z.fee) === 0) { %><span class="badge success">FREE</span>
+                <% } else { %><%= settings.currency_symbol %> <%= money(z.fee) %><% } %>
+              </td>
+              <td class="small"><%= z.eta_days %></td>
+              <td class="num"><%= settings.currency_symbol %> <%= money(Number(z.fee) + Number(settings.express_shipping_fee)) %></td>
+              <td class="num"><span class="badge outline">FREE</span></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-foot">
+      <span class="tiny">Express delivery is available in Greater Accra, Tema, Ashanti and Central. Remote districts may take an extra day; your rider calls before arriving.</span>
+    </div>
+  </div>
+
+  <div class="grid g-2" style="gap:1.2rem;align-items:start">
+    <div class="prose">
+      <h2>How delivery works</h2>
+      <ol>
+        <li><b>You place the order.</b> You get an order number immediately by email and on screen.</li>
+        <li><b>We pick and pack.</b> Our warehouse team inspects the item again before sealing the box. Orders placed before 2pm are usually dispatched the same working day.</li>
+        <li><b>The rider is assigned.</b> You see the status change to <b>Shipped</b> with a tracking number in <a href="/account/orders">My orders</a>.</li>
+        <li><b>We call before arriving.</b> Riders phone the number on the order. Keep your phone on — this is why we ask for it.</li>
+        <li><b>You inspect and sign.</b> Open the parcel in front of the rider. If something is wrong, refuse it and we sort it out the same day at no cost to you.</li>
+      </ol>
+
+      <h2>Delivery methods</h2>
+      <h3>Standard delivery</h3>
+      <p>The default option, <%= zones.length ? zones[0].eta_days : '1–6' %> days depending on region. Free above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %>, otherwise priced per region in the table above.</p>
+      <h3>Express delivery</h3>
+      <p>Within 24 hours for Greater Accra, Tema, Ashanti and Central. Costs <%= settings.currency_symbol %> <%= Number(settings.express_shipping_fee).toFixed(0) %> on top of the standard regional fee. Order before 2pm for same-day arrival in Accra.</p>
+      <h3>Warehouse pickup</h3>
+      <p>Free, and often the fastest option if you are in Accra. Ready in 2–6 hours. Bring your order number and photo ID; if someone else collects for you, tell us their name first.</p>
+
+      <h2>Bulky and heavy items</h2>
+      <p>Fridges, freezers, washing machines, generators, mattresses and large sacks of groceries travel by our van rather than by motorbike. These take one extra day and may require help unloading at your end. If your order contains a bulky item we will call you to confirm access, stairs and whether the delivery point is reachable by van.</p>
+
+      <h2>Public holidays &amp; weekends</h2>
+      <p>Orders placed on Sundays and public holidays are processed the next working day. Saturday orders in Greater Accra are delivered the same day if placed before 12pm. During festive periods (Christmas, Easter, Eid) delivery volumes triple — order at least three working days earlier than you would normally.</p>
+    </div>
+
+    <aside class="stack" style="gap:1rem">
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('search') %> Track an order</h3>
+        <p class="small muted" style="margin:0 0 .8rem">Enter your order number with the phone number or email you used at checkout.</p>
+        <a class="btn primary block" href="/track-order"><%- icon('truck') %> Track my order</a>
+        <a class="btn ghost block" style="margin-top:.5rem" href="/account/orders"><%- icon('box') %> My orders</a>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('info') %> Good to know</h3>
+        <div class="stack small" style="gap:.55rem">
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Delivery fees are shown before you pay — never added afterwards</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Riders call before arriving</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Two free re-delivery attempts if you miss the rider</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Inspect the parcel before signing</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> <%= settings.return_days %>-day returns on everything except perishables</span>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('alert') %> Delivery delayed?</h3>
+        <p class="small muted" style="margin:0 0 .8rem">If your order has not arrived within the estimated window, message us with the order number and we will locate the rider within the hour.</p>
+        <a class="btn success block" href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> WhatsApp support</a>
+        <a class="btn ghost block" style="margin-top:.5rem" href="tel:<%= settings.support_phone.replace(/\s/g,'') %>"><%- icon('phone') %> <%= settings.support_phone %></a>
+      </div>
+    </aside>
+  </div>
+</main>
+<%- include('../partials/footer') %>

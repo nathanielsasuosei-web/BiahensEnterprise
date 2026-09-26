@@ -1,0 +1,10 @@
+<% if (flashes && flashes.length) { %>
+<div class="flash-stack" style="position:fixed;top:14px;right:14px;z-index:9999;max-width:380px">
+  <% flashes.forEach(function (f) { %>
+    <div class="flash <%= f.type %>">
+      <span><%= f.message %></span>
+      <button class="x" type="button" aria-label="Dismiss">&times;</button>
+    </div>
+  <% }); %>
+</div>
+<% } %>

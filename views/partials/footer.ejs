@@ -1,0 +1,102 @@
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a class="brandmark" href="/">
+          <span class="logo">B</span>
+          <span class="names"><b><%= settings.store_name %></b><span>Ghana · Since 2019</span></span>
+        </a>
+        <p><%= settings.tagline %> One warehouse, one owner, zero third-party sellers — every item we list is stock we actually hold.</p>
+        <div class="contact-line"><span class="ico"><%- icon('pin') %></span> <%= settings.address_line %>, <%= settings.address_city %>, <%= settings.address_region %></div>
+        <div class="contact-line"><span class="ico"><%- icon('phone') %></span> <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>"><%= settings.support_phone %></a></div>
+        <div class="contact-line"><span class="ico"><%- icon('mail') %></span> <a href="mailto:<%= settings.support_email %>"><%= settings.support_email %></a></div>
+        <div class="contact-line"><span class="ico"><%- icon('clock') %></span> <%= settings.support_hours %></div>
+        <div class="socials">
+          <% if (settings.facebook) { %><a href="<%= settings.facebook %>" aria-label="Facebook" rel="noopener" target="_blank"><%- icon('facebook') %></a><% } %>
+          <% if (settings.instagram) { %><a href="<%= settings.instagram %>" aria-label="Instagram" rel="noopener" target="_blank"><%- icon('instagram') %></a><% } %>
+          <% if (settings.twitter) { %><a href="<%= settings.twitter %>" aria-label="X / Twitter" rel="noopener" target="_blank"><%- icon('twitter') %></a><% } %>
+          <% if (settings.tiktok) { %><a href="<%= settings.tiktok %>" aria-label="TikTok" rel="noopener" target="_blank"><%- icon('tiktok') %></a><% } %>
+          <% if (settings.youtube) { %><a href="<%= settings.youtube %>" aria-label="YouTube" rel="noopener" target="_blank"><%- icon('youtube') %></a><% } %>
+          <a href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>" aria-label="WhatsApp" rel="noopener" target="_blank"><%- icon('whatsapp') %></a>
+        </div>
+      </div>
+
+      <div>
+        <h4>Shop</h4>
+        <ul>
+          <% menuCategories.slice(0, 8).forEach(function (c) { %>
+            <li><a href="/c/<%= c.slug %>"><%= c.name %></a></li>
+          <% }); %>
+          <li><a href="/categories">All categories</a></li>
+          <li><a href="/brands">All brands</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Deals</h4>
+        <ul>
+          <li><a href="/deals">Today’s deals</a></li>
+          <li><a href="/new-arrivals">New arrivals</a></li>
+          <li><a href="/best-sellers">Best sellers</a></li>
+          <li><a href="/search?q=&sale=1&sort=discount">Clearance</a></li>
+          <li><a href="/search?max=500">Under GH&#8373;500</a></li>
+          <li><a href="/track-order">Track an order</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Customer care</h4>
+        <ul>
+          <li><a href="/faq">Help centre / FAQ</a></li>
+          <li><a href="/contact">Contact us</a></li>
+          <li><a href="/shipping-delivery">Shipping &amp; delivery</a></li>
+          <li><a href="/returns-refunds">Returns &amp; refunds</a></li>
+          <li><a href="/about">About Biahens</a></li>
+          <li><a href="/sell-with-us">Our single-seller promise</a></li>
+          <li><a href="/terms">Terms &amp; conditions</a></li>
+          <li><a href="/privacy">Privacy policy</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Get 5% off your first order</h4>
+        <p style="font-size:.85rem;color:#9FB4C6">Join our list for restock alerts, price drops and Accra-only flash sales. No spam — unsubscribe anytime.</p>
+        <form class="newsletter-form" action="/newsletter" method="post">
+          <input class="input" type="email" name="email" placeholder="you@example.com" required aria-label="Email address">
+          <button class="btn primary" type="submit" aria-label="Subscribe"><%- icon('arrow-right') %></button>
+        </form>
+        <h4 style="margin-top:1.4rem">We accept</h4>
+        <div class="pay-badges">
+          <span class="pay-badge">VISA</span>
+          <span class="pay-badge">MASTERCARD</span>
+          <span class="pay-badge">MTN MoMo</span>
+          <span class="pay-badge">TELECEL CASH</span>
+          <span class="pay-badge">AT MONEY</span>
+          <span class="pay-badge">CASH ON DELIVERY</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>&copy; <%= new Date().getFullYear() %> <%= settings.store_name %>. All rights reserved. Registered in Accra, Ghana.</div>
+      <div class="footer-links">
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/returns-refunds">Returns</a>
+        <a href="/faq">FAQ</a>
+        <% if (!user || user.role === 'customer') { %><a href="/admin/login">Owner login</a><% } else { %><a href="/admin">Control panel</a><% } %>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<button class="to-top" id="toTop" type="button" aria-label="Back to top"><%- icon('arrow-up') %></button>
+<a class="whatsapp-fab" href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>?text=Hello%20<%= encodeURIComponent(settings.store_name) %>%2C%20I%20need%20help%20with%20an%20order"
+   target="_blank" rel="noopener" aria-label="Chat with us on WhatsApp"><%- icon('whatsapp') %></a>
+
+<%- include('quickview') %>
+
+<script src="/js/site.js?v=1.0" defer></script>
+<% if (typeof extraJs !== 'undefined' && extraJs) { %><script src="<%= extraJs %>" defer></script><% } %>
+</body>
+</html>

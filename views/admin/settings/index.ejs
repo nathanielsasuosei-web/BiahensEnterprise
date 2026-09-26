@@ -1,0 +1,780 @@
+<%- include('../partials/head') %>
+<%
+  const val = function (k, fallback) {
+    const v = values[k];
+    return (v !== undefined && v !== null && v !== '') ? v : (fallback !== undefined ? fallback : (defaults[k] || ''));
+  };
+  const on = function (k) { return String(values[k]) === 'true' || values[k] === true; };
+  const TABS = [['general', 'Identity & staff', 'settings'], ['contact', 'Contact & address', 'phone'],
+    ['commerce', 'Commerce & shipping', 'truck'], ['payments', 'Payment gateway', 'wallet'],
+    ['homepage', 'Homepage layout', 'layout'], ['policy', 'Policies & notices', 'file'], ['seo', 'SEO & meta', 'search']];
+  const covered = zones.map(function (z) { return z.region; });
+  const missing = regions.filter(function (r) { return covered.indexOf(r) === -1; });
+%>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Store settings' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Store settings</h1>
+          <p class="sub">Owner only. These values drive the storefront, checkout, receipts and policy pages — changes apply immediately.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/" target="_blank"><%- icon('eye') %> View storefront</a>
+          <a class="btn ghost" href="/admin/system/health"><%- icon('activity') %> System health</a>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <% TABS.forEach(function (t) { %>
+          <a class="tab <%= tab === t[0] ? 'active' : '' %>" href="/admin/settings?tab=<%= t[0] %>"><%- icon(t[2]) %> <%= t[1] %></a>
+        <% }); %>
+      </div>
+
+      <%# ═══════════════════════════ TAB: GENERAL ═══════════════════════════ %>
+      <% if (tab === 'general') { %>
+        <form action="/admin/settings/general" method="post" data-busy>
+          <input type="hidden" name="tab" value="general">
+          <div class="grid g-2" style="gap:1rem;align-items:start">
+            <div class="card">
+              <div class="card-head"><div><h2>Store identity</h2><span class="sub">Name, branding and the strapline used across the site</span></div></div>
+              <div class="card-body">
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="store_name">Store name</label>
+                    <input class="input" id="store_name" name="store_name" value="<%= val('store_name') %>" required>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="store_short">Short name <span class="muted">(logo, emails)</span></label>
+                    <input class="input" id="store_short" name="store_short" value="<%= val('store_short') %>">
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="label" for="tagline">Tagline</label>
+                  <input class="input" id="tagline" name="tagline" value="<%= val('tagline') %>" maxlength="120">
+                  <span class="hint">Shown in the header and on the sign-in pages.</span>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="logo">Logo URL</label>
+                    <input class="input mono" id="logo" name="logo" value="<%= val('logo') %>" placeholder="/uploads/logo.png">
+                    <img src="<%= logoSrc %>" alt="Current logo" style="max-height:46px;margin-top:.5rem;border:1px solid var(--line);border-radius:8px;padding:4px;background:#fff">
+                  </div>
+                  <div class="field">
+                    <label class="label" for="favicon">Favicon URL</label>
+                    <input class="input mono" id="favicon" name="favicon" value="<%= val('favicon') %>" placeholder="/img/favicon.svg">
+                    <span class="hint">Upload images with the uploader in the product form, then paste the returned path here.</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="label" for="hero_note">Header promo line</label>
+                  <input class="input" id="hero_note" name="hero_note" value="<%= val('hero_note') %>" maxlength="120" placeholder="Free delivery in Accra above GH₵1,500 · MoMo accepted">
+                  <span class="hint">The thin bar across the very top of every storefront page.</span>
+                </div>
+              </div>
+              <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save identity</button></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><h2>Social profiles</h2><span class="sub">Linked in the footer and on the contact page</span></div></div>
+              <div class="card-body">
+                <% [['facebook', 'Facebook'], ['instagram', 'Instagram'], ['twitter', 'X / Twitter'], ['tiktok', 'TikTok'], ['youtube', 'YouTube']].forEach(function (s) { %>
+                  <div class="field">
+                    <label class="label" for="<%= s[0] %>"><%= s[1] %></label>
+                    <div class="input-group">
+                      <span class="prefix"><%- icon(s[0]) %></span>
+                      <input class="input mono" id="<%= s[0] %>" name="<%= s[0] %>" value="<%= val(s[0]) %>" placeholder="https://<%= s[0] %>.com/biahens">
+                    </div>
+                  </div>
+                <% }); %>
+              </div>
+              <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save socials</button></div>
+            </div>
+          </div>
+        </form>
+
+        <div class="card" style="margin-top:1rem">
+          <div class="card-head">
+            <div><h2>Panel access — owner &amp; staff</h2>
+              <span class="sub">Only an owner can upload products, change prices and edit these settings</span></div>
+            <span class="badge gold"><%- icon('lock') %> Owner area</span>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table class="table" style="min-width:820px">
+                <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Can do</th><th>Last login</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+                <tbody>
+                  <% staff.forEach(function (s) { %>
+                    <tr>
+                      <td><b><%= s.name %></b><% if (s.id === user.id) { %> <span class="badge brand" style="font-size:.62rem">you</span><% } %></td>
+                      <td class="small"><%= s.email %></td>
+                      <td class="small muted"><%= s.phone || '—' %></td>
+                      <td><span class="badge <%= s.role === 'owner' ? 'gold' : 'info' %>"><%= s.role %></span></td>
+                      <td class="small muted"><%= s.role === 'owner' ? 'Everything: products, pricing, settings, staff' : 'Orders, customers, marketing, support' %></td>
+                      <td class="small muted"><%= s.last_login_at ? timeAgo(s.last_login_at) : 'never' %></td>
+                      <td><%- s.is_blocked ? '<span class="badge danger">Suspended</span>' : '<span class="badge success">Active</span>' %></td>
+                      <td>
+                        <div class="row-actions">
+                          <button class="btn ghost xs" type="button" title="Edit"
+                            data-edit-staff='<%- JSON.stringify({ id: s.id, name: s.name, email: s.email, phone: s.phone || '', role: s.role }) %>'><%- icon('edit') %></button>
+                          <% if (s.id !== user.id) { %>
+                            <form action="/admin/settings/staff/<%= s.id %>/block" method="post" style="display:inline">
+                              <button class="btn ghost xs" type="submit" title="<%= s.is_blocked ? 'Reinstate' : 'Suspend' %>"
+                                style="<%= s.is_blocked ? 'color:var(--green)' : 'color:var(--red)' %>"><%- icon(s.is_blocked ? 'check-circle' : 'slash') %></button>
+                            </form>
+                            <form action="/admin/settings/staff/<%= s.id %>/delete" method="post" style="display:inline"
+                              onsubmit="return confirm('Remove <%= s.name.replace(/'/g, "\\'") %>’s panel access permanently?')">
+                              <button class="btn ghost xs" type="submit" title="Remove"><%- icon('trash') %></button>
+                            </form>
+                          <% } %>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-foot"><span class="tiny muted">The store must always keep at least one active owner — you cannot suspend, demote or delete yourself.</span></div>
+        </div>
+
+        <form action="/admin/settings/staff" method="post" class="card" style="margin-top:1rem">
+          <div class="card-head">
+            <div><h2 id="staffFormTitle">Add a staff account</h2>
+              <span class="sub">Staff can process orders and support customers but cannot touch the catalogue, pricing or settings</span></div>
+            <span class="badge outline" id="staffFormBadge">New account</span>
+          </div>
+          <div class="card-body">
+            <input type="hidden" name="id" id="staffEditId" value="">
+            <div class="form-grid">
+              <div class="field">
+                <label class="label" for="stName">Full name <span style="color:var(--red)">*</span></label>
+                <input class="input" id="stName" name="name" required minlength="3" placeholder="e.g. Abena Osei">
+              </div>
+              <div class="field">
+                <label class="label" for="stEmail">Email <span style="color:var(--red)">*</span></label>
+                <input class="input" id="stEmail" name="email" type="email" required placeholder="abena@biahensenterprise.com">
+              </div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label class="label" for="stPhone">Phone</label>
+                <input class="input" id="stPhone" name="phone" placeholder="0241234567">
+              </div>
+              <div class="field">
+                <label class="label" for="stRole">Role</label>
+                <select class="select" id="stRole" name="role">
+                  <option value="staff">Staff — orders, customers, marketing</option>
+                  <option value="owner">Owner — full control including products</option>
+                </select>
+                <span class="hint">Grant <b>owner</b> only to someone you trust with pricing and product uploads.</span>
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="stPassword">Password <span class="muted" id="pwReq">(required — at least 8 characters)</span></label>
+              <input class="input" id="stPassword" name="password" type="text" minlength="8" autocomplete="new-password" placeholder="Set a temporary password they change after first sign-in">
+              <span class="hint">Leave blank when editing an existing account to keep the current password.</span>
+            </div>
+          </div>
+          <div class="card-foot">
+            <button class="btn ghost" type="button" id="staffCancel" style="display:none">Cancel edit</button>
+            <button class="btn primary" type="submit" id="staffSubmit"><%- icon('user-plus') %> Create staff account</button>
+          </div>
+        </form>
+
+        <div class="card" style="margin-top:1rem;border-left:4px solid var(--red)">
+          <div class="card-head"><div><h2>Danger zone</h2><span class="sub">Owner only — these actions are hard to undo</span></div></div>
+          <div class="card-body">
+            <form action="/admin/settings/general" method="post" style="margin-bottom:1rem">
+              <input type="hidden" name="tab" value="general">
+              <div class="row wrap" style="gap:.6rem;align-items:flex-start">
+                <div style="flex:1;min-width:240px">
+                  <b class="small">Maintenance mode</b>
+                  <p class="tiny muted" style="margin:.15rem 0 0">Shows a holding page to shoppers while you keep full admin access. Payment webhooks stay live.</p>
+                </div>
+                <label class="switch"><input type="checkbox" name="maintenance_mode" value="true" <%= on('maintenance_mode') ? 'checked' : '' %>><span></span></label>
+              </div>
+              <div class="field" style="margin-top:.7rem">
+                <label class="label" for="maintenance_message">Maintenance message</label>
+                <input class="input" id="maintenance_message" name="maintenance_message" value="<%= val('maintenance_message') %>" maxlength="220">
+              </div>
+              <button class="btn ghost" type="submit"><%- icon('save') %> Save maintenance settings</button>
+            </form>
+
+            <div class="divider"></div>
+
+            <form action="/admin/settings/danger/reset-demo" method="post" class="row wrap" style="gap:.6rem;align-items:flex-end"
+              onsubmit="return confirm('Rebuild the entire demo dataset?\n\nEvery product, order, customer and review will be regenerated from the seed script. This cannot be undone.')">
+              <div style="flex:1;min-width:240px">
+                <b class="small">Reset the demo dataset</b>
+                <p class="tiny muted" style="margin:.15rem 0 0">Wipes and re-seeds products, customers, orders, reviews and settings. You will be signed out. Database is currently <%= dbSize %> KB.</p>
+              </div>
+              <div class="field" style="margin:0">
+                <label class="label" for="resetConfirm">Type RESET</label>
+                <input class="input" id="resetConfirm" name="confirm" placeholder="RESET" style="max-width:130px" required>
+              </div>
+              <button class="btn danger" type="submit"><%- icon('refresh') %> Reset data</button>
+            </form>
+          </div>
+        </div>
+      <% } %>
+
+      <%# ═══════════════════════════ TAB: CONTACT ═══════════════════════════ %>
+      <% if (tab === 'contact') { %>
+        <form action="/admin/settings/general" method="post" data-busy>
+          <input type="hidden" name="tab" value="contact">
+          <div class="grid g-2" style="gap:1rem;align-items:start">
+            <div class="card">
+              <div class="card-head"><div><h2>Customer support</h2><span class="sub">Shown in the header, footer, floating button and receipts</span></div></div>
+              <div class="card-body">
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="support_phone">Support phone</label>
+                    <div class="input-group"><span class="prefix"><%- icon('phone') %></span>
+                      <input class="input" id="support_phone" name="support_phone" value="<%= val('support_phone') %>"></div>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="support_whatsapp">WhatsApp number</label>
+                    <div class="input-group"><span class="prefix"><%- icon('whatsapp') %></span>
+                      <input class="input" id="support_whatsapp" name="support_whatsapp" value="<%= val('support_whatsapp') %>" placeholder="+233 24 700 8899"></div>
+                    <span class="hint">Used to build the wa.me click-to-chat links on orders and product pages.</span>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="support_email">Support email</label>
+                    <div class="input-group"><span class="prefix"><%- icon('mail') %></span>
+                      <input class="input" id="support_email" name="support_email" type="email" value="<%= val('support_email') %>"></div>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="sales_email">Sales / wholesale email</label>
+                    <div class="input-group"><span class="prefix"><%- icon('mail') %></span>
+                      <input class="input" id="sales_email" name="sales_email" type="email" value="<%= val('sales_email') %>"></div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="label" for="support_hours">Opening hours</label>
+                  <div class="input-group"><span class="prefix"><%- icon('clock') %></span>
+                    <input class="input" id="support_hours" name="support_hours" value="<%= val('support_hours') %>"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><h2>Business address</h2><span class="sub">Printed on receipts, invoices and the contact page</span></div></div>
+              <div class="card-body">
+                <div class="field">
+                  <label class="label" for="address_line">Street address / warehouse</label>
+                  <input class="input" id="address_line" name="address_line" value="<%= val('address_line') %>">
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="address_city">City / town</label>
+                    <input class="input" id="address_city" name="address_city" value="<%= val('address_city') %>">
+                  </div>
+                  <div class="field">
+                    <label class="label" for="address_region">Region</label>
+                    <select class="select" id="address_region" name="address_region">
+                      <% regions.forEach(function (r) { %>
+                        <option <%= String(val('address_region')) === r ? 'selected' : '' %>><%= r %></option>
+                      <% }); %>
+                    </select>
+                  </div>
+                </div>
+                <div class="divider"></div>
+                <div class="callout">
+                  <b class="small"><%- icon('store') %> As customers see it</b>
+                  <p class="small muted" style="margin:.45rem 0 0;line-height:1.7">
+                    <b><%= val('store_name') %></b><br><%= val('address_line') %><br><%= val('address_city') %>, <%= val('address_region') %><br>
+                    <%= val('support_phone') %> · <%= val('support_email') %><br><%= val('support_hours') %>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sticky-actions"><span class="muted small">Contact &amp; address</span><button class="btn primary" type="submit"><%- icon('save') %> Save settings</button></div>
+        </form>
+      <% } %>
+
+      <%# ═══════════════════════════ TAB: COMMERCE ═══════════════════════════ %>
+      <% if (tab === 'commerce') { %>
+        <form action="/admin/settings/general" method="post" data-busy>
+          <input type="hidden" name="tab" value="commerce">
+          <div class="grid g-2" style="gap:1rem;align-items:start;margin-bottom:1rem">
+            <div class="card">
+              <div class="card-head"><div><h2>Currency, tax &amp; order rules</h2></div></div>
+              <div class="card-body">
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="currency">Currency code</label>
+                    <input class="input mono" id="currency" name="currency" value="<%= val('currency') %>" maxlength="3">
+                  </div>
+                  <div class="field">
+                    <label class="label" for="currency_symbol">Currency symbol</label>
+                    <input class="input" id="currency_symbol" name="currency_symbol" value="<%= val('currency_symbol') %>" maxlength="4">
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="tax_rate">Tax rate (%)</label>
+                    <input class="input" id="tax_rate" name="tax_rate" type="number" step="0.01" min="0" value="<%= val('tax_rate') %>">
+                    <span class="hint">0 keeps prices exactly as displayed with no added tax.</span>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="min_order">Minimum order value</label>
+                    <div class="input-group"><span class="prefix"><%= val('currency_symbol') %></span>
+                      <input class="input" id="min_order" name="min_order" type="number" step="1" min="0" value="<%= val('min_order') %>"></div>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="free_shipping_threshold">Free delivery above</label>
+                    <div class="input-group"><span class="prefix"><%= val('currency_symbol') %></span>
+                      <input class="input" id="free_shipping_threshold" name="free_shipping_threshold" type="number" step="1" min="0" value="<%= val('free_shipping_threshold') %>"></div>
+                    <span class="hint">Set to 0 to switch the free-delivery threshold off.</span>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="return_days">Returns window (days)</label>
+                    <input class="input" id="return_days" name="return_days" type="number" step="1" min="0" value="<%= val('return_days') %>">
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="label" for="warranty_note">Warranty statement</label>
+                  <input class="input" id="warranty_note" name="warranty_note" value="<%= val('warranty_note') %>" maxlength="180">
+                  <span class="hint">Shown on product pages, the FAQ and receipts.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><h2>Delivery fees &amp; payment switches</h2></div></div>
+              <div class="card-body">
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="default_shipping_fee">Default regional fee</label>
+                    <div class="input-group"><span class="prefix"><%= val('currency_symbol') %></span>
+                      <input class="input" id="default_shipping_fee" name="default_shipping_fee" type="number" step="1" min="0" value="<%= val('default_shipping_fee') %>"></div>
+                    <span class="hint">Applies to any region with no rate in the table below.</span>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="express_shipping_fee">Express surcharge</label>
+                    <div class="input-group"><span class="prefix"><%= val('currency_symbol') %></span>
+                      <input class="input" id="express_shipping_fee" name="express_shipping_fee" type="number" step="1" min="0" value="<%= val('express_shipping_fee') %>"></div>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="label" for="pickup_fee">Warehouse pickup fee</label>
+                  <div class="input-group"><span class="prefix"><%= val('currency_symbol') %></span>
+                    <input class="input" id="pickup_fee" name="pickup_fee" type="number" step="1" min="0" value="<%= val('pickup_fee') %>"></div>
+                </div>
+                <div class="divider"></div>
+                <div class="stack" style="gap:.7rem">
+                  <label class="row between" style="gap:.6rem">
+                    <span><b class="small">Mobile Money</b><span class="tiny muted" style="display:block">MTN MoMo · Telecel Cash · AT Money</span></span>
+                    <span class="switch"><input type="checkbox" name="momo_enabled" value="true" <%= on('momo_enabled') ? 'checked' : '' %>><span></span></span>
+                  </label>
+                  <label class="row between" style="gap:.6rem">
+                    <span><b class="small">Debit / credit card</b><span class="tiny muted" style="display:block">Visa · Mastercard · Verve</span></span>
+                    <span class="switch"><input type="checkbox" name="card_enabled" value="true" <%= on('card_enabled') ? 'checked' : '' %>><span></span></span>
+                  </label>
+                  <label class="row between" style="gap:.6rem">
+                    <span><b class="small">Cash on delivery</b><span class="tiny muted" style="display:block">Capped at GH₵5,000 in code</span></span>
+                    <span class="switch"><input type="checkbox" name="cod_enabled" value="true" <%= on('cod_enabled') ? 'checked' : '' %>><span></span></span>
+                  </label>
+                  <label class="row between" style="gap:.6rem">
+                    <span><b class="small">Moderate reviews before publishing</b><span class="tiny muted" style="display:block">New reviews wait for your approval</span></span>
+                    <span class="switch"><input type="checkbox" name="reviews_moderated" value="true" <%= on('reviews_moderated') ? 'checked' : '' %>><span></span></span>
+                  </label>
+                  <label class="row between" style="gap:.6rem">
+                    <span><b class="small">Reviews require a purchase</b><span class="tiny muted" style="display:block">Only verified buyers can review</span></span>
+                    <span class="switch"><input type="checkbox" name="reviews_require_purchase" value="true" <%= on('reviews_require_purchase') ? 'checked' : '' %>><span></span></span>
+                  </label>
+                  <label class="row between" style="gap:.6rem">
+                    <span><b class="small">Newsletter sign-up enabled</b><span class="tiny muted" style="display:block">Footer form accepts subscribers</span></span>
+                    <span class="switch"><input type="checkbox" name="newsletter_on" value="true" <%= on('newsletter_on') ? 'checked' : '' %>><span></span></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="sticky-actions"><span class="muted small">Commerce rules</span><button class="btn primary" type="submit"><%- icon('save') %> Save settings</button></div>
+        </form>
+
+        <div class="grid g-2-1" style="gap:1rem;align-items:start;margin-top:1rem">
+          <div class="card">
+            <div class="card-head">
+              <div><h2>Delivery rates by region</h2><span class="sub"><%= zones.length %> configured · <%= missing.length %> region<%= missing.length === 1 ? '' : 's' %> missing</span></div>
+              <form action="/admin/settings/shipping/bulk-defaults" method="post" style="display:inline">
+                <button class="btn ghost sm" type="submit"><%- icon('zap') %> Create missing defaults</button>
+              </form>
+            </div>
+            <div class="card-body" style="padding:0">
+              <div class="table-wrap">
+                <table class="table" style="min-width:660px">
+                  <thead><tr><th>Region</th><th class="num">Fee (<%= val('currency_symbol') %>)</th><th>Estimated time</th><th class="num">Sort</th><th>Active</th><th style="text-align:right">Actions</th></tr></thead>
+                  <tbody>
+                    <% zones.forEach(function (z) { %>
+                      <tr>
+                        <td><b><%= z.region %></b></td>
+                        <td class="num"><input class="input" form="ship-<%= z.id %>" name="fee" type="number" step="0.01" min="0" value="<%= z.fee %>" style="max-width:110px;margin-left:auto"></td>
+                        <td><input class="input" form="ship-<%= z.id %>" name="eta_days" value="<%= z.eta_days %>" style="max-width:150px"></td>
+                        <td class="num"><input class="input" form="ship-<%= z.id %>" name="sort_order" type="number" step="1" value="<%= z.sort_order %>" style="max-width:74px;margin-left:auto"></td>
+                        <td><label class="switch"><input type="checkbox" form="ship-<%= z.id %>" name="is_active" value="1" <%= z.is_active ? 'checked' : '' %>><span></span></label></td>
+                        <td>
+                          <div class="row-actions">
+                            <button class="btn primary xs" type="submit" form="ship-<%= z.id %>" title="Save rate"><%- icon('save') %></button>
+                            <button class="btn ghost xs" type="submit" form="ship-del-<%= z.id %>" title="Remove rate" style="color:var(--red)"><%- icon('trash') %></button>
+                          </div>
+                        </td>
+                      </tr>
+                    <% }); %>
+                    <% missing.forEach(function (r, i) { %>
+                      <tr style="background:#FFFBF3">
+                        <td><b><%= r %></b> <span class="badge warn" style="font-size:.62rem">no rate yet</span></td>
+                        <td class="num"><input class="input" form="ship-new-<%= i %>" name="fee" type="number" step="0.01" min="0" value="<%= val('default_shipping_fee') %>" style="max-width:110px;margin-left:auto"></td>
+                        <td><input class="input" form="ship-new-<%= i %>" name="eta_days" value="2–4 days" style="max-width:150px"></td>
+                        <td class="num"><input class="input" form="ship-new-<%= i %>" name="sort_order" type="number" step="1" value="<%= 90 + i %>" style="max-width:74px;margin-left:auto"></td>
+                        <td><label class="switch"><input type="checkbox" form="ship-new-<%= i %>" name="is_active" value="1" checked><span></span></label></td>
+                        <td><div class="row-actions"><button class="btn primary xs" type="submit" form="ship-new-<%= i %>" title="Create rate"><%- icon('plus') %></button></div></td>
+                      </tr>
+                    <% }); %>
+                    <% if (!zones.length && !missing.length) { %>
+                      <tr><td colspan="6"><div class="empty"><span class="ico">&#128666;</span><h3>No delivery rates</h3><p class="muted">Click “Create missing defaults” to add all 16 regions.</p></div></td></tr>
+                    <% } %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="card-foot"><span class="tiny muted">Greater Accra and Tema are usually free; keep the northern regions higher to cover fuel and time on the road.</span></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>How the fee is worked out</h2></div></div>
+            <div class="card-body small">
+              <div class="timeline">
+                <div class="tl done"><b>1 · Region rate</b><p>The fee for the customer’s region from the table.</p></div>
+                <div class="tl done"><b>2 · Free-delivery threshold</b><p>If the subtotal reaches <%= val('currency_symbol') %> <%= val('free_shipping_threshold') %>, standard delivery becomes free.</p></div>
+                <div class="tl done"><b>3 · Express surcharge</b><p>Express adds <%= val('currency_symbol') %> <%= val('express_shipping_fee') %> on top of the regional fee.</p></div>
+                <div class="tl current"><b>4 · Warehouse pickup</b><p>Collecting in person costs <%= val('currency_symbol') %> <%= val('pickup_fee') %>.</p></div>
+              </div>
+              <div class="divider"></div>
+              <p class="tiny muted" style="margin:0">Cash on delivery is hard-capped at <%= val('currency_symbol') %> 5,000 in <code>src/config/index.js</code> — raise it there if your riders carry more.</p>
+            </div>
+          </div>
+        </div>
+
+        <% zones.forEach(function (z) { %>
+          <form id="ship-<%= z.id %>" action="/admin/settings/shipping" method="post" hidden>
+            <input type="hidden" name="region" value="<%= z.region %>">
+          </form>
+          <form id="ship-del-<%= z.id %>" action="/admin/settings/shipping/<%= z.id %>/delete" method="post" hidden
+            onsubmit="return confirm('Remove the <%= z.region.replace(/'/g, "\\'") %> delivery rate? The default fee will apply instead.')"></form>
+        <% }); %>
+        <% missing.forEach(function (r, i) { %>
+          <form id="ship-new-<%= i %>" action="/admin/settings/shipping" method="post" hidden>
+            <input type="hidden" name="region" value="<%= r %>">
+          </form>
+        <% }); %>
+      <% } %>
+
+      <%# ═══════════════════════════ TAB: PAYMENTS ═══════════════════════════ %>
+      <% if (tab === 'payments') { %>
+        <div class="grid g-2" style="gap:1rem;align-items:start">
+          <form action="/admin/settings/general" method="post" data-busy>
+            <input type="hidden" name="tab" value="payments">
+            <div class="card">
+              <div class="card-head">
+                <div><h2>Payment gateway</h2><span class="sub">Paystack-compatible · currently running in <b><%= gatewayMode %></b> mode</span></div>
+                <span class="badge <%= gatewayMode === 'live' ? 'success' : 'gold' %>"><%= gatewayMode === 'live' ? 'LIVE' : 'TEST MODE' %></span>
+              </div>
+              <div class="card-body">
+                <div class="inline-alert" style="margin-bottom:1rem">
+                  <%- icon('info') %>
+                  <span>In <b>test mode</b> the built-in simulator settles every charge, so no real money moves. Card <code>4084 0840 8408 4081</code> succeeds, <code>5060 6666 6666 6666 666</code> is declined and Mobile Money numbers ending <code>0000</code> fail. Go live by putting real keys in <code>.env</code> and choosing live below.</span>
+                </div>
+                <div class="field">
+                  <label class="label" for="gateway_brand">Gateway brand name</label>
+                  <input class="input" id="gateway_brand" name="gateway_brand" value="<%= val('gateway_brand') %>">
+                  <span class="hint">Shown on the hosted payment page.</span>
+                </div>
+                <div class="field">
+                  <label class="label" for="gateway_mode">Mode</label>
+                  <select class="select" id="gateway_mode" name="gateway_mode">
+                    <option value="test" <%= String(val('gateway_mode')) === 'test' ? 'selected' : '' %>>Test — simulated charges, no real money</option>
+                    <option value="live" <%= String(val('gateway_mode')) === 'live' ? 'selected' : '' %>>Live — real keys from .env are used</option>
+                  </select>
+                  <span class="hint">Live mode still requires valid keys in your environment file, otherwise checkout falls back to the simulator.</span>
+                </div>
+                <div class="field">
+                  <label class="label" for="gateway_public_key">Public / publishable key</label>
+                  <input class="input mono" id="gateway_public_key" name="gateway_public_key" value="<%= val('gateway_public_key') %>" placeholder="pk_test_…" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label class="label" for="gateway_webhook_secret">Webhook secret</label>
+                  <input class="input mono" id="gateway_webhook_secret" name="gateway_webhook_secret" type="password" value="<%= val('gateway_webhook_secret') %>" placeholder="whsec_…" autocomplete="off">
+                  <span class="hint">Verifies the HMAC SHA-512 signature on <code>POST /webhooks/paystack</code>. Keep it secret — anyone with it can forge payment confirmations.</span>
+                </div>
+                <div class="divider"></div>
+                <div class="stat-line row between"><span class="muted">Webhook endpoint</span><b class="mono" style="font-size:.76rem"><%= cfg.publicUrl %>/webhooks/paystack</b></div>
+                <div class="stat-line row between"><span class="muted">Signature algorithm</span><b class="mono">HMAC SHA-512</b></div>
+                <div class="stat-line row between"><span class="muted">Card storage</span><b>Never — gateway hosted page only</b></div>
+                <div class="stat-line row between"><span class="muted">Idempotency</span><b>One payment reference, one completion</b></div>
+              </div>
+              <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save gateway settings</button></div>
+            </div>
+          </form>
+
+          <div class="stack" style="gap:1rem">
+            <form action="/admin/settings/general" method="post" class="card">
+              <input type="hidden" name="tab" value="payments">
+              <div class="card-head"><div><h2>Accepted methods</h2><span class="sub">Hidden methods disappear from checkout</span></div></div>
+              <div class="card-body stack" style="gap:.75rem">
+                <label class="row between" style="gap:.6rem">
+                  <span class="row" style="gap:.5rem"><span style="color:var(--orange)"><%- icon('momo') %></span>
+                    <span><b class="small">Mobile Money</b><span class="tiny muted" style="display:block">MTN MoMo · Telecel Cash · AT Money</span></span></span>
+                  <span class="switch"><input type="checkbox" name="momo_enabled" value="true" <%= on('momo_enabled') ? 'checked' : '' %>><span></span></span>
+                </label>
+                <label class="row between" style="gap:.6rem">
+                  <span class="row" style="gap:.5rem"><span style="color:var(--navy-3)"><%- icon('card') %></span>
+                    <span><b class="small">Card</b><span class="tiny muted" style="display:block">Visa · Mastercard · Verve</span></span></span>
+                  <span class="switch"><input type="checkbox" name="card_enabled" value="true" <%= on('card_enabled') ? 'checked' : '' %>><span></span></span>
+                </label>
+                <label class="row between" style="gap:.6rem">
+                  <span class="row" style="gap:.5rem"><span style="color:var(--green)"><%- icon('cash') %></span>
+                    <span><b class="small">Cash on delivery</b><span class="tiny muted" style="display:block">Up to GH₵5,000</span></span></span>
+                  <span class="switch"><input type="checkbox" name="cod_enabled" value="true" <%= on('cod_enabled') ? 'checked' : '' %>><span></span></span>
+                </label>
+              </div>
+              <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save methods</button></div>
+            </form>
+
+            <form action="/admin/settings/gateway/test" method="post" class="card">
+              <div class="card-head"><div><h2>Webhook tester</h2><span class="sub">Fire a correctly-signed event through the real endpoint</span></div></div>
+              <div class="card-body">
+                <p class="small muted" style="margin-bottom:.8rem">Proves signature verification and idempotent order completion work end to end. Grab a reference from the <a href="/admin/system/payments" style="font-weight:800">payment ledger</a>.</p>
+                <div class="field">
+                  <label class="label" for="gwRef">Payment reference</label>
+                  <input class="input mono" id="gwRef" name="reference" placeholder="BIA-PAY-…" required>
+                </div>
+                <div class="field">
+                  <label class="label" for="gwEvent">Event to simulate</label>
+                  <select class="select" id="gwEvent" name="event">
+                    <option value="charge.success">charge.success — mark the order paid</option>
+                    <option value="charge.failed">charge.failed — record a failed attempt</option>
+                    <option value="refund.success">refund.success — simulate a refund</option>
+                  </select>
+                </div>
+              </div>
+              <div class="card-foot"><button class="btn gold" type="submit"><%- icon('zap') %> Send signed webhook</button></div>
+            </form>
+          </div>
+        </div>
+      <% } %>
+
+      <%# ═══════════════════════════ TAB: HOMEPAGE ═══════════════════════════ %>
+      <% if (tab === 'homepage') { %>
+        <form action="/admin/settings/general" method="post" data-busy>
+          <input type="hidden" name="tab" value="homepage">
+          <div class="grid g-2" style="gap:1rem;align-items:start">
+            <div class="card">
+              <div class="card-head">
+                <div><h2>Homepage sections</h2><span class="sub">Turn rails on or off without touching code</span></div>
+                <a class="btn ghost sm" href="/admin/slides"><%- icon('image') %> Hero banners</a>
+              </div>
+              <div class="card-body stack" style="gap:.7rem">
+                <% [['rail_flash', 'Flash deals rail', 'Countdown timer over discounted products'],
+                   ['rail_featured', 'Featured products rail', 'Whatever you tick as featured'],
+                   ['rail_best', 'Best sellers rail', 'Ranked by units sold'],
+                   ['rail_new', 'New arrivals rail', 'Most recently published'],
+                   ['rail_deals', 'Deals of the day rail', 'The deepest discounts'],
+                   ['trust_strip', 'Trust strip', 'Delivery, warranty, returns and support badges'],
+                   ['newsletter_on', 'Newsletter sign-up', 'Footer email capture form']].forEach(function (r) { %>
+                  <label class="row between" style="gap:.6rem;padding:.6rem .75rem;border:1px solid var(--line);border-radius:10px;background:#fff">
+                    <span><b class="small"><%= r[1] %></b><span class="tiny muted" style="display:block"><%= r[2] %></span></span>
+                    <span class="switch"><input type="checkbox" name="<%= r[0] %>" value="true" <%= on(r[0]) ? 'checked' : '' %>><span></span></span>
+                  </label>
+                <% }); %>
+              </div>
+              <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save homepage sections</button></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><h2>Announcement bar</h2><span class="sub">One line above the header, site-wide</span></div></div>
+              <div class="card-body">
+                <label class="row between" style="gap:.6rem;margin-bottom:.9rem">
+                  <span><b class="small">Show the announcement bar</b></span>
+                  <span class="switch"><input type="checkbox" name="announcement_on" value="true" <%= on('announcement_on') ? 'checked' : '' %>><span></span></span>
+                </label>
+                <div class="field">
+                  <label class="label" for="announcement">Message</label>
+                  <textarea class="textarea" id="announcement" name="announcement" rows="3" maxlength="180" data-counter="180"
+                    placeholder="🎉 Free delivery in Accra this week — use code AKWAABA for GH₵50 off orders above GH₵300."><%= val('announcement') %></textarea>
+                  <span class="hint" data-counter-out>0 / 180 characters</span>
+                </div>
+                <div class="divider"></div>
+                <b class="small">Live preview</b>
+                <div style="margin-top:.5rem;background:linear-gradient(90deg,#0F2A43,#1D4E6B);color:#fff;border-radius:8px;padding:.6rem .8rem;font-size:.82rem;text-align:center;font-weight:700">
+                  <span id="announcementPreview"><%= val('announcement') || 'Your announcement appears here' %></span>
+                </div>
+                <p class="tiny muted" style="margin:.6rem 0 0">Emoji are fine. Keep it near 120 characters so it stays on one line on small phones.</p>
+              </div>
+              <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save announcement</button></div>
+            </div>
+          </div>
+        </form>
+      <% } %>
+
+      <%# ═══════════════════════════ TAB: POLICY ═══════════════════════════ %>
+      <% if (tab === 'policy') { %>
+        <form action="/admin/settings/general" method="post" data-busy>
+          <input type="hidden" name="tab" value="policy">
+          <div class="card">
+            <div class="card-head"><div><h2>Policies &amp; notices</h2>
+              <span class="sub">These values feed the policy pages, product pages, the FAQ and receipts</span></div></div>
+            <div class="card-body">
+              <div class="form-grid">
+                <div class="field">
+                  <label class="label" for="p_return_days">Returns window (days)</label>
+                  <input class="input" id="p_return_days" name="return_days" type="number" step="1" min="0" value="<%= val('return_days') %>">
+                  <span class="hint">Quoted on /returns-refunds, product pages and at checkout.</span>
+                </div>
+                <div class="field">
+                  <label class="label" for="p_warranty">Warranty statement</label>
+                  <input class="input" id="p_warranty" name="warranty_note" value="<%= val('warranty_note') %>" maxlength="180">
+                </div>
+              </div>
+              <div class="field">
+                <label class="label" for="p_hero">Header promo line</label>
+                <input class="input" id="p_hero" name="hero_note" value="<%= val('hero_note') %>" maxlength="120">
+              </div>
+              <div class="divider"></div>
+              <h3 style="font-size:.95rem;margin-bottom:.6rem">Where each value appears</h3>
+              <div class="table-wrap">
+                <table class="table compact" style="min-width:560px">
+                  <thead><tr><th>Setting</th><th>Used on</th></tr></thead>
+                  <tbody>
+                    <tr><td><b>Returns window</b></td><td class="muted">/returns-refunds, product delivery box, checkout review, receipts</td></tr>
+                    <tr><td><b>Warranty statement</b></td><td class="muted">/about, /faq, product pages, trust strip</td></tr>
+                    <tr><td><b>Free-delivery threshold</b></td><td class="muted">Header bar, cart progress bar, /shipping-delivery</td></tr>
+                    <tr><td><b>Support phone &amp; WhatsApp</b></td><td class="muted">Header, footer, floating WhatsApp button, /contact, receipts</td></tr>
+                    <tr><td><b>Business address</b></td><td class="muted">Footer, /contact, /about, printable invoice</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="tiny muted" style="margin-top:.8rem">The full policy wording lives in <code>views/pages/*.ejs</code> — edit those files to change the text, then redeploy.</p>
+            </div>
+            <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save policies</button></div>
+          </div>
+        </form>
+      <% } %>
+
+      <%# ═══════════════════════════ TAB: SEO ═══════════════════════════ %>
+      <% if (tab === 'seo') { %>
+        <form action="/admin/settings/general" method="post" data-busy>
+          <input type="hidden" name="tab" value="seo">
+          <div class="grid g-2" style="gap:1rem;align-items:start">
+            <div class="card">
+              <div class="card-head"><div><h2>Search-engine defaults</h2><span class="sub">Used when a page has no product- or category-specific meta</span></div></div>
+              <div class="card-body">
+                <div class="field">
+                  <label class="label" for="meta_title">Default meta title</label>
+                  <input class="input" id="meta_title" name="meta_title" value="<%= val('meta_title') %>" maxlength="70" data-counter="70" data-seo-title>
+                  <span class="hint" data-counter-out>0 / 70 characters</span>
+                </div>
+                <div class="field">
+                  <label class="label" for="meta_description">Default meta description</label>
+                  <textarea class="textarea" id="meta_description" name="meta_description" rows="4" maxlength="170" data-counter="170" data-seo-desc><%= val('meta_description') %></textarea>
+                  <span class="hint" data-counter-out>0 / 170 characters</span>
+                </div>
+                <div class="field">
+                  <label class="label" for="meta_keywords">Meta keywords</label>
+                  <input class="input" id="meta_keywords" name="meta_keywords" value="<%= val('meta_keywords') %>" placeholder="online shopping ghana, accra, mobile money, phones, electronics">
+                  <span class="hint">Largely ignored by Google but harmless; Bing still reads it.</span>
+                </div>
+                <div class="divider"></div>
+                <b class="small">Search-result preview</b>
+                <div style="border:1px solid var(--line);border-radius:10px;padding:.85rem;margin-top:.5rem;background:#fff">
+                  <div style="color:#1A0DAB;font-weight:700;font-size:.95rem;line-height:1.35"><span id="seoTitle"><%= val('meta_title') || val('store_name') %></span></div>
+                  <div style="color:#006621;font-size:.76rem;margin:.15rem 0"><%= cfg.publicUrl %></div>
+                  <div style="color:#545454;font-size:.82rem;line-height:1.5" id="seoDesc"><%= val('meta_description') || 'Your meta description preview appears here.' %></div>
+                </div>
+              </div>
+              <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save SEO settings</button></div>
+            </div>
+
+            <div class="stack" style="gap:1rem">
+              <div class="card">
+                <div class="card-head"><div><h2>Per-product SEO</h2></div></div>
+                <div class="card-body small">
+                  <p class="muted" style="margin-bottom:.7rem">Every product has its own <b>meta title</b> and <b>meta description</b> in section 5 of the product form. Product pages also emit JSON-LD structured data automatically — name, price, availability, brand, images and aggregate rating — which is what produces star ratings in search results.</p>
+                  <a class="btn ghost sm" href="/admin/products"><%- icon('tag') %> Edit product meta</a>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head"><div><h2>Technical checklist</h2></div></div>
+                <div class="card-body">
+                  <% [['Canonical URLs', 'Every page'], ['Open Graph & Twitter cards', 'Enabled'], ['JSON-LD Product schema', 'Product pages'],
+                     ['JSON-LD BreadcrumbList', 'Category & product pages'], ['Semantic headings', 'One h1 per page'],
+                     ['Lazy-loaded images', 'Below the fold'], ['gzip compression', 'On via compression'],
+                     ['Admin area indexing', 'noindex, nofollow'], ['Security headers', 'nosniff · sameorigin · referrer']].forEach(function (r) { %>
+                    <div class="stat-line row between"><span class="muted"><%= r[0] %></span><b><%= r[1] %></b></div>
+                  <% }); %>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var editId = document.getElementById('staffEditId');
+    var fields = { name: 'stName', email: 'stEmail', phone: 'stPhone', role: 'stRole', password: 'stPassword' };
+    function fillForm(s) {
+      if (!editId) return;
+      editId.value = s ? s.id : '';
+      document.getElementById(fields.name).value = s ? s.name : '';
+      document.getElementById(fields.email).value = s ? s.email : '';
+      document.getElementById(fields.phone).value = s && s.phone ? s.phone : '';
+      document.getElementById(fields.role).value = s ? s.role : 'staff';
+      document.getElementById(fields.password).value = '';
+      document.getElementById('pwReq').textContent = s ? '(leave blank to keep the current password)' : '(required — at least 8 characters)';
+      document.getElementById('staffFormTitle').textContent = s ? 'Editing ' + s.name : 'Add a staff account';
+      document.getElementById('staffFormBadge').textContent = s ? 'Edit mode' : 'New account';
+      document.getElementById('staffSubmit').innerHTML = s ? 'Save staff account' : '<%- icon("user-plus") %> Create staff account';
+      document.getElementById('staffCancel').style.display = s ? '' : 'none';
+      var pw = document.getElementById('stPassword');
+      if (s) { pw.removeAttribute('required'); pw.removeAttribute('minlength'); } else { pw.setAttribute('minlength', '8'); }
+    }
+    document.querySelectorAll('[data-edit-staff]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        fillForm(JSON.parse(b.getAttribute('data-edit-staff')));
+        var f = editId.closest('form');
+        if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+    var cancel = document.getElementById('staffCancel');
+    if (cancel) cancel.addEventListener('click', function () { fillForm(null); });
+
+    // announcement preview
+    var ann = document.getElementById('announcement'), annOut = document.getElementById('announcementPreview');
+    if (ann && annOut) ann.addEventListener('input', function () { annOut.textContent = ann.value || 'Your announcement appears here'; });
+
+    // SEO preview
+    var mt = document.querySelector('[data-seo-title]'), md = document.querySelector('[data-seo-desc]');
+    function seo() {
+      var t = document.getElementById('seoTitle'), d = document.getElementById('seoDesc');
+      if (t && mt) t.textContent = mt.value || '<%= val('store_name').replace(/'/g, "\\'") %>';
+      if (d && md) d.textContent = md.value || 'Your meta description preview appears here.';
+    }
+    if (mt) mt.addEventListener('input', seo);
+    if (md) md.addEventListener('input', seo);
+  });
+</script>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

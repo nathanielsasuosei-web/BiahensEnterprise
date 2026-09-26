@@ -1,0 +1,50 @@
+<%- include('../partials/head') %>
+<div class="auth-wrap">
+  <aside class="auth-side">
+    <a href="/" class="row" style="gap:.6rem;margin-bottom:2rem;position:relative;z-index:1">
+      <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;font-size:1.2rem;color:#3A1A00">B</span>
+      <span><b style="color:#fff;font-size:1.05rem;display:block;line-height:1.2"><%= settings.store_name %></b>
+      <span style="font-size:.75rem;color:#9FB4C6">Choose a new password</span></span>
+    </a>
+    <h2>Almost there — pick a strong password.</h2>
+    <p>You are resetting the password for <b style="color:#FFD66B"><%= email %></b>. Once you save it you will be signed in automatically.</p>
+    <div class="auth-perks">
+      <span class="row"><span class="ico"><%- icon('key') %></span> Use 12+ characters mixing letters, numbers and symbols</span>
+      <span class="row"><span class="ico"><%- icon('x') %></span> Avoid your name, phone number or “password123”</span>
+      <span class="row"><span class="ico"><%- icon('shield') %></span> Never reuse a password you use on another site</span>
+    </div>
+  </aside>
+
+  <div class="auth-main">
+    <div class="auth-card">
+      <h1>New password</h1>
+      <p class="sub">For <%= email %></p>
+      <% if (error) { %><div class="inline-alert danger"><%- icon('alert') %> <%= error %></div><% } %>
+      <form action="/reset-password/<%= token %>" method="post">
+        <div class="field">
+          <label class="label" for="password">New password</label>
+          <div class="pw-wrap">
+            <input class="input" id="password" name="password" type="password" required minlength="8" autocomplete="new-password" autofocus>
+            <button type="button" class="pw-toggle" data-toggle-pw="password" aria-label="Show password"><%- icon('eye') %></button>
+          </div>
+          <div class="pw-meter" id="pwMeter"><i style="width:0"></i></div>
+          <span class="hint" id="pwLabel">At least 8 characters with one capital letter and one number.</span>
+        </div>
+        <div class="field">
+          <label class="label" for="confirm_password">Confirm new password</label>
+          <div class="pw-wrap">
+            <input class="input" id="confirm_password" name="confirm_password" type="password" required minlength="8" autocomplete="new-password">
+            <button type="button" class="pw-toggle" data-toggle-pw="confirm_password" aria-label="Show password"><%- icon('eye') %></button>
+          </div>
+        </div>
+        <button class="btn primary lg block" type="submit"><%- icon('save') %> Save &amp; sign me in</button>
+      </form>
+      <div class="auth-alt">
+        <a href="/login" class="btn ghost sm"><%- icon('arrow-left') %> Back to sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/site.js" defer></script>
+</body>
+</html>

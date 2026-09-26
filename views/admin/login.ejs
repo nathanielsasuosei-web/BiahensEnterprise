@@ -1,0 +1,87 @@
+<%- include('partials/head') %>
+<div style="min-height:100vh;display:grid;place-items:center;padding:1.5rem">
+  <div class="login-shell">
+    <div class="login-left">
+      <div class="row" style="gap:.6rem;margin-bottom:1.8rem;position:relative;z-index:1">
+        <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;color:#3A1A00">B</span>
+        <span><b style="color:#fff;font-size:1rem;display:block;line-height:1.2"><%= settings.store_name %></b>
+        <span style="font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:#FFD66B">Owner control panel</span></span>
+      </div>
+      <h1>Full control of the store.</h1>
+      <p>Products, pricing, inventory, orders, customers, coupons, shipping zones, staff and settings — all in one place, with every action written to an audit log.</p>
+      <div class="perks">
+        <span class="row"><span class="ico"><%- icon('tag') %></span> Upload and price products — owner account only</span>
+        <span class="row"><span class="ico"><%- icon('box') %></span> Move orders through payment, packing, dispatch and delivery</span>
+        <span class="row"><span class="ico"><%- icon('chart') %></span> Revenue, margin, category and region analytics with CSV export</span>
+        <span class="row"><span class="ico"><%- icon('shield') %></span> Role-based access: staff see orders and customers, never the catalogue</span>
+        <span class="row"><span class="ico"><%- icon('wallet') %></span> Payment ledger, webhook tester and refund controls</span>
+      </div>
+      <div style="margin-top:2rem;position:relative;z-index:1;font-size:.75rem;color:#9FB4C6">
+        Signed-in sessions expire after inactivity. Sign-in attempts are rate limited and logged.
+      </div>
+    </div>
+
+    <div class="login-right">
+      <h2>Sign in to the panel</h2>
+      <p class="sub">Owner and staff accounts only. Customer accounts cannot open this area.</p>
+
+      <% if (locked) { %>
+        <div class="flash danger" style="margin-bottom:.9rem"><span>Too many failed attempts. Wait 15 minutes before trying again.</span></div>
+      <% } %>
+      <% if (error) { %>
+        <div class="flash danger" style="margin-bottom:.9rem"><span><%= error %></span></div>
+      <% } %>
+
+      <form action="/admin/login" method="post" novalidate>
+        <div class="field">
+          <label class="label" for="email">Email address</label>
+          <input class="input" id="email" name="email" type="email" value="<%= values.email || '' %>" required autocomplete="username" placeholder="owner@biahensenterprise.com" autofocus>
+        </div>
+        <div class="field">
+          <label class="label" for="password">Password</label>
+          <input class="input" id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••••">
+        </div>
+        <button class="btn primary lg block" type="submit" <%= locked ? 'disabled' : '' %>><%- icon('lock') %> Sign in</button>
+      </form>
+
+      <% if (demoHint) { %>
+        <div class="demo-box">
+          <b>Development credentials</b>
+          <div style="margin-top:.45rem;line-height:1.9">
+            <div><span class="badge gold">OWNER</span> <code id="ownerEmail"><%= ownerEmail %></code> / <code>Biahens@2026</code></div>
+            <div><span class="badge info">STAFF</span> <code>staff@biahensenterprise.com</code> / <code>Staff@2026</code></div>
+          </div>
+          <button class="btn ghost sm" type="button" id="fillOwner"><%- icon('zap') %> Fill owner credentials</button>
+          <button class="btn ghost sm" type="button" id="fillStaff">Fill staff credentials</button>
+        </div>
+      <% } %>
+
+      <div class="shield"><%- icon('shield') %> Products can only be uploaded by the store owner — this is enforced in code, not by convention.</div>
+      <div class="row" style="gap:.5rem;margin-top:1rem">
+        <a class="btn ghost sm" href="/"><%- icon('arrow-left') %> Back to storefront</a>
+        <a class="btn ghost sm" href="/admin/system/health" target="_blank"><%- icon('activity') %> System health</a>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    var o = document.getElementById('fillOwner');
+    var s = document.getElementById('fillStaff');
+    if (o) o.addEventListener('click', function () {
+      document.getElementById('email').value = document.getElementById('ownerEmail').textContent.trim();
+      document.getElementById('password').value = 'Biahens@2026';
+      document.getElementById('password').focus();
+    });
+    if (s) s.addEventListener('click', function () {
+      document.getElementById('email').value = 'staff@biahensenterprise.com';
+      document.getElementById('password').value = 'Staff@2026';
+      document.getElementById('password').focus();
+    });
+    document.querySelectorAll('.flash .x').forEach(function (b) {
+      b.addEventListener('click', function () { b.closest('.flash').remove(); });
+    });
+  })();
+</script>
+</body>
+</html>

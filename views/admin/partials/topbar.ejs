@@ -1,0 +1,81 @@
+<%
+  const crumbTitle = (typeof pageHeading !== 'undefined' && pageHeading) ? pageHeading
+    : (typeof pageTitle !== 'undefined' && pageTitle ? String(pageTitle).split('|')[0].trim() : 'Admin');
+%>
+<header class="topbar">
+  <button class="sb-toggle" type="button" id="sbToggle" aria-label="Toggle navigation">&#9776;</button>
+
+  <div class="crumbs">
+    <b><%= crumbTitle %></b>
+    <% if (typeof crumbSub !== 'undefined' && crumbSub) { %><span><%= crumbSub %></span><% } %>
+  </div>
+
+  <form class="tb-search" action="/admin/products" method="get" role="search">
+    <span class="ico"><%- icon('search') %></span>
+    <input type="search" name="q" placeholder="Search products, orders, customers…" value="<%= (query && query.q) || '' %>" aria-label="Search the store" data-admin-search>
+  </form>
+
+  <div class="tb-actions">
+    <% if (isOwner) { %>
+      <a class="tb-btn" href="/admin/products/new" title="Upload a new product (owner only)"><%- icon('plus') %><span class="hide-sm"> New product</span></a>
+    <% } %>
+    <a class="tb-btn" href="/admin/orders?status=paid" title="Orders awaiting fulfilment"><%- icon('truck') %><% if (pendingCount) { %><span class="dot"><%= pendingCount %></span><% } %></a>
+
+    <div class="dd" id="notifDd">
+      <button class="tb-btn" type="button" data-dd-toggle="notifDd" aria-label="Notifications"><%- icon('bell') %><% if (unreadNotifications) { %><span class="dot"><%= unreadNotifications %></span><% } %></button>
+      <div class="dd-panel" style="width:340px">
+        <div class="dd-head row between">
+          <b>Notifications</b>
+          <form action="/admin/notifications/read-all" method="post" style="display:inline">
+            <button class="btn-link" type="submit" style="font-size:.72rem">Mark all read</button>
+          </form>
+        </div>
+        <div class="dd-list scroll-y" style="max-height:340px">
+          <% if (adminNotifications && adminNotifications.length) { %>
+            <% adminNotifications.forEach(function (n) { %>
+              <div class="notif-item <%= n.is_read ? '' : 'unread' %> <%= n.level || 'info' %>">
+                <span class="dot"></span>
+                <div style="flex:1">
+                  <b><%= n.title %></b>
+                  <p><%= truncate(n.body || '', 110) %></p>
+                  <time><%= timeAgo(n.created_at) %></time>
+                </div>
+                <% if (!n.is_read) { %>
+                  <form action="/admin/notifications/<%= n.id %>/read" method="post"><button class="btn-link" type="submit" style="font-size:.7rem">read</button></form>
+                <% } %>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <div class="empty" style="padding:1.4rem"><span class="ico">&#128276;</span><p class="muted small">Nothing new right now.</p></div>
+          <% } %>
+        </div>
+        <div class="dd-head" style="border-top:1px solid var(--line);border-bottom:0">
+          <a href="/admin/notifications" style="font-size:.78rem;font-weight:800">View all notifications</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="dd" id="userDd">
+      <button class="tb-user" type="button" data-dd-toggle="userDd">
+        <span class="avatar"><%= initials(user.name) %></span>
+        <span class="meta">
+          <b><%= user.name %></b>
+          <span><%= isOwner ? 'Store owner' : 'Staff member' %></span>
+        </span>
+        <%- icon('chevron-down') %>
+      </button>
+      <div class="dd-panel" style="width:230px;right:0">
+        <div class="dd-head"><b><%= user.email %></b></div>
+        <div class="dd-list">
+          <a href="/" target="_blank"><%- icon('external') %> View storefront</a>
+          <a href="/account" target="_blank"><%- icon('user') %> My customer account</a>
+          <% if (isOwner) { %><a href="/admin/settings"><%- icon('settings') %> Store settings</a><% } %>
+          <a href="/admin/system/health"><%- icon('activity') %> System health</a>
+          <form action="/admin/logout" method="post">
+            <button type="submit" style="width:100%;text-align:left;background:none;border:0;cursor:pointer"><%- icon('logout') %> Sign out</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

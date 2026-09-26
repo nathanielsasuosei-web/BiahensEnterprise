@@ -1,0 +1,57 @@
+<%- include('../partials/head') %>
+<div class="auth-wrap">
+  <aside class="auth-side">
+    <a href="/" class="row" style="gap:.6rem;margin-bottom:2rem;position:relative;z-index:1">
+      <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;font-size:1.2rem;color:#3A1A00">B</span>
+      <span><b style="color:#fff;font-size:1.05rem;display:block;line-height:1.2"><%= settings.store_name %></b>
+      <span style="font-size:.75rem;color:#9FB4C6">Account recovery</span></span>
+    </a>
+    <h2>Locked out? Let’s get you back in.</h2>
+    <p>Enter the email address on your account and we will send a secure link that expires in 45 minutes. For your safety we never confirm whether an address is registered.</p>
+    <div class="auth-perks">
+      <span class="row"><span class="ico"><%- icon('lock') %></span> Reset links are single-use and expire quickly</span>
+      <span class="row"><span class="ico"><%- icon('shield') %></span> Passwords are stored as salted bcrypt hashes</span>
+      <span class="row"><span class="ico"><%- icon('support') %></span> Still stuck? Call <%= settings.support_phone %> — we can verify you manually</span>
+    </div>
+  </aside>
+
+  <div class="auth-main">
+    <div class="auth-card">
+      <% if (sent) { %>
+        <h1>Check your inbox</h1>
+        <p class="sub">If <b><%= email %></b> has an account with us, a reset link is on its way.</p>
+        <div class="inline-alert success">
+          <%- icon('mail') %> We have sent the instructions to <b><%= email %></b>. The link expires in 45 minutes and can only be used once. Check your spam folder if it does not arrive within a few minutes.
+        </div>
+        <% if (typeof devLink !== 'undefined' && devLink) { %>
+          <div class="inline-alert" style="margin-top:.9rem">
+            <b>Development mode:</b> mail is not delivered externally, so here is your reset link —
+            <a href="<%= devLink %>" style="font-weight:800;word-break:break-all"><%= devLink %></a>
+          </div>
+        <% } %>
+        <div class="row" style="gap:.5rem;margin-top:1.2rem">
+          <a class="btn primary" href="/login"><%- icon('login') %> Back to sign in</a>
+          <button class="btn ghost" type="button" onclick="location.reload()"><%- icon('refresh') %> Resend</button>
+        </div>
+      <% } else { %>
+        <h1>Reset your password</h1>
+        <p class="sub">Remembered it? <a href="/login" style="color:#F26B21;font-weight:800">Sign in instead</a></p>
+        <% if (error) { %><div class="inline-alert danger"><%- icon('alert') %> <%= error %></div><% } %>
+        <form action="/forgot-password" method="post">
+          <div class="field">
+            <label class="label" for="email">Email address on your account</label>
+            <input class="input" id="email" name="email" type="email" value="<%= email || '' %>" required placeholder="you@example.com" autocomplete="email" autofocus>
+            <span class="hint">We will only use this to send your reset link.</span>
+          </div>
+          <button class="btn primary lg block" type="submit"><%- icon('mail') %> Send reset link</button>
+        </form>
+        <div class="auth-alt">
+          <a href="/" class="btn ghost sm"><%- icon('arrow-left') %> Back to the store</a>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+<script src="/js/site.js" defer></script>
+</body>
+</html>

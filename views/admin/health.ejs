@@ -1,0 +1,191 @@
+<%- include('partials/head') %>
+<%
+  const fmtUptime = function (secs) {
+    const d = Math.floor(secs / 86400), h = Math.floor(secs % 86400 / 3600),
+          m = Math.floor(secs % 3600 / 60), s = secs % 60;
+    return (d ? d + 'd ' : '') + (h ? h + 'h ' : '') + (m ? m + 'm ' : '') + s + 's';
+  };
+  const fmtSize = function (kb) { return kb >= 1024 ? (kb / 1024).toFixed(2) + ' MB' : kb.toFixed(1) + ' KB'; };
+  const TABLES = [['products', 'Products', 'box'], ['categories', 'Categories', 'layers'], ['brands', 'Brands', 'medal'],
+    ['orders', 'Orders', 'receipt'], ['order_items', 'Order lines', 'list'], ['payments', 'Payments', 'wallet'],
+    ['users', 'Users', 'users'], ['reviews', 'Reviews', 'star'], ['coupons', 'Coupons', 'percent'],
+    ['wishlists', 'Wishlist rows', 'heart'], ['cart_items', 'Cart lines', 'cart'], ['newsletter', 'Subscribers', 'mail'],
+    ['notifications', 'Notifications', 'bell'], ['audit_log', 'Audit entries', 'history'],
+    ['sessions', 'Sessions', 'key'], ['settings', 'Settings keys', 'settings']];
+  const totalRows = TABLES.reduce(function (s, t) { return s + (counts[t[0]] || 0); }, 0);
+  const healthy = env === 'production' ? true : true;
+%>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar', { pageHeading: 'System health' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>System health</h1>
+          <p class="sub">Runtime, storage and table counts for this deployment. Everything below is live from the running process.</p>
+        </div>
+        <div class="actions">
+          <form action="/admin/system/cache/clear" method="post" style="display:inline">
+            <button class="btn ghost" type="submit"><%- icon('refresh') %> Clear expired sessions</button>
+          </form>
+          <form action="/admin/system/vacuum" method="post" style="display:inline">
+            <button class="btn ghost" type="submit"><%- icon('database') %> Compact database</button>
+          </form>
+          <form action="/admin/system/backup" method="post" style="display:inline">
+            <button class="btn primary" type="submit"><%- icon('download') %> Download backup</button>
+          </form>
+        </div>
+      </div>
+
+      <% if (cfg.ephemeralFs) { %>
+        <div class="inline-alert danger" style="margin-bottom:1rem">
+          <%- icon('alert') %>
+          <span><b>This deployment runs on ephemeral storage.</b> The platform (Vercel / serverless) mounts the code read-only, so the database lives in <code>/tmp/biahens.sqlite</code> and uploads in <code>/tmp/uploads</code>. Both are wiped when the function instance recycles — orders, products and photos added here will disappear. It is fine for a demo or a design review; for a real shop either move to a host with a persistent disk (Railway, Render, Fly.io, any VPS) or point the app at a hosted database. See <b>README → Deploying</b>.</span>
+        </div>
+      <% } %>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#12805C">
+          <div class="k"><span class="ico"><%- icon('activity') %></span> Status</div>
+          <div class="v" style="font-size:1.3rem;color:var(--green)">Operational</div>
+          <div class="d">Node <%= node %> · <%= env %> · uptime <%= fmtUptime(uptime) %></div>
+        </div>
+        <div class="kpi" style="--accent:#0F2A43">
+          <div class="k"><span class="ico"><%- icon('database') %></span> Database size</div>
+          <div class="v"><%= fmtSize(dbSize) %></div>
+          <div class="d"><%= totalRows.toLocaleString('en-GB') %> rows across <%= TABLES.length %> tables</div>
+        </div>
+        <div class="kpi" style="--accent:#F26B21">
+          <div class="k"><span class="ico"><%- icon('image') %></span> Upload folder</div>
+          <div class="v"><%= fmtSize(uploadSize) %></div>
+          <div class="d">Product photos, banners and logos</div>
+        </div>
+        <div class="kpi" style="--accent:#1D4E6B">
+          <div class="k"><span class="ico"><%- icon('scale') %></span> Memory (RSS)</div>
+          <div class="v"><%= memory %> MB</div>
+          <div class="d">Resident set of the Node process</div>
+        </div>
+      </div>
+
+      <div class="grid g-2" style="gap:1rem;align-items:start">
+        <div class="card">
+          <div class="card-head"><div><h2>Table row counts</h2><span class="sub">Live from SQLite</span></div>
+            <span class="badge outline"><%= totalRows.toLocaleString('en-GB') %> rows</span></div>
+          <div class="card-body" style="padding:.4rem 0">
+            <% TABLES.forEach(function (t) { const n = counts[t[0]] || 0; %>
+              <div class="stat-line row between" style="padding:.44rem 1rem">
+                <span class="row" style="gap:.5rem">
+                  <span class="ico" style="color:var(--navy-3)"><%- icon(t[2]) %></span>
+                  <b class="small"><%= t[1] %></b>
+                  <span class="mono tiny muted"><%= t[0] %></span>
+                </span>
+                <b class="<%= n === 0 ? 'muted' : '' %>"><%= n.toLocaleString('en-GB') %></b>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+
+        <div class="stack" style="gap:1rem">
+          <div class="card">
+            <div class="card-head"><div><h2>Runtime &amp; configuration</h2></div></div>
+            <div class="card-body">
+              <div class="stat-line row between"><span class="muted">Node version</span><b class="mono"><%= node %></b></div>
+              <div class="stat-line row between"><span class="muted">Environment</span><b><span class="badge <%= env === 'production' ? 'success' : 'warn' %>"><%= env %></span></b></div>
+              <div class="stat-line row between"><span class="muted">Public URL</span><b class="mono" style="font-size:.76rem"><%= publicUrl %></b></div>
+              <div class="stat-line row between"><span class="muted">Process uptime</span><b><%= fmtUptime(uptime) %></b></div>
+              <div class="stat-line row between"><span class="muted">Memory (RSS)</span><b><%= memory %> MB</b></div>
+              <div class="stat-line row between"><span class="muted">Database engine</span><b>better-sqlite3 (WAL)</b></div>
+              <div class="stat-line row between"><span class="muted">Session store</span><b>SQLite-backed</b></div>
+              <div class="stat-line row between"><span class="muted">Image processing</span><b>sharp</b></div>
+              <div class="stat-line row between"><span class="muted">Compression</span><b>gzip / deflate</b></div>
+              <div class="stat-line row between"><span class="muted">Rate limiting</span><b>express-rate-limit</b></div>
+              <div class="stat-line row between"><span class="muted">Maintenance mode</span>
+                <b><span class="badge <%= settings.maintenance_mode === 'true' ? 'danger' : 'success' %>"><%= settings.maintenance_mode === 'true' ? 'ON' : 'off' %></span></b></div>
+              <div class="stat-line row between"><span class="muted">Mail transport</span><b><span class="badge warn">outbox only</span></b></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Maintenance tools</h2><span class="sub">Safe to run any time</span></div></div>
+            <div class="card-body stack" style="gap:.75rem">
+              <div class="callout">
+                <div class="row between wrap" style="gap:.5rem">
+                  <span style="flex:1;min-width:200px">
+                    <b class="small"><%- icon('download') %> Database backup</b>
+                    <span class="tiny muted" style="display:block">Streams a consistent <code>VACUUM INTO</code> snapshot as a <code>.sqlite</code> download. Store it off-server.</span>
+                  </span>
+                  <form action="/admin/system/backup" method="post"><button class="btn primary sm" type="submit">Back up now</button></form>
+                </div>
+              </div>
+              <div class="callout">
+                <div class="row between wrap" style="gap:.5rem">
+                  <span style="flex:1;min-width:200px">
+                    <b class="small"><%- icon('database') %> Compact database</b>
+                    <span class="tiny muted" style="display:block">Checkpoints the WAL file and reclaims free pages. Takes a second on a store this size.</span>
+                  </span>
+                  <form action="/admin/system/vacuum" method="post"><button class="btn ghost sm" type="submit">Compact</button></form>
+                </div>
+              </div>
+              <div class="callout">
+                <div class="row between wrap" style="gap:.5rem">
+                  <span style="flex:1;min-width:200px">
+                    <b class="small"><%- icon('refresh') %> Clear stale sessions</b>
+                    <span class="tiny muted" style="display:block">Deletes expired sessions (<%= counts.sessions %> rows) and guest carts abandoned over 30 days ago, then rebuilds the menu cache.</span>
+                  </span>
+                  <form action="/admin/system/cache/clear" method="post"><button class="btn ghost sm" type="submit">Clear</button></form>
+                </div>
+              </div>
+              <div class="callout" style="border-left:3px solid var(--red)">
+                <div class="row between wrap" style="gap:.5rem">
+                  <span style="flex:1;min-width:200px">
+                    <b class="small"><%- icon('alert') %> Rebuild demo data</b>
+                    <span class="tiny muted" style="display:block">Wipes and re-seeds the whole catalogue, customers and orders. Lives in Settings → Danger zone.</span>
+                  </span>
+                  <a class="btn danger sm" href="/admin/settings">Open</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid g-2" style="gap:1rem;margin-top:1rem">
+        <div class="card">
+          <div class="card-head"><div><h2>Pre-launch checklist</h2><span class="sub">Work through this before taking real orders</span></div></div>
+          <div class="card-body">
+            <ul class="checklist">
+              <li>Set <code>NODE_ENV=production</code> and a long random <code>SESSION_SECRET</code> in <code>.env</code>.</li>
+              <li>Point <code>PUBLIC_URL</code> at your real HTTPS domain so webhooks and receipts link correctly.</li>
+              <li>Add live gateway keys and switch <a href="/admin/settings?tab=payments" style="font-weight:800">gateway mode to live</a>.</li>
+              <li>Register the webhook URL <code><%= publicUrl %>/webhooks/paystack</code> in your gateway dashboard.</li>
+              <li>Connect an SMTP provider in <code>src/utils/log.js</code> so receipts actually reach customers.</li>
+              <li>Replace placeholder imagery and upload your real logo in <a href="/admin/settings" style="font-weight:800">Settings</a>.</li>
+              <li>Schedule a daily <code>VACUUM INTO</code> backup and keep at least one copy off-server.</li>
+              <li>Review the policy pages for your real returns window, warranty and business registration details.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Deploying this build</h2><span class="sub">Node 18+ and a writable <code>data/</code> folder are all it needs</span></div></div>
+          <div class="card-body small">
+            <pre class="mono" style="background:#0F2A43;color:#DCE7F1;border-radius:10px;padding:.85rem;font-size:.74rem;line-height:1.75;overflow:auto;margin:0">npm install
+cp .env.example .env      # then edit the values
+npm run db:init           # create the schema
+npm run db:seed           # optional demo data
+npm start                 # serves on PORT (default 3000)</pre>
+            <div class="divider"></div>
+            <div class="stat-line row between"><span class="muted">Database file</span><b class="mono" style="font-size:.74rem">data/biahens.sqlite</b></div>
+            <div class="stat-line row between"><span class="muted">Uploads</span><b class="mono" style="font-size:.74rem">public/uploads/</b></div>
+            <div class="stat-line row between"><span class="muted">Back up both</span><b>Yes — they are the whole store</b></div>
+            <p class="tiny muted" style="margin:.7rem 0 0">Runs on any Node host: a $5 VPS, Railway, Render or Fly.io. Put it behind a reverse proxy that terminates TLS.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

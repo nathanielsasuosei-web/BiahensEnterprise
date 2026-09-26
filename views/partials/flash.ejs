@@ -1,0 +1,11 @@
+<% if (typeof flashes !== 'undefined' && flashes && flashes.length) { %>
+<div class="flash-stack" id="flashStack" aria-live="polite">
+  <% flashes.forEach(function (f) { %>
+    <div class="flash <%= f.type %>">
+      <span><%- f.type === 'success' ? '&#10003;' : f.type === 'danger' ? '&#9888;' : f.type === 'warn' ? '&#9888;' : '&#8505;' %></span>
+      <span class="grow"><%= f.text %></span>
+      <button class="x" type="button" aria-label="Dismiss">&times;</button>
+    </div>
+  <% }); %>
+</div>
+<% } %>

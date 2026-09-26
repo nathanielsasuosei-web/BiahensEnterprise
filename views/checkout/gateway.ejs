@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en-GH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title><%= pageTitle %></title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/img/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap">
+<link rel="stylesheet" href="/css/site.css">
+</head>
+<body class="page-gateway">
+<div class="gw-wrap">
+  <div class="gw-card">
+    <div class="gw-head">
+      <div style="flex:1">
+        <div class="row" style="gap:.5rem;margin-bottom:.25rem">
+          <span style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;color:#3A1A00;font-size:.9rem">B</span>
+          <b><%= gatewayBrand %></b>
+          <span class="badge <%= mode === 'test' ? 'gold' : 'success' %>"><%= mode === 'test' ? 'TEST MODE' : 'LIVE' %></span>
+        </div>
+        <span style="font-size:.82rem;color:#C7D6E2">Secure payment for <%= storeName %> · order <b style="color:#fff"><%= order.order_number %></b></span>
+      </div>
+      <div style="text-align:right">
+        <span style="font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:#9FB4C6;display:block">Amount due</span>
+        <span class="amt"><%= settings.currency_symbol %> <%= money(order.total) %></span>
+      </div>
+    </div>
+
+    <% if (error) { %>
+      <div style="padding:.85rem 1.5rem;background:#FDECEC;border-bottom:1px solid #F6C9C9;color:#9B2C2C;font-weight:700;font-size:.88rem">
+        &#10007; <%= error %> — please try again or choose a different payment method.
+      </div>
+    <% } %>
+
+    <div class="gw-body">
+      <div class="gw-main">
+        <form action="/pay/<%= payment.reference %>" method="post" data-busy>
+          <input type="hidden" name="channel" id="channelInput" value="<%= channel %>">
+          <input type="hidden" name="card_brand" id="card_brand" value="Visa">
+
+          <div class="gw-channels">
+            <button type="button" class="gw-channel <%= channel === 'card' ? 'active' : '' %>" data-channel="card">
+              <span class="ico"><%- icon('card') %></span><b>Card</b>
+              <span class="tiny">Visa · Mastercard · Verve</span>
+            </button>
+            <button type="button" class="gw-channel <%= channel === 'mobile_money' ? 'active' : '' %>" data-channel="mobile_money">
+              <span class="ico"><%- icon('momo') %></span><b>Mobile Money</b>
+              <span class="tiny">MTN · Telecel · AT</span>
+            </button>
+            <button type="button" class="gw-channel <%= channel === 'bank' ? 'active' : '' %>" data-channel="bank">
+              <span class="ico"><%- icon('bank') %></span><b>Bank transfer</b>
+              <span class="tiny">Ghana banks</span>
+            </button>
+          </div>
+
+          <%# ───────────── CARD PANEL ───────────── %>
+          <div data-channel-panel="card" <%= channel === 'card' ? '' : 'hidden' %>>
+            <div style="background:linear-gradient(135deg,#0F2A43,#2E86AB);border-radius:14px;padding:1.1rem;color:#fff;margin-bottom:1.2rem;position:relative;overflow:hidden">
+              <div style="position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.07)"></div>
+              <div class="row between" style="margin-bottom:1.6rem">
+                <span style="width:38px;height:28px;border-radius:5px;background:linear-gradient(135deg,#FFD66B,#F26B21)"></span>
+                <b id="cardBrandGuess" style="letter-spacing:.06em;font-size:.85rem">Visa</b>
+              </div>
+              <div id="cardPreviewNum" style="font-family:ui-monospace,Menlo,monospace;font-size:1.05rem;letter-spacing:.12em;margin-bottom:.8rem">•••• •••• •••• ••••</div>
+              <div class="row" style="gap:1.4rem;font-size:.7rem;color:#C7D6E2">
+                <span>CARD HOLDER<br><b style="color:#fff;font-size:.78rem"><%= (order.ship_name || 'Customer').toUpperCase() %></b></span>
+                <span>EXPIRES<br><b style="color:#fff;font-size:.78rem" id="cardPreviewExp">--/--</b></span>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="card_number">Card number</label>
+              <input class="input" id="card_number" name="card_number" placeholder="4084 0840 8408 4081" inputmode="numeric" autocomplete="cc-number" required>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label class="label" for="card_expiry">Expiry (MM/YY)</label>
+                <input class="input" id="card_expiry" name="card_expiry" placeholder="12/29" inputmode="numeric" autocomplete="cc-exp" required>
+              </div>
+              <div class="field">
+                <label class="label" for="card_cvv">CVV</label>
+                <input class="input" id="card_cvv" name="card_cvv" placeholder="408" inputmode="numeric" maxlength="4" autocomplete="cc-csc" required>
+              </div>
+            </div>
+
+            <% if (mode === 'test') { %>
+            <div class="inline-alert" style="margin-top:1rem">
+              <b>Test cards</b> — click to fill:
+              <div class="row wrap" style="gap:.4rem;margin-top:.5rem">
+                <button type="button" class="btn success sm" data-fill-card="success"><%- icon('check') %> Successful · 4084 0840 8408 4081</button>
+                <button type="button" class="btn danger sm" data-fill-card="decline"><%- icon('x') %> Declined · 5060 6666 6666 6666 666</button>
+                <button type="button" class="btn ghost sm" data-fill-card="funds">Insufficient funds · 4084 0999 9999 9995</button>
+              </div>
+              <% if (testCards && Object.keys(testCards).length) { %>
+                <div class="tiny" style="margin-top:.5rem">
+                  <% Object.keys(testCards).forEach(function (num) { %>
+                    <div><code><%= num.replace(/(\d{4})(?=\d)/g, '$1 ') %></code> → <%= testCards[num].status %> (<%= testCards[num].message %>)</div>
+                  <% }); %>
+                </div>
+              <% } %>
+            </div>
+            <% } %>
+          </div>
+
+          <%# ───────────── MOMO PANEL ───────────── %>
+          <div data-channel-panel="mobile_money" <%= channel === 'mobile_money' ? '' : 'hidden' %>>
+            <p class="muted" style="margin-bottom:1rem">Enter the Mobile Money number that will be charged. You will receive an approval prompt on your handset — dial <b>*170#</b> (MTN) or <b>*110#</b> (Telecel) if it does not arrive within a minute.</p>
+            <div class="field">
+              <label class="label" for="momo_network">Network</label>
+              <div class="method-cards" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+                <% momoNetworks.forEach(function (n, idx) { %>
+                  <label class="method <%= idx === 0 ? 'active' : '' %>" style="padding:.7rem;text-align:center">
+                    <input type="radio" name="momo_network" value="<%= n.id %>" <%= idx === 0 ? 'checked' : '' %> style="position:absolute;opacity:0">
+                    <b style="font-size:.85rem;display:block"><%= n.label %></b>
+                    <span class="tiny muted"><%= n.hint %></span>
+                  </label>
+                <% }); %>
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="momo_number">Mobile Money number</label>
+              <input class="input" id="momo_number" name="momo_number" placeholder="24 123 4567" inputmode="tel" required>
+              <span class="hint">In <b>test mode</b> any number works; a number ending in <code>0000</code> simulates a failed charge.</span>
+            </div>
+          </div>
+
+          <%# ───────────── BANK PANEL ───────────── %>
+          <div data-channel-panel="bank" <%= channel === 'bank' ? '' : 'hidden' %>>
+            <p class="muted" style="margin-bottom:1rem">Choose your bank. In test mode we simulate the bank’s authentication page and complete the transfer instantly.</p>
+            <div class="field">
+              <label class="label" for="bank_id">Bank</label>
+              <select class="select" id="bank_id" name="bank_id" required>
+                <% banks.forEach(function (b) { %>
+                  <option value="<%= b.id %>"><%= b.label %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="inline-alert">You will be asked to authenticate with your bank’s own app or USSD code. <%= storeName %> never sees your bank login.</div>
+          </div>
+
+          <div class="row" style="gap:.6rem;margin-top:1.5rem">
+            <button class="btn primary lg grow" type="submit" style="flex:1">
+              <%- icon('lock') %> Pay <%= settings.currency_symbol %> <%= money(order.total) %>
+            </button>
+            <button class="btn ghost lg" type="button" onclick="document.getElementById('cancelForm').submit()">Cancel</button>
+          </div>
+        </form>
+        <form id="cancelForm" action="/pay/<%= payment.reference %>/cancel" method="post"></form>
+
+        <div class="secure-note" style="margin-top:1.2rem">
+          <%- icon('shield') %>
+          <span>This is a simulated <%= gatewayBrand %> page built to Paystack’s API contract. In production your real keys are set in <code>.env</code> and the webhook at <code>/webhooks/paystack</code> verifies an HMAC SHA-512 signature before marking an order paid. Card data is never stored.</span>
+        </div>
+      </div>
+
+      <aside class="gw-side">
+        <div class="tiny" style="margin-bottom:.7rem">Order <%= order.order_number %></div>
+        <% order.items.forEach(function (i) { %>
+          <div class="gw-order-row">
+            <img src="<%= imgSrc(i.image, { w: 100, h: 100, hint: storeName, name: i.name }) %>" alt="" loading="lazy">
+            <span style="flex:1">
+              <b style="display:block;font-size:.82rem;line-height:1.3"><%= truncate(i.name, 46) %></b>
+              <span class="tiny"><%= i.qty %> × <%= settings.currency_symbol %> <%= money(i.price) %></span>
+            </span>
+          </div>
+        <% }); %>
+        <div style="margin-top:.9rem;border-top:1px solid #E2E8EF;padding-top:.7rem">
+          <div class="sum-row"><span>Items</span><b><%= settings.currency_symbol %> <%= money(order.subtotal) %></b></div>
+          <% if (order.discount > 0) { %><div class="sum-row"><span>Discount</span><b class="save">− <%= settings.currency_symbol %> <%= money(order.discount) %></b></div><% } %>
+          <div class="sum-row"><span>Delivery</span><b><%= order.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(order.shipping_fee) : 'FREE' %></b></div>
+          <div class="sum-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= money(order.total) %></b></div>
+        </div>
+        <div class="tiny" style="margin-top:1rem;color:#64748B">
+          Delivering to <b style="color:#0B1A27"><%= order.ship_city %>, <%= order.ship_region %></b> for <b style="color:#0B1A27"><%= order.ship_name %></b>.
+        </div>
+        <div class="gw-status" style="color:#64748B;font-weight:700">
+          <%- icon('support') %> Trouble paying? Call <%= supportPhone %>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <p style="text-align:center;color:#8FA6B8;font-size:.75rem;margin-top:1.1rem">
+    Powered by <%= gatewayBrand %> · a Paystack-compatible gateway simulation by <%= storeName %>
+  </p>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var exp = document.getElementById('card_expiry');
+    var pv = document.getElementById('cardPreviewExp');
+    if (exp && pv) exp.addEventListener('input', function () { pv.textContent = exp.value || '--/--'; });
+    var net = document.querySelectorAll('input[name="momo_network"]');
+    net.forEach(function (r) { r.addEventListener('change', function () {
+      document.querySelectorAll('.method-cards .method').forEach(function (m) { m.classList.remove('active'); });
+      r.closest('.method').classList.add('active');
+    }); });
+  });
+</script>
+<script src="/js/site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Promotions' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Promotions &amp; merchandising</h1>
+          <p class="sub">One place to see what is featured, what is discounted, what is not selling and where your margin is — then act on it.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/marketing/coupons"><%- icon('percent') %> Coupons</a>
+          <a class="btn ghost" href="/admin/slides"><%- icon('image') %> Hero banners</a>
+          <% if (isOwner) { %><a class="btn primary" href="/admin/products"><%- icon('tag') %> Manage products</a><% } %>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#F26B21"><div class="k"><span class="ico"><%- icon('star') %></span> Featured</div><div class="v"><%= featured.length %></div><div class="d">Shown in the homepage rail</div></div>
+        <div class="kpi" style="--accent:#D64545"><div class="k"><span class="ico"><%- icon('fire') %></span> On discount</div><div class="v"><%= deals.length %></div><div class="d">Compare-at price above selling price</div></div>
+        <div class="kpi" style="--accent:#64748B"><div class="k"><span class="ico"><%- icon('clock') %></span> Never sold</div><div class="v"><%= slow.length %></div><div class="d">Live but zero units sold</div></div>
+        <div class="kpi" style="--accent:#12805C"><div class="k"><span class="ico"><%- icon('chart') %></span> Best margins</div><div class="v"><%= topMargins.length ? topMargins[0].margin + '%' : '—' %></div><div class="d">Highest margin live product</div></div>
+      </div>
+
+      <div class="tabs" data-tabs="promo">
+        <button class="tab active" type="button" data-tab-btn="featured">Featured products <span class="n"><%= featured.length %></span></button>
+        <button class="tab" type="button" data-tab-btn="deals">Discounted now <span class="n"><%= deals.length %></span></button>
+        <button class="tab" type="button" data-tab-btn="slow">Slow movers <span class="n"><%= slow.length %></span></button>
+        <button class="tab" type="button" data-tab-btn="margin">Margin leaders <span class="n"><%= topMargins.length %></span></button>
+      </div>
+
+      <% const prodTable = function (rows, kind) { %>
+        <div class="table-wrap">
+          <table class="table" style="min-width:880px">
+            <thead><tr>
+              <th>Product</th><th>Category</th><th class="num">Price</th>
+              <% if (kind === 'deals') { %><th class="num">Was</th><th class="num">Discount</th><% } %>
+              <% if (kind === 'margin') { %><th class="num">Cost</th><th class="num">Margin</th><% } %>
+              <% if (kind === 'slow') { %><th class="num">Views</th><th>Live since</th><% } %>
+              <th class="num">Stock</th><th class="num">Sold</th><th>Status</th><th style="text-align:right">Actions</th>
+            </tr></thead>
+            <tbody>
+              <% if (!rows.length) { %>
+                <tr><td colspan="10"><div class="empty"><span class="ico">&#128230;</span><h3>Nothing here</h3><p class="muted">This list is empty right now.</p></div></td></tr>
+              <% } %>
+              <% rows.forEach(function (p) { %>
+                <tr>
+                  <td><div class="prod">
+                    <img class="thumb" src="<%= imgSrc(p.image, { w: 120, h: 120, hint: p.category_name, name: p.name }) %>" alt="" loading="lazy">
+                    <span><b><%= p.name %></b><span class="muted"><%= p.sku || p.slug %></span></span>
+                  </div></td>
+                  <td class="small"><%= p.category_name || '—' %><% if (p.brand_name) { %><br><span class="muted"><%= p.brand_name %></span><% } %></td>
+                  <td class="num strong"><%= settings.currency_symbol %> <%= money(p.price) %></td>
+                  <% if (kind === 'deals') { %>
+                    <td class="num muted" style="text-decoration:line-through"><%= p.compare_at_price ? settings.currency_symbol + ' ' + money(p.compare_at_price) : '—' %></td>
+                    <td class="num"><span class="badge danger">−<%= p.discount || 0 %>%</span></td>
+                  <% } %>
+                  <% if (kind === 'margin') { %>
+                    <td class="num muted"><%= p.cost_price ? settings.currency_symbol + ' ' + money(p.cost_price) : '—' %></td>
+                    <td class="num"><span class="badge <%= p.margin >= 40 ? 'success' : p.margin >= 25 ? 'warn' : 'danger' %>"><%= p.margin %>%</span></td>
+                  <% } %>
+                  <% if (kind === 'slow') { %>
+                    <td class="num muted"><%= p.views_count || 0 %></td>
+                    <td class="small muted"><%= dateFmt(p.created_at, 'D MMM YYYY') %></td>
+                  <% } %>
+                  <td class="num"><span class="stock-pill <%= p.stock <= 0 ? 'out' : p.stock <= p.low_stock_at ? 'low' : 'in' %>"><%= p.stock %></span></td>
+                  <td class="num"><%= p.sold_count || 0 %></td>
+                  <td><span class="badge <%= p.status === 'active' && p.is_active ? 'success' : 'muted' %>"><%= p.status %></span>
+                    <% if (p.is_featured) { %><span class="badge brand" style="font-size:.62rem">★</span><% } %></td>
+                  <td>
+                    <div class="row-actions">
+                      <a class="btn ghost xs" href="/p/<%= p.slug %>" target="_blank" title="View on store"><%- icon('eye') %></a>
+                      <% if (isOwner) { %>
+                        <a class="btn ghost xs" href="/admin/products/<%= p.id %>/edit" title="Edit"><%- icon('edit') %></a>
+                        <form action="/admin/products/<%= p.id %>/toggle" method="post" style="display:inline">
+                          <input type="hidden" name="field" value="is_featured">
+                          <button class="btn ghost xs" type="submit" title="<%= p.is_featured ? 'Remove from featured' : 'Feature on homepage' %>"
+                            style="<%= p.is_featured ? 'color:var(--orange)' : '' %>"><%- icon('star') %></button>
+                        </form>
+                      <% } %>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% }; %>
+
+      <div class="card">
+        <div class="card-head"><div><h2>Featured products</h2><span class="sub">These appear in the homepage “Featured” rail — keep the list fresh</span></div></div>
+        <div class="card-body tab-panel" data-tab-panel="featured" style="padding:0"><%- prodTable(featured, 'featured') %></div>
+        <div class="card-body tab-panel" data-tab-panel="deals" style="padding:0" hidden><%- prodTable(deals, 'deals') %></div>
+        <div class="card-body tab-panel" data-tab-panel="slow" style="padding:0" hidden><%- prodTable(slow, 'slow') %></div>
+        <div class="card-body tab-panel" data-tab-panel="margin" style="padding:0" hidden><%- prodTable(topMargins, 'margin') %></div>
+      </div>
+
+      <div class="grid g-2" style="gap:1rem;margin-top:1rem">
+        <div class="card pad">
+          <h3 style="font-size:.98rem;margin-bottom:.5rem"><%- icon('zap') %> Quick promotion playbook</h3>
+          <ol class="small muted" style="padding-left:1.1rem;list-style:decimal;margin:0">
+            <li style="margin-bottom:.35rem">Set a <b>compare-at price</b> above the selling price — the storefront then shows the discount badge and the flash-deals countdown rail.</li>
+            <li style="margin-bottom:.35rem">Tick <b>featured</b> on your hero products so they appear on the homepage rail.</li>
+            <li style="margin-bottom:.35rem">Create a <b>coupon</b> with a minimum subtotal to lift basket size, then put the code in a hero banner.</li>
+            <li>Send the banner to your <b>newsletter list</b> (export the CSV to your email provider).</li>
+          </ol>
+        </div>
+        <div class="card pad">
+          <h3 style="font-size:.98rem;margin-bottom:.5rem"><%- icon('alert') %> Slow-mover remedies</h3>
+          <ul class="small muted" style="padding-left:1.1rem;list-style:disc;margin:0">
+            <li style="margin-bottom:.35rem">Check the photos and the short description first — low views usually mean weak presentation, not weak demand.</li>
+            <li style="margin-bottom:.35rem">High views but no sales usually means price or a missing specification in the description.</li>
+            <li style="margin-bottom:.35rem">Try a 10–15% compare-at discount for a week and watch the conversion change.</li>
+            <li>If it still does not move, archive it rather than letting it dilute your catalogue.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

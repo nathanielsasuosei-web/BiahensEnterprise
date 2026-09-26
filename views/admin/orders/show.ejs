@@ -1,0 +1,303 @@
+<%- include('../partials/head') %>
+<%
+  const sm = STATUS_META[order.status] || { label: order.status, tone: 'muted' };
+  const flow = ['pending_payment', 'paid', 'processing', 'shipped', 'delivered'];
+  const curIdx = flow.indexOf(order.status);
+  const psm = { unpaid: 'warn', paid: 'success', refunded: 'danger', partially_refunded: 'warn' };
+%>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Order ' + order.order_number, crumbSub: sm.label }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1><%= order.order_number %> <span class="badge <%= sm.tone %> big"><%= sm.label %></span>
+            <span class="badge <%= psm[order.payment_status] || 'muted' %> big"><%= order.payment_status.replace(/_/g, ' ') %></span></h1>
+          <p class="sub">
+            Placed <%= dateFmt(order.placed_at, 'dddd, D MMMM YYYY [at] h:mm a') %> (<%= timeAgo(order.placed_at) %>) ·
+            <%= order.item_count %> item<%= order.item_count === 1 ? '' : 's' %> ·
+            <b><%= settings.currency_symbol %> <%= money(order.total) %></b> ·
+            <%= order.payment_method === 'momo' ? 'Mobile Money' : order.payment_method === 'cod' ? 'Cash on delivery' : 'Card' %>
+            <% if (order.coupon_code) { %> · coupon <code><%= order.coupon_code %></code><% } %>
+          </p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/orders"><%- icon('arrow-left') %> All orders</a>
+          <a class="btn ghost" href="/admin/orders/<%= order.id %>/invoice" target="_blank"><%- icon('printer') %> Invoice</a>
+          <% if (customer) { %><a class="btn ghost" href="/admin/customers/<%= customer.id %>"><%- icon('user') %> Customer file</a><% } %>
+          <button class="btn ghost" type="button" onclick="window.print()"><%- icon('printer') %> Print</button>
+        </div>
+      </div>
+
+      <%# ───────────── status pipeline + quick actions ───────────── %>
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-body">
+          <% if (curIdx >= 0 && !['cancelled', 'refunded'].includes(order.status)) { %>
+            <div class="row" style="gap:.3rem;margin-bottom:1rem">
+              <% flow.forEach(function (s, i) { %>
+                <div style="flex:1;text-align:center;font-size:.72rem;font-weight:800;color:<%= i <= curIdx ? 'var(--ink)' : 'var(--muted)' %>">
+                  <div style="height:6px;border-radius:999px;background:<%= i < curIdx ? 'var(--green)' : i === curIdx ? 'var(--orange)' : 'var(--line)' %>;margin-bottom:.35rem"></div>
+                  <%= STATUS_META[s].label %>
+                </div>
+              <% }); %>
+            </div>
+          <% } else { %>
+            <div class="flash <%= order.status === 'cancelled' ? 'warn' : 'info' %>" style="margin-bottom:1rem">
+              <span>This order is <b><%= sm.label.toLowerCase() %></b><%= order.cancel_reason ? ': ' + order.cancel_reason : '' %>.</span>
+            </div>
+          <% } %>
+
+          <div class="row wrap" style="gap:.6rem">
+            <form action="/admin/orders/<%= order.id %>/status" method="post" class="row" style="gap:.4rem;flex-wrap:wrap">
+              <select class="select" name="status" style="max-width:200px">
+                <option value="">Move to status…</option>
+                <% nextStatuses.forEach(function (s) { %>
+                  <option value="<%= s %>"><%= STATUS_META[s] ? STATUS_META[s].label : s %></option>
+                <% }); %>
+              </select>
+              <input class="input" name="note" placeholder="Note for the timeline (optional)" style="max-width:260px" maxlength="500">
+              <label class="checkbox" style="font-size:.8rem"><input type="checkbox" name="notify_customer" value="1" checked> Email the customer</label>
+              <button class="btn primary" type="submit" <%= nextStatuses.length ? '' : 'disabled' %>><%- icon('check') %> Update</button>
+            </form>
+
+            <% if (order.payment_status !== 'paid' && order.status !== 'cancelled') { %>
+              <form action="/admin/orders/<%= order.id %>/collect" method="post" class="row" style="gap:.4rem">
+                <select class="select" name="method" style="max-width:170px">
+                  <% [['momo', 'Mobile Money'], ['card', 'Card'], ['cod', 'Cash on delivery']].forEach(function (m) { %>
+                    <option value="<%= m[0] %>" <%= order.payment_method === m[0] ? 'selected' : '' %>><%= m[1] %></option>
+                  <% }); %>
+                </select>
+                <button class="btn success" type="submit"
+                        onclick="return confirm('Confirm you have actually received <%= settings.currency_symbol %> <%= money(order.total) %>?\n\nThis marks the order paid and writes to the payment ledger.')">
+                  <%- icon('wallet') %> Mark paid
+                </button>
+              </form>
+            <% } %>
+
+            <% if (order.payment_status === 'paid' || order.payment_status === 'partially_refunded') { %>
+              <form action="/admin/orders/<%= order.id %>/refund" method="post" class="row" style="gap:.4rem">
+                <input class="input" type="number" name="amount" step="0.01" min="0.01" max="<%= order.total %>"
+                       value="<%= order.total %>" style="max-width:130px" title="Leave the full amount for a complete refund">
+                <input class="input" name="reason" placeholder="Refund reason" style="max-width:200px" maxlength="300">
+                <button class="btn danger" type="submit"
+                        onclick="return confirm('Issue this refund?\n\nThe payment ledger records it and the order moves to refunded. This cannot be undone from the panel.')">
+                  <%- icon('refresh') %> Refund
+                </button>
+              </form>
+            <% } %>
+          </div>
+
+          <% if (!nextStatuses.length) { %>
+            <p class="tiny muted" style="margin:.6rem 0 0">This order has reached a final status — no further transitions are available.</p>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div class="stack" style="gap:1rem">
+          <%# ───────────── items ───────────── %>
+          <div class="card">
+            <div class="card-head"><div><h2>Items</h2><span class="sub"><%= order.item_count %> unit<%= order.item_count === 1 ? '' : 's' %> across <%= order.items.length %> line<%= order.items.length === 1 ? '' : 's' %></span></div>
+              <a class="btn ghost sm" href="/admin/orders/fulfilment/picklist" target="_blank"><%- icon('printer') %> Pick list</a></div>
+            <div class="card-body" style="padding:0">
+              <div class="table-wrap">
+                <table class="table" style="min-width:640px">
+                  <thead><tr><th>Product</th><th>SKU</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Line total</th><th></th></tr></thead>
+                  <tbody>
+                    <% order.items.forEach(function (i) { %>
+                      <tr>
+                        <td><div class="prod">
+                          <img class="thumb" src="<%= imgSrc(i.image, { w: 120, h: 120, hint: settings.store_name, name: i.name }) %>" alt="" loading="lazy">
+                          <span><b><%= i.name %></b>
+                            <% if (i.variant_title) { %><span class="muted"><%= i.variant_title %></span><% } %>
+                            <% if (i.product_id && isOwner) { %><span class="muted" style="display:block"><a href="/admin/products/<%= i.product_id %>/edit">edit product</a></span><% } %>
+                          </span>
+                        </div></td>
+                        <td class="mono muted"><%= i.sku || '—' %></td>
+                        <td class="num"><%= settings.currency_symbol %> <%= money(i.price) %></td>
+                        <td class="num strong"><%= i.qty %></td>
+                        <td class="num strong"><%= settings.currency_symbol %> <%= money(i.total) %></td>
+                        <td style="text-align:right"><% if (i.slug) { %><a class="btn ghost xs" href="/p/<%= i.slug %>" target="_blank"><%- icon('eye') %></a><% } %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                  <tfoot>
+                    <tr><td colspan="4" class="num muted">Subtotal</td><td class="num strong"><%= settings.currency_symbol %> <%= money(order.subtotal) %></td><td></td></tr>
+                    <% if (order.discount > 0) { %><tr><td colspan="4" class="num muted">Discount <%= order.coupon_code ? '(' + order.coupon_code + ')' : '' %></td><td class="num" style="color:var(--green)">− <%= settings.currency_symbol %> <%= money(order.discount) %></td><td></td></tr><% } %>
+                    <tr><td colspan="4" class="num muted">Delivery (<%= order.delivery_method %>)</td><td class="num"><%= order.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(order.shipping_fee) : 'FREE' %></td><td></td></tr>
+                    <% if (order.tax > 0) { %><tr><td colspan="4" class="num muted">Tax</td><td class="num"><%= settings.currency_symbol %> <%= money(order.tax) %></td><td></td></tr><% } %>
+                    <tr style="background:#F7F9FC"><td colspan="4" class="num strong">Total <%= order.payment_status === 'paid' ? 'paid' : 'due' %></td><td class="num strong" style="font-size:1.05rem"><%= settings.currency_symbol %> <%= money(order.total) %></td><td></td></tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <%# ───────────── timeline ───────────── %>
+          <div class="card">
+            <div class="card-head"><div><h2>Timeline</h2><span class="sub"><%= order.events.length %> event<%= order.events.length === 1 ? '' : 's' %></span></div></div>
+            <div class="card-body">
+              <div class="timeline">
+                <% order.events.slice().reverse().forEach(function (e, idx) { %>
+                  <div class="tl <%= idx === 0 ? 'current' : 'done' %>">
+                    <b><%= STATUS_META[e.status] ? STATUS_META[e.status].label : e.status %></b>
+                    <time><%= dateFmt(e.created_at, 'D MMM YYYY, h:mm a') %> · <%= timeAgo(e.created_at) %> · by <%= e.actor %></time>
+                    <% if (e.note) { %><p><%= e.note %></p><% } %>
+                  </div>
+                <% }); %>
+              </div>
+              <form action="/admin/orders/<%= order.id %>/event" method="post" class="row" style="gap:.4rem;margin-top:.8rem">
+                <input class="input" name="note" placeholder="Add an internal note to the timeline…" required maxlength="500" style="flex:1">
+                <button class="btn ghost" type="submit"><%- icon('plus') %> Add note</button>
+              </form>
+            </div>
+          </div>
+
+          <%# ───────────── payments ───────────── %>
+          <div class="card">
+            <div class="card-head"><div><h2>Payment attempts</h2><span class="sub">Gateway ledger for this order</span></div>
+              <a class="btn ghost sm" href="/admin/system/payments">Full ledger</a></div>
+            <div class="card-body" style="padding:0">
+              <div class="table-wrap">
+                <table class="table compact" style="min-width:640px">
+                  <thead><tr><th>Reference</th><th>Channel</th><th class="num">Amount</th><th>Status</th><th>Payer</th><th>When</th></tr></thead>
+                  <tbody>
+                    <% if (!order.payments.length) { %>
+                      <tr><td colspan="6" class="muted small" style="padding:1rem">No payment attempts recorded — this is normal for cash-on-delivery orders.</td></tr>
+                    <% } %>
+                    <% order.payments.forEach(function (p) { %>
+                      <tr>
+                        <td class="mono" style="font-size:.72rem"><%= p.reference %></td>
+                        <td><span class="badge outline"><%= p.channel || p.method %></span></td>
+                        <td class="num strong"><%= settings.currency_symbol %> <%= money(p.amount) %></td>
+                        <td><span class="badge <%= p.status === 'success' ? 'success' : p.status === 'failed' ? 'danger' : p.status === 'refunded' ? 'warn' : 'muted' %>"><%= p.status %></span>
+                          <% if (p.error) { %><br><span class="tiny" style="color:var(--red)"><%= p.error %></span><% } %></td>
+                        <td class="small"><%= p.payer || '—' %><% if (p.last4) { %> · •••• <%= p.last4 %><% } %></td>
+                        <td class="small muted"><%= p.paid_at ? dateFmt(p.paid_at, 'D MMM, h:mm a') : dateFmt(p.created_at, 'D MMM, h:mm a') %></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%# ───────────── right rail ───────────── %>
+        <aside class="stack" style="gap:1rem">
+          <div class="card">
+            <div class="card-head"><div><h2>Customer</h2></div></div>
+            <div class="card-body">
+              <div class="row" style="gap:.6rem;margin-bottom:.7rem">
+                <span class="avatar" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#2E86AB);color:#fff;display:grid;place-items:center;font-weight:900;flex:none"><%= initials(order.ship_name) %></span>
+                <span style="flex:1">
+                  <b style="display:block;font-size:.92rem"><%= order.ship_name %></b>
+                  <span class="muted small"><%= order.user_id ? 'Registered customer' : 'Guest checkout' %></span>
+                </span>
+              </div>
+              <div class="stat-line row between"><span class="muted">Phone</span><b><%= order.ship_phone %></b></div>
+              <div class="stat-line row between"><span class="muted">Email</span><b style="font-size:.8rem"><%= order.customer_email || order.ship_email || order.guest_email || '—' %></b></div>
+              <% if (customer) { %>
+                <div class="stat-line row between"><span class="muted">Previous orders</span><b><%= history.n %></b></div>
+                <div class="stat-line row between"><span class="muted">Lifetime value</span><b><%= settings.currency_symbol %> <%= money(history.spent) %></b></div>
+                <% if (customer.is_blocked) { %><div class="flash warn" style="margin-top:.6rem"><span>This account is blocked.</span></div><% } %>
+                <a class="btn ghost sm block" style="margin-top:.7rem" href="/admin/customers/<%= customer.id %>"><%- icon('user') %> Open customer file</a>
+              <% } %>
+              <div class="row" style="gap:.4rem;margin-top:.7rem">
+                <a class="btn success sm" href="https://wa.me/<%= order.ship_phone.replace(/[^0-9]/g,'') %>?text=Hello%20<%= encodeURIComponent(order.ship_name.split(' ')[0]) %>,%20about%20your%20order%20<%= order.order_number %>" target="_blank" rel="noopener" style="flex:1;justify-content:center"><%- icon('whatsapp') %> WhatsApp</a>
+                <a class="btn ghost sm" href="tel:<%= order.ship_phone.replace(/\s/g,'') %>" style="flex:1;justify-content:center"><%- icon('phone') %> Call</a>
+              </div>
+            </div>
+          </div>
+
+          <form class="card" action="/admin/orders/<%= order.id %>/update" method="post">
+            <div class="card-head"><div><h2>Delivery &amp; notes</h2><span class="sub">Editable — changes are audited</span></div></div>
+            <div class="card-body">
+              <div class="field">
+                <label class="label" for="shipName">Receiver name</label>
+                <input class="input" id="shipName" name="ship_name" value="<%= order.ship_name %>">
+              </div>
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="field">
+                  <label class="label" for="shipPhone">Phone</label>
+                  <input class="input" id="shipPhone" name="ship_phone" value="<%= order.ship_phone %>">
+                </div>
+                <div class="field">
+                  <label class="label" for="shipEmail">Email</label>
+                  <input class="input" id="shipEmail" name="ship_email" value="<%= order.ship_email || '' %>">
+                </div>
+              </div>
+              <div class="field">
+                <label class="label" for="shipLine">House / street</label>
+                <input class="input" id="shipLine" name="ship_line" value="<%= order.ship_line %>">
+              </div>
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="field">
+                  <label class="label" for="shipCity">Town / city</label>
+                  <input class="input" id="shipCity" name="ship_city" value="<%= order.ship_city %>">
+                </div>
+                <div class="field">
+                  <label class="label" for="shipRegion">Region</label>
+                  <select class="select" id="shipRegion" name="ship_region">
+                    <% regions.forEach(function (r) { %>
+                      <option <%= order.ship_region === r ? 'selected' : '' %>><%= r %></option>
+                    <% }); %>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label class="label" for="shipLandmark">Landmark</label>
+                <input class="input" id="shipLandmark" name="ship_landmark" value="<%= order.ship_landmark || '' %>">
+              </div>
+              <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                <div class="field">
+                  <label class="label" for="deliveryMethod">Method</label>
+                  <select class="select" id="deliveryMethod" name="delivery_method">
+                    <% [['standard', 'Standard'], ['express', 'Express'], ['pickup', 'Warehouse pickup']].forEach(function (m) { %>
+                      <option value="<%= m[0] %>" <%= order.delivery_method === m[0] ? 'selected' : '' %>><%= m[1] %></option>
+                    <% }); %>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="label" for="carrier">Carrier</label>
+                  <input class="input" id="carrier" name="carrier" value="<%= order.carrier || '' %>" placeholder="Biahens Riders">
+                </div>
+              </div>
+              <div class="field">
+                <label class="label" for="trackingNumber">Tracking number</label>
+                <input class="input mono" id="trackingNumber" name="tracking_number" value="<%= order.tracking_number || '' %>" placeholder="BIA-TRK-000000">
+                <span class="hint">Shown to the customer and added to the timeline when saved.</span>
+              </div>
+              <div class="field">
+                <label class="label" for="deliveryNote">Note for the rider</label>
+                <textarea class="textarea" id="deliveryNote" name="delivery_note" rows="2" maxlength="300"><%= order.delivery_note || '' %></textarea>
+              </div>
+              <div class="field">
+                <label class="label" for="adminNotes">Internal notes <span class="muted">(never shown to the customer)</span></label>
+                <textarea class="textarea" id="adminNotes" name="admin_notes" rows="3" maxlength="300" placeholder="e.g. Customer asked for delivery after 5pm; bulky item needs the van."><%= order.admin_notes || '' %></textarea>
+              </div>
+            </div>
+            <div class="card-foot"><button class="btn primary block" type="submit"><%- icon('save') %> Save changes</button></div>
+          </form>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Order meta</h2></div></div>
+            <div class="card-body">
+              <div class="stat-line row between"><span class="muted">Order ID</span><b>#<%= order.id %></b></div>
+              <div class="stat-line row between"><span class="muted">Currency</span><b><%= order.currency %></b></div>
+              <div class="stat-line row between"><span class="muted">Placed</span><b style="font-size:.8rem"><%= dateFmt(order.placed_at, 'D MMM YYYY, h:mm a') %></b></div>
+              <div class="stat-line row between"><span class="muted">Last update</span><b style="font-size:.8rem"><%= timeAgo(order.updated_at) %></b></div>
+              <% if (order.coupon_ref || order.coupon_code) { %><div class="stat-line row between"><span class="muted">Coupon</span><b><%= order.coupon_code || order.coupon_ref %></b></div><% } %>
+              <% if (order.user_id) { %><div class="stat-line row between"><span class="muted">Account</span><b>#<%= order.user_id %></b></div>
+              <% } else { %><div class="stat-line row between"><span class="muted">Account</span><b>Guest</b></div><% } %>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

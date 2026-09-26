@@ -1,0 +1,450 @@
+<%- include('../partials/head') %>
+<%
+  const v = values || {};
+  const errs = errors || {};
+  const isEdit = mode === 'edit';
+  const action = isEdit ? `/admin/products/${product.id}` : '/admin/products';
+  const imgs = Array.isArray(v.images) ? v.images.filter(Boolean) : (typeof v.images === 'string' && v.images ? [v.images] : []);
+  const opts = v.options_list || v.options || [];
+  const optList = Array.isArray(opts) ? opts : [];
+  const varList = (typeof variants !== 'undefined' && variants) ? variants : [];
+  const status = v.status || 'draft';
+%>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: isEdit ? 'Edit product' : 'Upload a product', crumbSub: isEdit ? product.name : 'Owner only' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1><%= isEdit ? 'Edit product' : 'Upload a new product' %></h1>
+          <p class="sub">
+            <% if (isEdit) { %>
+              <a href="/p/<%= product.slug %>" target="_blank"><%= product.slug %></a> · created <%= dateFmt(product.created_at, 'D MMM YYYY') %> · updated <%= timeAgo(product.updated_at) %>
+              <% if (typeof sales !== 'undefined' && sales) { %> · <b><%= sales.units %></b> units sold · <b><%= settings.currency_symbol %> <%= money(sales.revenue) %></b> revenue<% } %>
+            <% } else { %>
+              You are signed in as the store owner — the only role permitted to add products to this catalogue.
+            <% } %>
+          </p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/products"><%- icon('arrow-left') %> All products</a>
+          <% if (isEdit) { %>
+            <a class="btn ghost" href="/p/<%= product.slug %>" target="_blank"><%- icon('eye') %> View on store</a>
+            <form action="/admin/products/<%= product.id %>/duplicate" method="post" style="display:inline">
+              <button class="btn ghost" type="submit"><%- icon('copy') %> Duplicate</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+
+      <% if (!isOwner) { %>
+        <div class="card pad" style="border-left:4px solid var(--red);margin-bottom:1rem">
+          <b><%- icon('lock') %> Owner access required</b>
+          <p class="muted small" style="margin:.3rem 0 0">Products can only be uploaded and edited by the store owner. This form is read-only for staff accounts.</p>
+        </div>
+      <% } %>
+
+      <% if (Object.keys(errs).length) { %>
+        <div class="card pad" style="border-left:4px solid var(--red);margin-bottom:1rem">
+          <b><%- icon('alert') %> Please fix <%= Object.keys(errs).length %> problem<%= Object.keys(errs).length === 1 ? '' : 's' %> before saving</b>
+          <ul style="margin:.5rem 0 0;padding-left:1.1rem;list-style:disc">
+            <% Object.keys(errs).forEach(function (k) { %><li class="small" style="color:var(--red)"><%= errs[k] %></li><% }); %>
+          </ul>
+        </div>
+      <% } %>
+
+      <form action="<%= action %>" method="post" enctype="multipart/form-data" id="productForm" data-product-form <%= isOwner ? '' : 'data-readonly' %>>
+        <div class="grid g-2-1" style="gap:1rem;align-items:start">
+          <div class="stack" style="gap:1rem">
+            <%# ─────────────────────── basics ─────────────────────── %>
+            <div class="card">
+              <div class="card-head"><div><h2>1 · Product basics</h2><span class="sub">Name, category, brand and how shoppers will find it</span></div></div>
+              <div class="card-body">
+                <div class="field">
+                  <label class="label" for="name">Product name <span style="color:var(--red)">*</span></label>
+                  <input class="input <%= errs.name ? 'err' : '' %>" id="name" name="name" value="<%= v.name || '' %>" required minlength="3" placeholder="e.g. Samsung Galaxy A55 5G — 256GB, Awesome Navy">
+                  <span class="hint">Include brand, model and the key spec. This is the title shoppers see and search.</span>
+                  <% if (errs.name) { %><span class="error-text"><%= errs.name %></span><% } %>
+                </div>
+
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="slug">URL slug</label>
+                    <div class="input-group"><span class="prefix">/p/</span>
+                      <input class="input" id="slug" name="slug" value="<%= v.slug || '' %>" placeholder="auto-generated from the name" data-slug>
+                    </div>
+                    <span class="hint">Leave blank to generate automatically.</span>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="sku">SKU / product code</label>
+                    <input class="input" id="sku" name="sku" value="<%= v.sku || '' %>" placeholder="BIA-PHN-001">
+                    <span class="hint">Your own reference — used for stocktakes and CSV import matching.</span>
+                  </div>
+                </div>
+
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="category_id">Category <span style="color:var(--red)">*</span></label>
+                    <select class="select <%= errs.category_id ? 'err' : '' %>" id="category_id" name="category_id" required>
+                      <option value="">Choose a category…</option>
+                      <% categories.forEach(function (c) { %>
+                        <option value="<%= c.id %>" <%= Number(v.category_id) === c.id ? 'selected' : '' %>><%= c.name %></option>
+                        <% (c.children || []).forEach(function (sc) { %>
+                          <option value="<%= sc.id %>" <%= Number(v.category_id) === sc.id ? 'selected' : '' %>>&nbsp;&nbsp;└ <%= sc.name %></option>
+                        <% }); %>
+                      <% }); %>
+                    </select>
+                    <% if (errs.category_id) { %><span class="error-text"><%= errs.category_id %></span><% } %>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="brand_id">Brand</label>
+                    <select class="select" id="brand_id" name="brand_id">
+                      <option value="">No brand / unbranded</option>
+                      <% brands.forEach(function (b) { %>
+                        <option value="<%= b.id %>" <%= Number(v.brand_id) === b.id ? 'selected' : '' %>><%= b.name %></option>
+                      <% }); %>
+                    </select>
+                    <span class="hint">Missing a brand? <a href="/admin/brands" style="color:var(--orange);font-weight:800">Add it here</a>.</span>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="short_description">Short description <span class="muted">(shown under the title and on cards)</span></label>
+                  <textarea class="textarea <%= errs.short_description ? 'err' : '' %>" id="short_description" name="short_description" rows="2" maxlength="240" data-counter="240" placeholder="One or two lines selling the product — e.g. 6.6&quot; Super AMOLED, 50MP OIS camera, 5,000mAh, 25W fast charging, 2-year local warranty."><%= v.short_description || '' %></textarea>
+                  <% if (errs.short_description) { %><span class="error-text"><%= errs.short_description %></span><% } else { %><span class="hint" data-counter-out>0 / 240 characters</span><% } %>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="description">Full description</label>
+                  <textarea class="textarea" id="description" name="description" rows="10" placeholder="Write the detailed sales copy: what it is, what is in the box, key features, specifications, warranty and who it suits. Plain text and simple HTML are both fine."><%= v.description || '' %></textarea>
+                  <span class="hint">Tip: start with the benefit, then the specs. This text also feeds search engines.</span>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="tags">Tags <span class="muted">(comma separated)</span></label>
+                  <input class="input" id="tags" name="tags" value="<%= v.tags || '' %>" placeholder="5g, dual sim, samsung galaxy, android phone">
+                  <span class="hint">Tags improve on-site search — add colours, uses, audiences and common misspellings.</span>
+                </div>
+              </div>
+            </div>
+
+            <%# ─────────────────────── pricing ─────────────────────── %>
+            <div class="card">
+              <div class="card-head"><div><h2>2 · Pricing &amp; stock</h2><span class="sub">All amounts in <%= settings.currency %> (<%= settings.currency_symbol %>)</span></div>
+                <% if (typeof margin !== 'undefined' && margin !== null) { %><span class="badge <%= margin >= 30 ? 'success' : margin >= 15 ? 'warn' : 'danger' %>">Margin <%= margin %>%</span><% } %>
+              </div>
+              <div class="card-body">
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="price">Selling price <span style="color:var(--red)">*</span></label>
+                    <div class="input-group"><span class="prefix"><%= settings.currency_symbol %></span>
+                      <input class="input <%= errs.price ? 'err' : '' %>" id="price" name="price" type="number" step="0.01" min="0" value="<%= v.price !== undefined && v.price !== null ? v.price : '' %>" required data-price>
+                    </div>
+                    <% if (errs.price) { %><span class="error-text"><%= errs.price %></span><% } %>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="compare_at_price">Compare-at (“was”) price</label>
+                    <div class="input-group"><span class="prefix"><%= settings.currency_symbol %></span>
+                      <input class="input <%= errs.compare_at_price ? 'err' : '' %>" id="compare_at_price" name="compare_at_price" type="number" step="0.01" min="0" value="<%= v.compare_at_price || '' %>" data-compare>
+                    </div>
+                    <span class="hint" data-discount-hint>Higher than the selling price to show a discount badge.</span>
+                    <% if (errs.compare_at_price) { %><span class="error-text"><%= errs.compare_at_price %></span><% } %>
+                  </div>
+                </div>
+
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="cost_price">Cost price <span class="muted">(private — never shown to customers)</span></label>
+                    <div class="input-group"><span class="prefix"><%= settings.currency_symbol %></span>
+                      <input class="input <%= errs.cost_price ? 'err' : '' %>" id="cost_price" name="cost_price" type="number" step="0.01" min="0" value="<%= v.cost_price || '' %>" data-cost>
+                    </div>
+                    <span class="hint" data-margin-hint>Used to calculate your margin and stock valuation.</span>
+                    <% if (errs.cost_price) { %><span class="error-text"><%= errs.cost_price %></span><% } %>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="weight_kg">Weight (kg)</label>
+                    <input class="input" id="weight_kg" name="weight_kg" type="number" step="0.01" min="0" value="<%= v.weight_kg !== undefined && v.weight_kg !== null ? v.weight_kg : 0.5 %>">
+                    <span class="hint">Used for bulky-item delivery warnings.</span>
+                  </div>
+                </div>
+
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="label" for="stock">Stock on hand <span style="color:var(--red)">*</span></label>
+                    <input class="input <%= errs.stock ? 'err' : '' %>" id="stock" name="stock" type="number" min="0" step="1" value="<%= v.stock !== undefined && v.stock !== null ? v.stock : 0 %>" data-stock-input>
+                    <span class="hint">Set to 0 to mark the product sold out. Decrement automatically on each paid order.</span>
+                    <% if (errs.stock) { %><span class="error-text"><%= errs.stock %></span><% } %>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="low_stock_at">Low-stock alert at</label>
+                    <input class="input" id="low_stock_at" name="low_stock_at" type="number" min="0" step="1" value="<%= v.low_stock_at !== undefined && v.low_stock_at !== null ? v.low_stock_at : 5 %>">
+                    <span class="hint">You get a dashboard alert and notification when stock reaches this number.</span>
+                  </div>
+                </div>
+
+                <% if (isEdit) { %>
+                  <div class="row wrap" style="gap:.5rem;padding:.8rem;background:#F8FAFC;border:1px solid var(--line);border-radius:10px">
+                    <span class="badge outline">Sold: <%= product.sold_count || 0 %></span>
+                    <span class="badge outline">Views: <%= product.views_count || 0 %></span>
+                    <span class="badge outline">Rating: <%= product.rating_count ? Number(product.rating_avg).toFixed(1) + ' (' + product.rating_count + ')' : 'none yet' %></span>
+                    <% if (typeof sales !== 'undefined' && sales) { %>
+                      <span class="badge success">Revenue: <%= settings.currency_symbol %> <%= money(sales.revenue) %></span>
+                    <% } %>
+                    <% if (product.published_at) { %><span class="badge outline">Published <%= dateFmt(product.published_at, 'D MMM YYYY') %></span><% } %>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+
+            <%# ─────────────────────── media ─────────────────────── %>
+            <div class="card">
+              <div class="card-head"><div><h2>3 · Images</h2><span class="sub">Upload up to 8 — the first is the main image</span></div>
+                <span class="badge outline">JPG · PNG · WEBP · max 6MB each</span></div>
+              <div class="card-body">
+                <div class="uploader" id="uploader" data-upload-url="/admin/uploads">
+                  <span class="ico"><%- icon('upload') %></span>
+                  <b>Drag images here, or click to browse</b>
+                  <span>Files are resized to a 1200px web-optimised version and a 400px thumbnail automatically</span>
+                  <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                </div>
+                <div class="upload-progress" id="uploadProgress"><i style="width:0"></i></div>
+
+                <div class="upload-grid" id="uploadGrid" data-images-input="images">
+                  <% imgs.forEach(function (src, i) { %>
+                    <div class="upload-item <%= i === 0 ? 'primary' : '' %>" data-src="<%= src %>">
+                      <img src="<%= imgSrc(src, { w: 240, h: 240, hint: 'product', name: v.name || '' }) %>" alt="Product image <%= i + 1 %>" loading="lazy">
+                      <% if (i === 0) { %><span class="tag">Main</span><% } %>
+                      <div class="acts">
+                        <button type="button" title="Make main image" data-make-primary><%- icon('star') %></button>
+                        <button type="button" title="Remove image" data-remove-image><%- icon('trash') %></button>
+                      </div>
+                      <input type="hidden" name="images" value="<%= src %>">
+                    </div>
+                  <% }); %>
+                </div>
+                <input type="hidden" name="image" id="mainImageInput" value="<%= v.image || (imgs[0] || '') %>">
+
+                <div class="field" style="margin-top:1rem">
+                  <label class="label" for="images_extra">Or paste image URLs <span class="muted">(one per line)</span></label>
+                  <textarea class="textarea" id="images_extra" name="images_extra" rows="3" placeholder="https://…/photo-1.jpg"></textarea>
+                  <span class="hint">Useful for supplier-supplied photography. Uploaded files take priority.</span>
+                </div>
+              </div>
+            </div>
+
+            <%# ─────────────────────── options & variants ─────────────────────── %>
+            <div class="card">
+              <div class="card-head"><div><h2>4 · Options &amp; variants <span class="muted" style="font-weight:600">(optional)</span></h2>
+                <span class="sub">Sizes, colours, storage capacities — each variant can have its own SKU, price adjustment and stock</span></div></div>
+              <div class="card-body">
+                <div class="field">
+                  <label class="label">Options</label>
+                  <div id="optionsList" class="stack" style="gap:.5rem">
+                    <% if (optList.length) { %>
+                      <% optList.forEach(function (o) { %>
+                        <div class="form-grid span2" data-option-row style="grid-template-columns:1fr 2fr 40px">
+                          <input class="input" name="option_name" value="<%= o.name %>" placeholder="Option name (e.g. Colour)">
+                          <input class="input" name="option_values" value="<%= (o.values || []).join(', ') %>" placeholder="Values, comma separated (e.g. Black, Silver, Gold)">
+                          <button class="btn ghost" type="button" data-remove-option title="Remove option"><%- icon('trash') %></button>
+                        </div>
+                      <% }); %>
+                    <% } %>
+                  </div>
+                  <button class="btn ghost sm" type="button" id="addOption" style="margin-top:.6rem"><%- icon('plus') %> Add option</button>
+                  <span class="hint">Options are what shoppers pick; variants are the concrete combinations you price and stock.</span>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="variant-head" style="display:grid;grid-template-columns:2fr 1.1fr .9fr .8fr 34px;gap:.5rem;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:.4rem">
+                  <span>Variant title</span><span>SKU</span><span>Price ±</span><span>Stock</span><span></span>
+                </div>
+                <div id="variantList" class="stack" style="gap:.45rem">
+                  <% varList.forEach(function (vr) { %>
+                    <div class="variant-row">
+                      <input class="input" name="variant_title" value="<%= vr.title %>" placeholder="e.g. 256GB / Navy">
+                      <input class="input" name="variant_sku" value="<%= vr.sku || '' %>" placeholder="SKU">
+                      <input class="input" name="variant_delta" type="number" step="0.01" value="<%= vr.price_delta || 0 %>" placeholder="0.00" title="Added to (or subtracted from) the base price">
+                      <input class="input" name="variant_stock" type="number" min="0" step="1" value="<%= vr.stock || 0 %>" placeholder="0">
+                      <button class="rm" type="button" data-remove-variant title="Remove variant"><%- icon('trash') %></button>
+                    </div>
+                  <% }); %>
+                </div>
+                <button class="btn ghost sm" type="button" id="addVariant" style="margin-top:.6rem"><%- icon('plus') %> Add variant</button>
+                <span class="hint">When variants exist, total stock is the sum of variant stock and the base price is adjusted per variant.</span>
+              </div>
+            </div>
+
+            <%# ─────────────────────── SEO ─────────────────────── %>
+            <div class="card">
+              <div class="card-head"><div><h2>5 · Search engine listing <span class="muted" style="font-weight:600">(optional)</span></h2>
+                <span class="sub">How this product appears on Google and in social shares</span></div></div>
+              <div class="card-body">
+                <div class="field">
+                  <label class="label" for="meta_title">Meta title</label>
+                  <input class="input" id="meta_title" name="meta_title" value="<%= v.meta_title || '' %>" maxlength="70" data-counter="70" placeholder="Defaults to the product name + store name">
+                  <span class="hint" data-counter-out>0 / 70 characters</span>
+                </div>
+                <div class="field">
+                  <label class="label" for="meta_description">Meta description</label>
+                  <textarea class="textarea" id="meta_description" name="meta_description" rows="3" maxlength="170" data-counter="170" placeholder="A 1–2 sentence summary shown in search results."><%= v.meta_description || '' %></textarea>
+                  <span class="hint" data-counter-out>0 / 170 characters</span>
+                </div>
+                <div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:.8rem">
+                  <div class="tiny" style="color:#1A0DAB;font-weight:700;font-size:.9rem" data-preview-title><%= v.meta_title || v.name || 'Product name' %> | <%= settings.store_name %></div>
+                  <div class="tiny" style="color:#006621" data-preview-url><%= cfg.publicUrl %>/p/<%= v.slug || 'product-slug' %></div>
+                  <div class="tiny" style="color:#545454;line-height:1.5" data-preview-desc><%= v.meta_description || v.short_description || 'Your meta description preview appears here.' %></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%# ─────────────────────── right rail ─────────────────────── %>
+          <aside class="stack" style="gap:1rem;position:sticky;top:calc(var(--top-h) + 14px);align-self:start">
+            <div class="card">
+              <div class="card-head"><div><h2>Publish</h2><span class="sub">Visibility on the storefront</span></div></div>
+              <div class="card-body">
+                <div class="field">
+                  <label class="label" for="status">Status</label>
+                  <select class="select" id="status" name="status">
+                    <option value="active" <%= status === 'active' ? 'selected' : '' %>>Active — live on the store</option>
+                    <option value="draft" <%= status === 'draft' ? 'selected' : '' %>>Draft — hidden, work in progress</option>
+                    <option value="archived" <%= status === 'archived' ? 'selected' : '' %>>Archived — hidden, keeps order history</option>
+                  </select>
+                </div>
+                <label class="switch" style="margin-bottom:.7rem">
+                  <input type="checkbox" name="is_active" value="1" <%= (v.is_active === undefined ? true : v.is_active) ? 'checked' : '' %>>
+                  <span></span>
+                  <b style="font-size:.85rem;margin-left:.6rem">Visible to customers</b>
+                </label>
+                <label class="switch" style="margin-bottom:.9rem">
+                  <input type="checkbox" name="is_featured" value="1" <%= v.is_featured ? 'checked' : '' %>>
+                  <span></span>
+                  <b style="font-size:.85rem;margin-left:.6rem">Feature on the homepage</b>
+                </label>
+                <div class="hint" style="margin-bottom:.9rem">A product only appears on the storefront when its status is <b>active</b> <i>and</i> “visible to customers” is on.</div>
+              </div>
+              <div class="card-foot stack" style="gap:.45rem">
+                <button class="btn primary lg block" type="submit" name="save" value="1" <%= isOwner ? '' : 'disabled' %>>
+                  <%- icon('save') %> <%= isEdit ? 'Save changes' : 'Publish product' %>
+                </button>
+                <button class="btn ghost block" type="submit" name="save_and_new" value="1" <%= isOwner ? '' : 'disabled' %>>
+                  <%- icon('plus') %> Save &amp; add another
+                </button>
+                <% if (isEdit) { %>
+                  <button class="btn ghost block" type="submit" name="view_on_store" value="1" <%= isOwner ? '' : 'disabled' %>>
+                    <%- icon('eye') %> Save &amp; view on store
+                  </button>
+                <% } %>
+                <a class="btn ghost block" href="/admin/products">Cancel</a>
+              </div>
+            </div>
+
+            <% if (isEdit) { %>
+              <div class="card">
+                <div class="card-head"><div><h2>Live preview</h2></div></div>
+                <div class="card-body">
+                  <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff">
+                    <div style="aspect-ratio:1/1;background:#F4F7FA;display:grid;place-items:center;overflow:hidden">
+                      <img id="previewImg" src="<%= imgSrc(v.image || imgs[0] || '', { w: 400, h: 400, hint: v.category_name || 'product', name: v.name || '' }) %>" alt="" style="width:100%;height:100%;object-fit:cover">
+                    </div>
+                    <div style="padding:.7rem">
+                      <b id="previewName" style="display:block;font-size:.88rem;line-height:1.35"><%= v.name || 'Product name' %></b>
+                      <div style="margin-top:.35rem">
+                        <b id="previewPrice" style="font-size:1.05rem;color:var(--orange-d)"><%= settings.currency_symbol %> <%= money(v.price || 0) %></b>
+                        <span id="previewCompare" class="muted" style="text-decoration:line-through;font-size:.78rem;margin-left:.3rem"><%= v.compare_at_price ? settings.currency_symbol + ' ' + money(v.compare_at_price) : '' %></span>
+                      </div>
+                      <div id="previewStock" style="margin-top:.3rem"><span class="stock-pill <%= (v.stock || 0) <= 0 ? 'out' : (v.stock || 0) <= (v.low_stock_at || 5) ? 'low' : 'in' %>"><%= v.stock || 0 %> in stock</span></div>
+                    </div>
+                  </div>
+                  <a class="btn ghost sm block" style="margin-top:.7rem" href="/p/<%= product.slug %>" target="_blank"><%- icon('external') %> Open the real page</a>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-head"><div><h2>Recent reviews</h2><span class="sub"><%= product.rating_count || 0 %> total</span></div>
+                  <a class="btn ghost sm" href="/admin/marketing/reviews">Moderate</a></div>
+                <div class="card-body" style="padding:.5rem .8rem">
+                  <% if (typeof reviews !== 'undefined' && reviews.length) { %>
+                    <% reviews.forEach(function (r) { %>
+                      <div style="padding:.5rem 0;border-bottom:1px solid var(--line-2)">
+                        <div class="row between"><b style="font-size:.82rem"><%= r.name || 'Customer' %></b>
+                          <span class="badge gold" style="font-size:.66rem">★ <%= r.rating %></span></div>
+                        <% if (r.title) { %><div class="small" style="font-weight:700"><%= r.title %></div><% } %>
+                        <p class="small muted" style="margin:.2rem 0 0"><%= truncate(r.body || '', 120) %></p>
+                        <time class="tiny"><%= timeAgo(r.created_at) %> · <%= r.is_approved ? 'published' : 'awaiting moderation' %></time>
+                      </div>
+                    <% }); %>
+                  <% } else { %>
+                    <div class="empty"><span class="ico">&#11088;</span><p class="muted small">No reviews yet.</p></div>
+                  <% } %>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-head"><div><h2>Danger zone</h2></div></div>
+                <div class="card-body stack" style="gap:.5rem">
+                  <form action="/admin/products/<%= product.id %>/delete" method="post"
+                        onsubmit="return confirm('Delete “<%= product.name.replace(/'/g, "\\'") %>” permanently?\n\nIf it has order history, use Archive instead so your sales records stay intact.')">
+                    <button class="btn danger block" type="submit" <%= isOwner ? '' : 'disabled' %>><%- icon('trash') %> Delete this product</button>
+                  </form>
+                  <% if (status !== 'archived') { %>
+                    <form action="/admin/products/bulk" method="post">
+                      <input type="hidden" name="ids" value="<%= product.id %>">
+                      <input type="hidden" name="action" value="archive">
+                      <button class="btn ghost block" type="submit"><%- icon('archive') %> Archive instead (keeps history)</button>
+                    </form>
+                  <% } %>
+                  <p class="tiny muted">Deleting removes the product and its variants. Order lines already placed keep their recorded name and price.</p>
+                </div>
+              </div>
+            <% } else { %>
+              <div class="card">
+                <div class="card-head"><div><h2>Checklist</h2><span class="sub">Before you publish</span></div></div>
+                <div class="card-body">
+                  <ul class="stack small" style="gap:.45rem;list-style:none;padding:0;margin:0">
+                    <li class="row" style="gap:.4rem"><span style="color:var(--green)"><%- icon('check-circle') %></span> Name includes brand, model and key spec</li>
+                    <li class="row" style="gap:.4rem"><span style="color:var(--green)"><%- icon('check-circle') %></span> Category chosen so it appears in the menu</li>
+                    <li class="row" style="gap:.4rem"><span style="color:var(--green)"><%- icon('check-circle') %></span> Cost price filled in so margins are tracked</li>
+                    <li class="row" style="gap:.4rem"><span style="color:var(--green)"><%- icon('check-circle') %></span> At least one clear photo uploaded</li>
+                    <li class="row" style="gap:.4rem"><span style="color:var(--green)"><%- icon('check-circle') %></span> Stock count matches the physical shelf</li>
+                    <li class="row" style="gap:.4rem"><span style="color:var(--green)"><%- icon('check-circle') %></span> Description mentions warranty and box contents</li>
+                  </ul>
+                </div>
+              </div>
+            <% } %>
+          </aside>
+        </div>
+
+        <div class="sticky-actions">
+          <span class="muted small">Owner-only form · every save is written to the audit log</span>
+          <div class="row" style="gap:.5rem">
+            <a class="btn ghost" href="/admin/products">Cancel</a>
+            <button class="btn primary" type="submit" <%= isOwner ? '' : 'disabled' %>><%- icon('save') %> <%= isEdit ? 'Save changes' : 'Publish product' %></button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<template id="optionTemplate">
+  <div class="form-grid span2" data-option-row style="grid-template-columns:1fr 2fr 40px">
+    <input class="input" name="option_name" placeholder="Option name (e.g. Colour)">
+    <input class="input" name="option_values" placeholder="Values, comma separated (e.g. Black, Silver, Gold)">
+    <button class="btn ghost" type="button" data-remove-option title="Remove option"><%- icon('trash') %></button>
+  </div>
+</template>
+<template id="variantTemplate">
+  <div class="variant-row">
+    <input class="input" name="variant_title" placeholder="e.g. 256GB / Navy">
+    <input class="input" name="variant_sku" placeholder="SKU">
+    <input class="input" name="variant_delta" type="number" step="0.01" value="0" placeholder="0.00">
+    <input class="input" name="variant_stock" type="number" min="0" step="1" value="0" placeholder="0">
+    <button class="rm" type="button" data-remove-variant title="Remove variant"><%- icon('trash') %></button>
+  </div>
+</template>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>
