@@ -1,0 +1,76 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container narrow" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+
+  <div class="page-head" style="border-radius:var(--radius);padding:2rem;margin-bottom:1.4rem">
+    <div>
+      <span class="badge gold">Why <%= settings.store_name %> is not a marketplace</span>
+      <h1 style="color:#fff;margin:.5rem 0 .4rem">Our single-seller promise</h1>
+      <p style="color:#C7D6E2;max-width:76ch;margin:0">Every product on this website is bought, owned, inspected, stored, photographed, dispatched and warranted by one company — ours. There is no “other seller”, no anonymous trader and nobody to pass the blame to.</p>
+    </div>
+  </div>
+
+  <div class="prose">
+    <h2>The problem with marketplaces</h2>
+    <p>On a marketplace, the site you trust is only an introducer. The person who actually sells you the phone, the fridge or the bag of rice is one of thousands of traders you have never met. When the item arrives cracked, or does not arrive at all, or turns out to be a clone, you find yourself in a three-way argument: the platform says contact the seller, the seller stops replying, and your money sits in escrow for weeks.</p>
+    <p>We built <%= settings.store_name %> the other way round. We took the harder, slower, more capital-intensive route — holding our own stock — because it is the only structure in which a customer always has one clearly responsible counterparty.</p>
+
+    <h2>What this means for you in practice</h2>
+    <div class="grid g-2" style="gap:.9rem;margin:1rem 0">
+      <% [
+        ['shield', 'One party is accountable', 'There is a single name on your receipt, a single phone number to call and a single company that can authorise your refund today.'],
+        ['search', 'Genuine stock, verified on arrival', 'We buy from authorised distributors and check serial numbers, seals and packaging when goods land. Fakes are destroyed, not discounted.'],
+        ['box', 'Honest, live stock counts', 'The quantity on the product page is the quantity physically on our shelf right now — not a promise from a trader who may not have it.'],
+        ['truck', 'Our own delivery', 'Riders we employ or contract directly, who call before arriving. Not a stranger with a dispatch bike whose name nobody knows.'],
+        ['wallet', 'Refunds we control', 'Because we hold the money relationship, refunds go out on our instruction — MoMo within 24 hours, cards within 3–7 working days.'],
+        ['star', 'Warranty honoured by us', 'You do not have to find a service centre or argue with a manufacturer. Bring the item and the receipt back to us.']
+      ].forEach(function (f) { %>
+        <div class="card pad">
+          <div class="row" style="gap:.6rem;align-items:flex-start">
+            <span class="ico" style="width:38px;height:38px;border-radius:10px;background:#FFF3EA;color:#F26B21;display:grid;place-items:center;flex:none"><%- icon(f[0]) %></span>
+            <span><b style="display:block;font-size:.92rem"><%= f[1] %></b><span class="small muted"><%= f[2] %></span></span>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+
+    <h2>Can I sell my products on <%= settings.store_name %>?</h2>
+    <p><b>No — and this is a deliberate business decision, not an oversight.</b> We do not run a vendor onboarding programme, we do not accept dropshipping arrangements, and we do not list products we do not physically hold. The product upload function in our admin panel is restricted to the business owner alone; even our own staff cannot add catalogue items.</p>
+    <p>That restriction exists so that every listing on this site has passed one person’s judgement about quality, price and whether we are willing to stand behind it. Opening the catalogue to outside sellers would break that guarantee overnight.</p>
+
+    <h2>What we do instead</h2>
+    <p>If you manufacture, import or distribute goods in Ghana and would like to see them on our shelves, we are always interested in <b>wholesale supply</b>:</p>
+    <ul>
+      <li><b>Distributors and importers</b> — send us your product list, wholesale prices, minimum order quantities and warranty terms. We buy outright and take the stock risk ourselves.</li>
+      <li><b>Local manufacturers and makers</b> — Ghanaian-made goods are a priority for us. Tell us what you produce and at what capacity.</li>
+      <li><b>Farmers and food producers</b> — for our groceries department we buy directly where volumes allow.</li>
+      <li><b>Logistics partners</b> — we contract riders and vans for regional delivery.</li>
+      <li><b>Staff</b> — we hire warehouse pickers, riders, customer-support agents and photographers. Ask about current openings.</li>
+    </ul>
+
+    <h2>How to approach us</h2>
+    <p>Email <%= settings.support_email %> with the subject line <b>“Wholesale supply”</b> and include:</p>
+    <ol>
+      <li>your company name, TIN and location;</li>
+      <li>the products, with photographs and specifications;</li>
+      <li>wholesale price and recommended retail price in Ghana cedis;</li>
+      <li>minimum order quantity and lead time;</li>
+      <li>warranty terms and your returns policy to us;</li>
+      <li>a contact name and phone number.</li>
+    </ol>
+    <p>We review supply proposals every week. If your product fits our range and pricing, we will request samples, inspect them in person and, if they pass, place a first order. We pay our suppliers on agreed terms and we do not ask for listing fees, placement fees or commissions — we simply buy the goods.</p>
+
+    <div class="inline-alert"><b>Warning:</b> nobody is authorised to collect a “registration fee”, “vendor fee” or “listing fee” on behalf of <%= settings.store_name %>. We do not charge suppliers to be considered. If anybody asks you for money to sell through us, it is a scam — report it to us immediately on <%= settings.support_phone %>.</div>
+
+    <h2>The trade-off, honestly</h2>
+    <p>A single-seller store cannot offer the infinite range of a marketplace. We stock <%= settings.stat_products || '96' %> product lines rather than a million, and if you want something obscure we probably do not have it. What we can promise is that everything we do have is genuine, in stock, fairly priced, delivered by people we control and backed by a warranty we honour ourselves. For most Ghanaian shoppers buying a phone, an appliance, groceries or a pair of shoes, that trade is worth making.</p>
+
+    <div class="row wrap" style="gap:.6rem;margin-top:1.4rem">
+      <a class="btn primary lg" href="/contact"><%- icon('mail') %> Propose a product</a>
+      <a class="btn ghost lg" href="/about"><%- icon('info') %> More about us</a>
+      <a class="btn ghost lg" href="/deals"><%- icon('fire') %> See what we stock</a>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

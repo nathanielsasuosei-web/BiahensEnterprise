@@ -1,0 +1,128 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Reviews' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Review moderation</h1>
+          <p class="sub"><%= counts.all %> review<%= counts.all === 1 ? '' : 's' %> · average <b><%= counts.avg %> ★</b> · <%= counts.pending %> waiting for you.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/marketing/promotions"><%- icon('fire') %> Promotions</a>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#FFB300"><div class="k"><span class="ico"><%- icon('clock') %></span> Pending</div><div class="v"><%= counts.pending || 0 %></div><div class="d">Not yet published</div></div>
+        <div class="kpi" style="--accent:#12805C"><div class="k"><span class="ico"><%- icon('check-circle') %></span> Published</div><div class="v"><%= counts.approved || 0 %></div><div class="d">Visible on the storefront</div></div>
+        <div class="kpi" style="--accent:#D64545"><div class="k"><span class="ico"><%- icon('alert') %></span> 1–2 star</div><div class="v"><%= counts.low %></div><div class="d">Read these first — they signal real problems</div></div>
+        <div class="kpi" style="--accent:#0F2A43"><div class="k"><span class="ico"><%- icon('star') %></span> Average rating</div><div class="v"><%= counts.avg %> ★</div><div class="d">Across published reviews</div></div>
+      </div>
+
+      <div class="tabs">
+        <% [['pending', 'Awaiting moderation', counts.pending || 0], ['approved', 'Published', counts.approved || 0],
+            ['low', '1–2 star', counts.low], ['replied', 'Replied', 0], ['all', 'Everything', counts.all]].forEach(function (t) { %>
+          <a class="tab <%= filter === t[0] ? 'active' : '' %>" href="/admin/marketing/reviews?filter=<%= t[0] %><%= q ? '&q=' + encodeURIComponent(q) : '' %>">
+            <%= t[1] %><% if (t[2]) { %> <span class="n"><%= t[2] %></span><% } %></a>
+        <% }); %>
+      </div>
+
+      <form class="toolbar" method="get" action="/admin/marketing/reviews">
+        <input type="hidden" name="filter" value="<%= filter %>">
+        <div class="search" style="flex:1;min-width:220px">
+          <input class="input" type="search" name="q" value="<%= q %>" placeholder="Search author, title, body or product…">
+        </div>
+        <button class="btn ghost" type="submit"><%- icon('search') %> Search</button>
+        <a class="btn ghost" href="/admin/marketing/reviews">Reset</a>
+      </form>
+
+      <div class="stack" style="gap:.8rem">
+        <% if (!reviews.length) { %>
+          <div class="card"><div class="empty" style="padding:2.4rem">
+            <span class="ico">&#11088;</span>
+            <h3>Nothing in this view</h3>
+            <p class="muted"><%= filter === 'pending' ? 'Every review has been moderated — nice work.' : 'Try another filter.' %></p>
+          </div></div>
+        <% } %>
+        <% reviews.forEach(function (r) { %>
+          <div class="card">
+            <div class="card-body">
+              <div class="row between wrap" style="gap:.6rem;margin-bottom:.6rem">
+                <div class="row" style="gap:.7rem">
+                  <img class="thumb" style="width:48px;height:48px" src="<%= imgSrc(r.product_image, { w: 120, h: 120, hint: settings.store_name, name: r.product_name }) %>" alt="" loading="lazy">
+                  <span>
+                    <b style="font-size:.92rem"><a href="/p/<%= r.product_slug %>#reviews" target="_blank"><%= r.product_name %></a></b>
+                    <span class="muted" style="display:block;font-size:.76rem">
+                      by <b><%= r.author %></b> · <%= dateFmt(r.created_at, 'D MMM YYYY, h:mm a') %> (<%= timeAgo(r.created_at) %>)
+                      <% if (r.order_id) { %> · <span class="badge success" style="font-size:.62rem">verified purchase</span><% } %>
+                      <% if (r.helpful_count) { %> · <%= r.helpful_count %> found helpful<% } %>
+                    </span>
+                  </span>
+                </div>
+                <div class="row" style="gap:.35rem">
+                  <span class="badge gold big">★ <%= r.rating %>/5</span>
+                  <span class="badge <%= r.is_approved ? 'success' : 'warn' %>"><%= r.is_approved ? 'Published' : 'Pending' %></span>
+                  <% if (r.rating <= 2) { %><span class="badge danger">Low rating</span><% } %>
+                </div>
+              </div>
+
+              <% if (r.title) { %><b style="display:block;font-size:.95rem;margin-bottom:.2rem"><%= r.title %></b><% } %>
+              <p class="small" style="margin:0 0 .7rem"><%= r.body %></p>
+
+              <% if (r.reply) { %>
+                <div style="background:#F4F8FB;border-left:3px solid var(--navy-3);border-radius:0 8px 8px 0;padding:.6rem .8rem;margin-bottom:.7rem">
+                  <b class="small">Reply from <%= settings.store_name %></b>
+                  <p class="small" style="margin:.2rem 0 0"><%= r.reply %></p>
+                  <time class="tiny"><%= r.replied_at ? dateFmt(r.replied_at, 'D MMM YYYY') : '' %></time>
+                </div>
+              <% } %>
+
+              <div class="row wrap" style="gap:.4rem">
+                <% if (!r.is_approved) { %>
+                  <form action="/admin/marketing/reviews/<%= r.id %>/approve" method="post" style="display:inline">
+                    <button class="btn success sm" type="submit"><%- icon('check') %> Publish</button>
+                  </form>
+                <% } else { %>
+                  <form action="/admin/marketing/reviews/<%= r.id %>/hide" method="post" style="display:inline">
+                    <button class="btn ghost sm" type="submit"><%- icon('eye-off') %> Unpublish</button>
+                  </form>
+                <% } %>
+                <button class="btn ghost sm" type="button" data-reply-toggle="<%= r.id %>"><%- icon('message') %> <%= r.reply ? 'Edit reply' : 'Reply' %></button>
+                <a class="btn ghost sm" href="/admin/customers?q=<%= encodeURIComponent(r.author) %>"><%- icon('user') %> Find customer</a>
+                <form action="/admin/marketing/reviews/<%= r.id %>/delete" method="post" style="display:inline;margin-left:auto"
+                      onsubmit="return confirm('Delete this review permanently? The product rating is recalculated.')">
+                  <button class="btn ghost sm" type="submit" style="color:var(--red)"><%- icon('trash') %> Delete</button>
+                </form>
+              </div>
+
+              <form action="/admin/marketing/reviews/<%= r.id %>/reply" method="post" data-reply-form="<%= r.id %>" style="display:none;margin-top:.7rem">
+                <div class="field">
+                  <label class="label" for="reply-<%= r.id %>">Public reply <span class="muted">(shown under the review)</span></label>
+                  <textarea class="textarea" id="reply-<%= r.id %>" name="reply" rows="3" maxlength="800" placeholder="Thank the customer, address the issue and say what you have done about it."><%= r.reply || '' %></textarea>
+                </div>
+                <div class="row" style="gap:.4rem">
+                  <button class="btn primary sm" type="submit"><%- icon('send') %> Publish reply</button>
+                  <% if (r.reply) { %>
+                    <button class="btn ghost sm" type="submit" name="reply" value=""><%- icon('trash') %> Remove reply</button>
+                  <% } %>
+                  <button class="btn ghost sm" type="button" data-reply-toggle="<%= r.id %>">Close</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+
+      <% if (pager.pages > 1) { %>
+        <div class="card" style="margin-top:1rem"><div class="card-foot">
+          <%- include('../partials/pager', { pager: pager, filters: { filter: filter, q: q } }) %>
+        </div></div>
+      <% } %>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

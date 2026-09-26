@@ -1,0 +1,458 @@
+<%- include('../partials/head') %>
+<%
+  const imgs = product.images_list.length ? product.images_list : [null];
+  const defaultVariant = product.variants.length ? product.variants.find(function (v) { return v.stock > 0; }) || product.variants[0] : null;
+  const currentPrice = defaultVariant ? product.price + defaultVariant.price_delta : product.price;
+  const off = discountPercent(product.price, product.compare_at_price);
+%>
+<%- include('../partials/header') %>
+
+<main class="container" id="main" style="padding:1rem 0 2.4rem">
+  <nav class="breadcrumbs dark" aria-label="Breadcrumb">
+    <% breadcrumbs.forEach(function (b, i) { %>
+      <% if (i) { %><span class="sep">/</span><% } %>
+      <% if (b.url && i < breadcrumbs.length - 1) { %><a href="<%= b.url %>"><%= b.label %></a>
+      <% } else { %><span class="cur"><%= truncate(b.label, 58) %></span><% } %>
+    <% }); %>
+  </nav>
+
+  <div class="product-layout">
+    <%# ─────────────────────────── gallery ─────────────────────────── %>
+    <div class="gallery">
+      <div class="gallery-main">
+        <img src="<%= imgSrc(imgs[0], { w: 900, h: 900, hint: product.category_name, name: product.name }) %>"
+             alt="<%= product.name %>" id="mainImage">
+        <div class="gallery-badge">
+          <% if (off >= 5) { %><span class="badge orange big">-<%= off %>% today</span><% } %>
+          <% if (!product.in_stock) { %><span class="badge danger big">Out of stock</span><% } else if (product.low_stock) { %><span class="badge warn big">Only <%= product.stock %> left</span><% } %>
+          <% if (product.is_featured) { %><span class="badge brand big"><%- icon('spark') %> Owner’s pick</span><% } %>
+        </div>
+        <div class="gallery-tools">
+          <button class="p-tool" type="button" data-wish="<%= product.id %>" aria-label="Add to wishlist" title="Save to wishlist"><%- icon('heart') %></button>
+          <button class="p-tool" type="button" data-print aria-label="Print this page" title="Print"><%- icon('printer') %></button>
+        </div>
+      </div>
+      <% if (imgs.length > 1) { %>
+      <div class="gallery-thumbs">
+        <% imgs.forEach(function (src, i) { %>
+          <button type="button" class="<%= i === 0 ? 'active' : '' %>"
+                  data-thumb="<%= imgSrc(src, { w: 900, h: 900, hint: product.category_name, name: product.name, palette: i }) %>"
+                  aria-label="View image <%= i + 1 %>">
+            <img src="<%= imgSrc(src, { w: 160, h: 160, hint: product.category_name, name: product.name, palette: i }) %>" alt="" loading="lazy">
+          </button>
+        <% }); %>
+      </div>
+      <% } %>
+
+      <div class="card pad mt" style="margin-top:1rem">
+        <div class="row" style="gap:.5rem;margin-bottom:.6rem"><b style="font-size:.9rem"><%- icon('shield') %> Buy with confidence</b></div>
+        <ul class="stack small" style="gap:.4rem">
+          <li class="row" style="gap:.4rem"><span style="color:#12805C">&#10003;</span> Genuine stock, serial-verified on arrival</li>
+          <li class="row" style="gap:.4rem"><span style="color:#12805C">&#10003;</span> <%= settings.return_days %>-day return window</li>
+          <li class="row" style="gap:.4rem"><span style="color:#12805C">&#10003;</span> <%= settings.warranty_note %></li>
+          <li class="row" style="gap:.4rem"><span style="color:#12805C">&#10003;</span> Sold directly by <%= settings.store_name %> — never a third party</li>
+        </ul>
+      </div>
+    </div>
+
+    <%# ─────────────────────────── details ─────────────────────────── %>
+    <div>
+      <% if (product.brand_name) { %>
+        <div class="p-brand" style="font-size:.76rem"><a href="/b/<%= product.brand_slug %>"><%= product.brand_name %></a>
+          <% if (product.category_name) { %> · <a href="/c/<%= product.category_slug %>"><%= product.category_name %></a><% } %></div>
+      <% } %>
+      <h1 class="p-hero-title"><%= product.name %></h1>
+
+      <div class="p-meta">
+        <% if (product.rating_count) { %>
+          <a href="#reviews" class="row" style="gap:.3rem"><%- stars(product.rating_avg) %> <b><%= Number(product.rating_avg).toFixed(1) %></b>
+            <span>(<%= product.rating_count %> review<%= product.rating_count === 1 ? '' : 's' %>)</span></a>
+        <% } else { %>
+          <span class="muted">No reviews yet — <a href="#reviews" style="color:#F26B21;font-weight:700">be the first</a></span>
+        <% } %>
+        <span class="muted">·</span>
+        <span class="muted"><%= product.sold_count %> sold</span>
+        <span class="muted">·</span>
+        <span class="muted"><%= product.views_count %> views</span>
+        <% if (product.sku) { %><span class="muted">·</span><span class="muted">SKU <%= product.sku %></span><% } %>
+      </div>
+
+      <div class="p-price-box">
+        <span class="now" id="productPrice"><%= settings.currency_symbol %> <%= Number(currentPrice).toFixed(2) %></span>
+        <% if (product.compare_at_price && product.compare_at_price > product.price) { %>
+          <span class="was"><%= settings.currency_symbol %> <%= Number(product.compare_at_price).toFixed(2) %></span>
+          <span class="save">Save <%= settings.currency_symbol %> <%= (product.compare_at_price - product.price).toFixed(2) %> (<%= off %>%)</span>
+        <% } %>
+        <div class="unit">
+          <% if (product.in_stock) { %>
+            <span class="p-stock in" id="variantStock"><%= product.low_stock ? `Hurry — only ${product.stock} left in stock` : `In stock · ${product.stock} available · ready to ship today` %></span>
+          <% } else { %>
+            <span class="p-stock out" id="variantStock">Out of stock — <a href="/contact" style="color:#F26B21">ask us to source it</a></span>
+          <% } %>
+          <% if (product.weight_kg) { %> · <%= Number(product.weight_kg).toFixed(2) %> kg<% } %>
+        </div>
+      </div>
+
+      <% if (product.short_description) { %>
+        <p class="muted" style="font-size:.93rem;margin-bottom:1rem"><%= product.short_description %></p>
+      <% } %>
+
+      <form action="/cart/add" method="post" id="buyForm">
+        <input type="hidden" name="product_id" value="<%= product.id %>">
+        <input type="hidden" name="variant_id" data-variant-input value="<%= defaultVariant ? defaultVariant.id : '' %>">
+
+        <% if (product.variants.length) { %>
+          <div class="opt-group">
+            <div class="label"><span>Choose an option <span style="color:#D64545">*</span></span>
+              <span class="muted small">Each option has its own price &amp; stock</span></div>
+            <div class="opt-swatches">
+              <% product.variants.forEach(function (v, i) { %>
+                <button type="button" class="opt-swatch <%= i === 0 ? 'active' : '' %>"
+                        data-variant-btn data-variant="<%= v.id %>"
+                        data-price="<%= product.price + v.price_delta %>" data-stock="<%= v.stock %>"
+                        <%= v.stock > 0 ? '' : 'disabled' %>>
+                  <%= v.title %>
+                  <small><%= v.stock > 0 ? settings.currency_symbol + ' ' + (product.price + v.price_delta).toFixed(2) + ' · ' + v.stock + ' left' : 'Sold out' %></small>
+                </button>
+              <% }); %>
+            </div>
+          </div>
+        <% } else if (product.options_list.length) { %>
+          <% product.options_list.forEach(function (o) { %>
+            <div class="opt-group">
+              <div class="label"><span><%= o.name %></span></div>
+              <div class="opt-swatches">
+                <% (o.values || []).forEach(function (v, i) { %>
+                  <button type="button" class="opt-swatch <%= i === 0 ? 'active' : '' %>" onclick="this.parentNode.querySelectorAll('.opt-swatch').forEach(function(b){b.classList.remove('active')});this.classList.add('active')"><%= v %></button>
+                <% }); %>
+              </div>
+            </div>
+          <% }); %>
+        <% } %>
+
+        <div class="row wrap" style="gap:.8rem;align-items:flex-end">
+          <div>
+            <div class="label" style="margin-bottom:.35rem">Quantity</div>
+            <div class="qty-box">
+              <button type="button" aria-label="Decrease quantity">−</button>
+              <input type="number" name="qty" value="1" min="1" max="<%= product.in_stock ? product.stock : 1 %>" aria-label="Quantity">
+              <button type="button" aria-label="Increase quantity">+</button>
+            </div>
+          </div>
+          <div class="grow small muted">
+            <% if (product.in_stock) { %>Max <%= product.stock %> per order · bulk enquiries welcome on <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" style="color:#F26B21;font-weight:700"><%= settings.support_phone %></a><% } %>
+          </div>
+        </div>
+
+        <div class="buy-row">
+          <button class="btn primary lg" type="submit" id="addToCartBtn" <%= product.in_stock ? '' : 'disabled' %>>
+            <%- icon('cart') %> Add to cart
+          </button>
+          <button class="btn gold lg" type="submit" name="buy_now" value="1" <%= product.in_stock ? '' : 'disabled' %>>
+            <%- icon('zap') %> Buy now
+          </button>
+        </div>
+        <div class="row wrap small muted" style="gap:1rem;margin-bottom:1rem">
+          <span class="row" style="gap:.35rem"><%- icon('wallet') %> MoMo · Card · Cash on delivery</span>
+          <span class="row" style="gap:.35rem"><%- icon('lock') %> Secure checkout</span>
+          <span class="row" style="gap:.35rem"><%- icon('refresh') %> <%= settings.return_days %>-day returns</span>
+        </div>
+      </form>
+
+      <div class="delivery-box">
+        <div class="row between" style="padding:0 0 .5rem">
+          <b style="font-size:.9rem"><%- icon('truck') %> Delivery &amp; pickup</b>
+          <span class="badge success">FREE above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %></span>
+        </div>
+        <div class="row" style="gap:.6rem;padding-bottom:.6rem">
+          <select class="select" data-ship-region style="max-width:230px" aria-label="Choose your region">
+            <option value="">Select your region…</option>
+            <% h.GHANA_REGIONS.forEach(function (r) { %><option value="<%= r %>"><%= r %></option><% }); %>
+          </select>
+          <span class="small" data-ship-quote></span>
+        </div>
+        <div class="row"><span class="ico"><%- icon('truck') %></span><div><b class="small">Standard delivery</b><div class="small muted">Same day in Accra &amp; Tema · 1–6 days elsewhere · <%= settings.currency_symbol %> <%= Number(settings.default_shipping_fee).toFixed(0) %></div></div></div>
+        <div class="row"><span class="ico" style="background:#FFF4DE;color:#9A6700"><%- icon('zap') %></span><div><b class="small">Express delivery</b><div class="small muted">Within 24 hours in Greater Accra · <%= settings.currency_symbol %> <%= Number(settings.express_shipping_fee).toFixed(0) %></div></div></div>
+        <div class="row"><span class="ico" style="background:#E8F1FA;color:#1D4E6B"><%- icon('store') %></span><div><b class="small">Pickup from our warehouse</b><div class="small muted"><%= settings.address_line %>, <%= settings.address_city %> · ready in 2–6 hours · free</div></div></div>
+        <div class="row"><span class="ico" style="background:#FCECEC;color:#D64545"><%- icon('refresh') %></span><div><b class="small">Returns</b><div class="small muted"><%= settings.return_days %> days for unused items in original packaging. <a href="/returns-refunds" style="color:#F26B21;font-weight:700">See policy</a></div></div></div>
+      </div>
+
+      <% if (product.tags) { %>
+      <div class="chips" style="margin-bottom:1rem">
+        <% String(product.tags).split(',').filter(Boolean).forEach(function (t) { %>
+          <a class="chip" href="/search?q=<%= encodeURIComponent(t.trim()) %>">#<%= t.trim() %></a>
+        <% }); %>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <%# ────────────────────────────── tabs ─────────────────────────────── %>
+  <section class="tabs">
+    <div class="tab-btns" role="tablist">
+      <button class="tab-btn active" type="button" data-tab="tab-description" role="tab">Description</button>
+      <button class="tab-btn" type="button" data-tab="tab-specs" role="tab">Specifications</button>
+      <button class="tab-btn" type="button" data-tab="reviews" role="tab">Reviews (<%= reviews.length %>)</button>
+      <button class="tab-btn" type="button" data-tab="tab-shipping" role="tab">Shipping &amp; returns</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-description" role="tabpanel">
+      <div class="grid g-2-1" style="gap:1.8rem">
+        <div class="prose">
+          <% if (product.description) { %>
+            <% String(product.description).split('\n').filter(function (l) { return l.trim(); }).forEach(function (para) { %>
+              <p><%= para %></p>
+            <% }); %>
+          <% } else { %>
+            <p><%= product.name %> is available now from <%= settings.store_name %>. All stock is held in our Accra warehouse, checked on arrival and covered by our <%= settings.return_days %>-day return policy.</p>
+          <% } %>
+          <% if (product.options_list.length) { %>
+            <h3>Available options</h3>
+            <ul>
+              <% product.options_list.forEach(function (o) { %>
+                <li><b><%= o.name %>:</b> <%= (o.values || []).join(', ') %></li>
+              <% }); %>
+            </ul>
+          <% } %>
+          <div class="callout" style="background:#FFF7F1;border-left:4px solid #F26B21;padding:.9rem 1.1rem;border-radius:0 10px 10px 0;margin-top:1.2rem">
+            <b>Questions about this item?</b> Call or WhatsApp <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" style="color:#F26B21;font-weight:800"><%= settings.support_phone %></a> — a real person from our Accra team answers during <%= settings.support_hours %>.
+          </div>
+        </div>
+        <div>
+          <div class="card pad">
+            <h3 style="margin-bottom:.7rem">At a glance</h3>
+            <div class="stat-line"><span class="muted">Brand</span><b><%= product.brand_name ? `<a href="/b/${product.brand_slug}">${product.brand_name}</a>` : '—' %></b></div>
+            <div class="stat-line"><span class="muted">Category</span><b><%= product.category_name ? `<a href="/c/${product.category_slug}">${product.category_name}</a>` : '—' %></b></div>
+            <div class="stat-line"><span class="muted">SKU</span><b><%= product.sku || '—' %></b></div>
+            <div class="stat-line"><span class="muted">Availability</span><b><%= product.in_stock ? product.stock + ' in stock' : 'Out of stock' %></b></div>
+            <div class="stat-line"><span class="muted">Weight</span><b><%= Number(product.weight_kg || 0).toFixed(2) %> kg</b></div>
+            <div class="stat-line"><span class="muted">Rating</span><b><%= product.rating_count ? Number(product.rating_avg).toFixed(1) + '/5 (' + product.rating_count + ')' : 'Not rated' %></b></div>
+            <div class="stat-line"><span class="muted">Units sold</span><b><%= product.sold_count %></b></div>
+            <div class="stat-line"><span class="muted">Listed</span><b><%= dateFmt(product.published_at || product.created_at) %></b></div>
+          </div>
+          <% if (related.length) { %>
+          <div class="card pad mt">
+            <h3 style="margin-bottom:.7rem">Customers also viewed</h3>
+            <div class="stack" style="gap:.65rem">
+              <% related.slice(0, 4).forEach(function (r) { %>
+                <a class="row" style="gap:.6rem" href="/p/<%= r.slug %>">
+                  <img src="<%= imgSrc(r.image, { w: 120, h: 120, hint: r.category_name, name: r.name }) %>" alt="" style="width:52px;height:52px;border-radius:9px;object-fit:cover" loading="lazy">
+                  <span class="grow"><b class="small clamp-2" style="display:block"><%= r.name %></b>
+                    <span class="small" style="color:#F26B21;font-weight:800"><%= settings.currency_symbol %> <%= Number(r.price).toFixed(2) %></span></span>
+                </a>
+              <% }); %>
+            </div>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-specs" role="tabpanel">
+      <div class="grid g-2" style="gap:1.4rem">
+        <table class="spec-table">
+          <tbody>
+            <tr><th>Product name</th><td><%= product.name %></td></tr>
+            <tr><th>Brand</th><td><%= product.brand_name || 'Unbranded' %></td></tr>
+            <tr><th>Category</th><td><%= product.category_name || '—' %></td></tr>
+            <tr><th>SKU</th><td><%= product.sku || '—' %></td></tr>
+            <tr><th>Condition</th><td>New unless stated in the title (e.g. “Refurbished”)</td></tr>
+            <tr><th>Warranty</th><td><%= settings.warranty_note %></td></tr>
+            <tr><th>Weight</th><td><%= Number(product.weight_kg || 0).toFixed(2) %> kg</td></tr>
+            <tr><th>In the box</th><td>Product, original retail packaging, documentation and warranty card where applicable</td></tr>
+          </tbody>
+        </table>
+        <div>
+          <table class="spec-table">
+            <tbody>
+              <% if (product.variants.length) { %>
+                <tr><th>Options</th><td><%= product.variants.map(function (v) { return v.title; }).join(' · ') %></td></tr>
+              <% } %>
+              <% String(product.tags || '').split(',').filter(Boolean).forEach(function (t) { %>
+                <tr><th>Feature</th><td><%= t.trim() %></td></tr>
+              <% }); %>
+              <tr><th>Delivery</th><td>Standard 1–6 days nationwide · Express 24h in Accra · Free pickup</td></tr>
+              <tr><th>Returns</th><td><%= settings.return_days %> days, unused, original packaging</td></tr>
+              <tr><th>Seller</th><td><%= settings.store_name %> (direct — no third-party sellers)</td></tr>
+            </tbody>
+          </table>
+          <div class="inline-alert" style="margin-top:1rem">
+            <b>Specs look wrong?</b> We publish exactly what is in the box. Tell us at
+            <a href="mailto:<%= settings.support_email %>" style="color:#F26B21;font-weight:700"><%= settings.support_email %></a> and we will correct it within a day.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="reviews" role="tabpanel">
+      <div class="review-summary">
+        <div class="review-big">
+          <div class="n"><%= Number(product.rating_avg).toFixed(1) %></div>
+          <%- stars(product.rating_avg) %>
+          <div class="small muted" style="margin-top:.35rem"><%= product.rating_count %> verified review<%= product.rating_count === 1 ? '' : 's' %></div>
+        </div>
+        <div>
+          <% [5,4,3,2,1].forEach(function (star) { %>
+            <% const n = breakdown[star] || 0; const pctv = product.rating_count ? Math.round(n / product.rating_count * 100) : 0; %>
+            <div class="bar-row"><span style="width:44px"><%= star %> &#9733;</span><span class="bar"><i style="width:<%= pctv %>%"></i></span><span style="width:52px;text-align:right" class="muted"><%= n %> (<%= pctv %>%)</span></div>
+          <% }); %>
+          <div class="small muted" style="margin-top:.7rem">Reviews are moderated before publishing. Only customers who actually bought from us can rate an item.</div>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1.6rem;align-items:start">
+        <div>
+          <% if (!reviews.length) { %>
+            <div class="empty-state" style="padding:2rem">
+              <div class="ico">&#128172;</div>
+              <h3>No reviews yet</h3>
+              <p>Bought this item? Your experience helps other shoppers in Ghana decide.</p>
+            </div>
+          <% } %>
+          <% reviews.forEach(function (r) { %>
+            <article class="review">
+              <div class="review-head">
+                <span class="avatar"><%= initials(r.author) %></span>
+                <div><b><%= r.author %></b><span><%= dateFmt(r.created_at) %> · <%- stars(r.rating) %></span></div>
+                <span class="verified" style="margin-left:auto"><%- icon('check') %> Verified buyer</span>
+              </div>
+              <% if (r.title) { %><h4><%= r.title %></h4><% } %>
+              <% if (r.body) { %><p><%= r.body %></p><% } %>
+              <div class="row small muted" style="gap:.8rem">
+                <span><%- icon('check-circle') %> Helpful (<%= r.helpful_count %>)</span>
+              </div>
+              <% if (r.reply) { %>
+                <div class="reply"><b><%= settings.store_short %> responded <%= dateFmt(r.replied_at) %>:</b><br><%= r.reply %></div>
+              <% } %>
+            </article>
+          <% }); %>
+        </div>
+
+        <div class="card pad">
+          <h3 style="margin-bottom:.3rem">Write a review</h3>
+          <% if (canReview) { %>
+            <% if (alreadyReviewed) { %>
+              <div class="inline-alert">You have already reviewed this product. Thank you!</div>
+            <% } else { %>
+            <form action="/p/<%= product.slug %>/review" method="post">
+              <div class="field">
+                <label class="label">Your rating <span style="color:#D64545">*</span></label>
+                <div class="row" style="gap:.35rem;font-size:1.5rem" id="starPicker">
+                  <% [1,2,3,4,5].forEach(function (n) { %>
+                    <label style="cursor:pointer;color:#CBD5E1" data-star="<%= n %>">
+                      <input type="radio" name="rating" value="<%= n %>" class="sr-only" required> &#9733;
+                    </label>
+                  <% }); %>
+                </div>
+              </div>
+              <div class="field"><label class="label" for="rvTitle">Headline</label>
+                <input class="input" id="rvTitle" name="title" maxlength="120" placeholder="e.g. Exactly as described"></div>
+              <div class="field"><label class="label" for="rvBody">Your review</label>
+                <textarea class="textarea" id="rvBody" name="body" maxlength="2000" placeholder="What did you like or dislike? How did you use it?"></textarea>
+                <span class="hint">Signed in as <b><%= user.name %></b> · published as a verified purchase</span></div>
+              <button class="btn primary block" type="submit">Submit review</button>
+            </form>
+            <script>
+              document.querySelectorAll('#starPicker label').forEach(function (l) {
+                l.addEventListener('click', function () {
+                  var n = Number(l.getAttribute('data-star'));
+                  document.querySelectorAll('#starPicker label').forEach(function (x) {
+                    x.style.color = Number(x.getAttribute('data-star')) <= n ? '#FFB300' : '#CBD5E1';
+                  });
+                });
+              });
+            </script>
+            <% } %>
+          <% } else { %>
+            <div class="inline-alert">
+              <% if (!user) { %>
+                <a href="/login" style="color:#F26B21;font-weight:800">Sign in</a> to review this product.
+              <% } else { %>
+                Reviews are limited to verified buyers of this item.
+              <% } %>
+            </div>
+            <a class="btn ghost block" href="/login"><%- icon('user') %> Sign in to review</a>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-shipping" role="tabpanel">
+      <div class="grid g-3" style="gap:1.2rem">
+        <div class="card pad">
+          <h3><%- icon('truck') %> Delivery</h3>
+          <p class="small muted">Greater Accra &amp; Tema: same day for orders placed before 2:00pm. Other regions: 1–6 working days depending on distance.</p>
+          <table class="spec-table">
+            <tbody>
+              <tr><th>Accra / Tema</th><td>FREE above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %>, otherwise <%= settings.currency_symbol %> <%= Number(settings.default_shipping_fee).toFixed(0) %></td></tr>
+              <tr><th>Express (Accra)</th><td><%= settings.currency_symbol %> <%= Number(settings.express_shipping_fee).toFixed(0) %> · within 24 hours</td></tr>
+              <tr><th>Other regions</th><td><%= settings.currency_symbol %> 40–90 depending on zone</td></tr>
+              <tr><th>Warehouse pickup</th><td>Free · <%= settings.address_line %>, <%= settings.address_city %></td></tr>
+            </tbody>
+          </table>
+          <a class="btn ghost sm" href="/shipping-delivery">Full delivery guide</a>
+        </div>
+        <div class="card pad">
+          <h3><%- icon('refresh') %> Returns &amp; refunds</h3>
+          <p class="small muted">You have <%= settings.return_days %> days from delivery to return an unused item in its original packaging. Refunds go back to the original payment method within 3–7 working days; Mobile Money refunds are usually same-day.</p>
+          <ul class="small" style="list-style:disc;padding-left:1.1rem">
+            <li>Faulty or wrong item: we pay return delivery and replace or refund immediately.</li>
+            <li>Change of mind: item must be unused with all seals and accessories.</li>
+            <li>Perishables, underwear, opened beauty products and custom-made items cannot be returned.</li>
+          </ul>
+          <a class="btn ghost sm" href="/returns-refunds">Returns policy</a>
+        </div>
+        <div class="card pad">
+          <h3><%- icon('shield') %> Warranty &amp; support</h3>
+          <p class="small muted"><%= settings.warranty_note %></p>
+          <div class="stack small" style="gap:.4rem;margin:.6rem 0">
+            <span><b>Phone:</b> <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" style="color:#F26B21"><%= settings.support_phone %></a></span>
+            <span><b>WhatsApp:</b> <a href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>" style="color:#F26B21"><%= settings.support_whatsapp %></a></span>
+            <span><b>Email:</b> <a href="mailto:<%= settings.support_email %>" style="color:#F26B21"><%= settings.support_email %></a></span>
+            <span><b>Hours:</b> <%= settings.support_hours %></span>
+          </div>
+          <a class="btn ghost sm" href="/contact">Contact our team</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <%# ─────────────────────── related products rail ─────────────────────── %>
+  <% if (related.length) { %>
+  <section class="section">
+    <div class="section-head">
+      <div><h2>More in <%= product.category_name || 'this category' %></h2>
+        <p class="muted small" style="margin:0">Hand-picked alternatives our buyers recommend.</p></div>
+      <a class="link" href="/c/<%= product.category_slug %>">See all <%- icon('arrow-right') %></a>
+    </div>
+    <div class="rail">
+      <div class="rail-scroll" data-rail>
+        <% related.forEach(function (p) { %>
+          <div style="width:215px"><%- include('../partials/product-card', { p: p }) %></div>
+        <% }); %>
+      </div>
+      <div class="rail-btns" style="position:absolute;top:-52px;right:0">
+        <button class="rail-btn" type="button" data-rail-prev aria-label="Scroll left"><%- icon('chevron-left') %></button>
+        <button class="rail-btn" type="button" data-rail-next aria-label="Scroll right"><%- icon('chevron-right') %></button>
+      </div>
+    </div>
+  </section>
+  <% } %>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('buyForm');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        var vi = form.querySelector('[data-variant-input]');
+        if (vi && vi.value === '' && form.querySelector('[data-variant-btn]')) {
+          e.preventDefault();
+          alert('Please choose an option before adding this item to your cart.');
+          form.querySelector('[data-variant-btn]').focus();
+        }
+      });
+    }
+  });
+</script>
+<%- include('../partials/footer') %>

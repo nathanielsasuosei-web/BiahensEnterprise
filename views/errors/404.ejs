@@ -1,0 +1,26 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:3rem 0">
+  <div class="empty-state" style="max-width:720px;margin:0 auto">
+    <div class="ico">&#128269;</div>
+    <span class="badge danger big" style="margin-bottom:.7rem">Error 404</span>
+    <h1>That page has moved or never existed</h1>
+    <p class="muted">We could not find <code style="background:#F4F7FA;padding:.15rem .4rem;border-radius:5px"><%= path %></code>.
+      The link may be old, or the product may have sold out and been archived.</p>
+    <div class="row" style="justify-content:center;gap:.6rem;flex-wrap:wrap;margin-bottom:2rem">
+      <a class="btn primary lg" href="/"><%- icon('home') %> Back to the store</a>
+      <a class="btn ghost lg" href="/categories"><%- icon('layers') %> Browse categories</a>
+      <a class="btn ghost lg" href="/deals"><%- icon('fire') %> Today’s deals</a>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><h2>Popular right now</h2><a class="link" href="/best-sellers">See best sellers</a></div>
+    <div class="p-grid">
+      <% topDeals.slice(0, 5).forEach(function (p) { %>
+        <%- include('../partials/product-card', { p: p }) %>
+      <% }); %>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

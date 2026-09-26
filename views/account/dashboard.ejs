@@ -1,0 +1,116 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur">My account</span></nav>
+  <h1 style="margin-bottom:.2rem">Hello, <%= user.name.split(' ')[0] %> 👋</h1>
+  <p class="muted" style="margin-bottom:1.2rem">Member since <%= dateFmt(user.created_at, 'MMMM YYYY') %> · profile <%= profileScore %>% complete</p>
+
+  <div class="account-layout">
+    <%- include('../partials/account-nav', { pendingCount: pendingCount, wishlistCount: wishlistCount }) %>
+
+    <div>
+      <div class="grid g-4" style="gap:.8rem;margin-bottom:1.1rem">
+        <a class="card pad stat" href="/account/orders" style="text-align:left">
+          <span class="tiny">Orders placed</span>
+          <b class="big" style="font-size:1.7rem;display:block"><%= totals.orders %></b>
+          <span class="small muted"><%= pendingCount %> still in progress</span>
+        </a>
+        <div class="card pad stat" style="text-align:left">
+          <span class="tiny">Lifetime spend</span>
+          <b class="big" style="font-size:1.7rem;display:block"><%= settings.currency_symbol %> <%= moneyShort(totals.spent) %></b>
+          <span class="small muted">Excluding cancelled orders</span>
+        </div>
+        <a class="card pad stat" href="/account/wishlist" style="text-align:left">
+          <span class="tiny">Wishlist</span>
+          <b class="big" style="font-size:1.7rem;display:block"><%= wishlistCount %></b>
+          <span class="small muted">Saved items</span>
+        </a>
+        <a class="card pad stat" href="/account/reviews" style="text-align:left">
+          <span class="tiny">Reviews written</span>
+          <b class="big" style="font-size:1.7rem;display:block"><%= reviewCount %></b>
+          <span class="small muted">Thank you for the feedback</span>
+        </a>
+      </div>
+
+      <% if (profileScore < 100) { %>
+        <div class="card pad" style="margin-bottom:1.1rem">
+          <div class="row between wrap" style="gap:.5rem;margin-bottom:.5rem">
+            <b style="font-size:.92rem">Complete your profile</b>
+            <span class="badge <%= profileScore > 60 ? 'success' : 'warn' %>"><%= profileScore %>%</span>
+          </div>
+          <div class="ship-progress" style="margin-bottom:.7rem"><div class="bar"><i style="width:<%= profileScore %>%"></i></div></div>
+          <div class="row wrap" style="gap:.4rem">
+            <% completeness.forEach(function (c) { %>
+              <span class="badge <%= c[1] ? 'success' : 'outline' %>"><%= c[1] ? '✓' : '·' %> <%= c[0] %></span>
+            <% }); %>
+            <a class="btn ghost sm" href="/account/profile" style="margin-left:auto">Update profile</a>
+          </div>
+        </div>
+      <% } %>
+
+      <div class="card">
+        <div class="summary-head row between">
+          <span><%- icon('box') %> Recent orders</span>
+          <a class="link" href="/account/orders">View all</a>
+        </div>
+        <% if (myOrders.length) { %>
+          <div class="table-wrap">
+            <table class="table compact">
+              <thead><tr><th>Order</th><th>Placed</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <% myOrders.forEach(function (o) { %>
+                  <% const sm = STATUS_META[o.status] || { label: o.status, tone: 'muted' }; %>
+                  <tr>
+                    <td><b><%= o.order_number %></b></td>
+                    <td class="small"><%= dateFmt(o.placed_at, 'D MMM YYYY') %></td>
+                    <td class="small"><%= o.item_count || 0 %></td>
+                    <td class="strong"><%= settings.currency_symbol %> <%= money(o.total) %></td>
+                    <td><span class="badge <%= sm.tone %>"><%= sm.label %></span></td>
+                    <td style="text-align:right"><a class="btn ghost xs" href="/account/orders/<%= o.order_number %>">View</a></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="empty-state" style="padding:1.6rem">
+            <div class="ico">&#128230;</div>
+            <h3>No orders yet</h3>
+            <p>When you place an order it will show up here with live delivery updates.</p>
+            <a class="btn primary" href="/deals"><%- icon('fire') %> Browse today’s deals</a>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (wishlist.length) { %>
+        <div class="section" style="margin-top:1.4rem">
+          <div class="section-head"><h2>From your wishlist</h2><a class="link" href="/account/wishlist">All <%= wishlistCount %> items</a></div>
+          <div class="p-grid"><% wishlist.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }); %></div>
+        </div>
+      <% } %>
+
+      <% if (addresses.length) { %>
+        <div class="card pad" style="margin-top:1.4rem">
+          <div class="row between" style="margin-bottom:.6rem">
+            <b style="font-size:.92rem"><%- icon('pin') %> Default delivery address</b>
+            <a class="link" href="/account/addresses">Manage <%= addresses.length %> address<%= addresses.length === 1 ? '' : 'es' %></a>
+          </div>
+          <% const dflt = addresses.find(function (a) { return a.is_default; }) || addresses[0]; %>
+          <p class="small muted" style="margin:0">
+            <b style="color:#0B1A27"><%= dflt.receiver %></b> (<%= dflt.label %>)<br>
+            <%= dflt.line %><% if (dflt.landmark) { %>, near <%= dflt.landmark %><% } %><br>
+            <%= dflt.city %>, <%= dflt.region %> · <%= dflt.phone %>
+          </p>
+        </div>
+      <% } %>
+
+      <% if (recommended.length) { %>
+        <div class="section" style="margin-top:1.4rem">
+          <div class="section-head"><h2>Recommended for you</h2><a class="link" href="/best-sellers">See best sellers</a></div>
+          <div class="p-grid"><% recommended.slice(0, 5).forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }); %></div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

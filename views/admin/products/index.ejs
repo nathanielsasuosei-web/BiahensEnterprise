@@ -1,0 +1,251 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Products' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Product catalogue</h1>
+          <p class="sub"><%= counts.all %> product<%= counts.all === 1 ? '' : 's' %> · <%= counts.active %> live · <%= counts.draft %> draft · <%= counts.archived %> archived. Only the owner can add or edit products.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/products/inventory/overview"><%- icon('layers') %> Inventory</a>
+          <a class="btn ghost" href="/admin/products/import"><%- icon('upload') %> CSV import</a>
+          <a class="btn ghost" href="/admin/products/export.csv"><%- icon('download') %> Export CSV</a>
+          <a class="btn primary" href="/admin/products/new"><%- icon('plus') %> Upload product</a>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <% [['Live products', counts.active, '#12805C', 'tag'], ['Drafts', counts.draft, '#64748B', 'edit'],
+            ['Out of stock', counts.out, '#D64545', 'alert'], ['Low stock', counts.low, '#FFB300', 'layers'],
+            ['Featured', counts.featured, '#F26B21', 'star']].forEach(function (k) { %>
+          <div class="kpi" style="--accent:<%= k[2] %>">
+            <div class="k"><span class="ico"><%- icon(k[3]) %></span> <%= k[0] %></div>
+            <div class="v"><%= k[1] %></div>
+          </div>
+        <% }); %>
+      </div>
+
+      <form class="toolbar" method="get" action="/admin/products">
+        <div class="search" style="flex:1;min-width:220px">
+          <input class="input" type="search" name="q" value="<%= filters.q %>" placeholder="Search name, SKU, tag or description…">
+        </div>
+        <select class="select" name="status" onchange="this.form.submit()">
+          <% [['all', 'All statuses'], ['active', 'Active'], ['draft', 'Draft'], ['archived', 'Archived']].forEach(function (s) { %>
+            <option value="<%= s[0] %>" <%= filters.status === s[0] ? 'selected' : '' %>><%= s[1] %></option>
+          <% }); %>
+        </select>
+        <select class="select" name="stock" onchange="this.form.submit()">
+          <% [['all', 'Any stock'], ['in', 'In stock'], ['low', 'Low stock'], ['out', 'Out of stock']].forEach(function (s) { %>
+            <option value="<%= s[0] %>" <%= filters.stock === s[0] ? 'selected' : '' %>><%= s[1] %></option>
+          <% }); %>
+        </select>
+        <select class="select" name="category" onchange="this.form.submit()">
+          <option value="">All categories</option>
+          <% categories.forEach(function (c) { %>
+            <option value="<%= c.slug %>" <%= filters.category === c.slug ? 'selected' : '' %>><%= c.name %></option>
+            <% (c.children || []).forEach(function (sc) { %>
+              <option value="<%= sc.slug %>" <%= filters.category === sc.slug ? 'selected' : '' %>>&nbsp;&nbsp;└ <%= sc.name %></option>
+            <% }); %>
+          <% }); %>
+        </select>
+        <select class="select" name="brand" onchange="this.form.submit()">
+          <option value="">All brands</option>
+          <% brands.forEach(function (b) { %>
+            <option value="<%= b.slug %>" <%= filters.brand === b.slug ? 'selected' : '' %>><%= b.name %></option>
+          <% }); %>
+        </select>
+        <select class="select" name="sort" onchange="this.form.submit()">
+          <% [['updated', 'Recently updated'], ['newest', 'Newest first'], ['price_desc', 'Price: high → low'],
+              ['price_asc', 'Price: low → high'], ['stock_asc', 'Stock: low → high'], ['sold', 'Best sellers'],
+              ['name', 'Name A–Z'], ['rating', 'Top rated']].forEach(function (s) { %>
+            <option value="<%= s[0] %>" <%= filters.sort === s[0] ? 'selected' : '' %>><%= s[1] %></option>
+          <% }); %>
+        </select>
+        <select class="select" name="per_page" onchange="this.form.submit()" style="max-width:110px">
+          <% [20, 50, 100].forEach(function (n) { %>
+            <option value="<%= n %>" <%= Number(filters.per_page) === n ? 'selected' : '' %>><%= n %> / page</option>
+          <% }); %>
+        </select>
+        <button class="btn ghost" type="submit"><%- icon('search') %> Filter</button>
+        <a class="btn ghost" href="/admin/products">Reset</a>
+      </form>
+
+      <form method="post" action="/admin/products/bulk" id="bulkForm" data-bulk>
+        <div class="bulk-bar hidden" data-bulk-bar>
+          <b><span data-bulk-count>0</span> selected</b>
+          <select class="select" name="action" data-bulk-action style="max-width:210px">
+            <option value="">Choose an action…</option>
+            <option value="activate">Set active &amp; visible</option>
+            <option value="draft">Move to draft</option>
+            <option value="archive">Archive</option>
+            <option value="feature">Mark as featured</option>
+            <option value="unfeature">Remove featured flag</option>
+            <option value="price_up">Increase price by %</option>
+            <option value="price_down">Decrease price by %</option>
+          </select>
+          <input class="input" type="number" name="percent" min="1" max="90" step="0.5" value="5" placeholder="%" style="max-width:90px" title="Percentage for price actions">
+          <button class="btn primary sm" type="submit">Apply</button>
+          <button class="btn ghost sm" type="button" data-bulk-clear>Clear selection</button>
+        </div>
+
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table class="table" id="prodTable" style="min-width:1080px">
+                <thead>
+                  <tr>
+                    <th style="width:36px"><input type="checkbox" data-check-all aria-label="Select all products"></th>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th class="num">Price</th>
+                    <th class="num">Cost</th>
+                    <th class="num">Margin</th>
+                    <th class="num" style="min-width:130px">Stock</th>
+                    <th>Stats</th>
+                    <th>Status</th>
+                    <th style="text-align:right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!items.length) { %>
+                    <tr><td colspan="10">
+                      <div class="empty">
+                        <span class="ico">&#128230;</span>
+                        <h3>No products match these filters</h3>
+                        <p class="muted">Try clearing the search box or the status filter.</p>
+                        <a class="btn primary" href="/admin/products/new"><%- icon('plus') %> Upload the first product</a>
+                      </div>
+                    </td></tr>
+                  <% } %>
+                  <% items.forEach(function (p) { %>
+                    <% const margin = p.cost_price ? Math.round(((p.price - p.cost_price) / p.price) * 100) : null; %>
+                    <tr data-row="<%= p.id %>">
+                      <td><input type="checkbox" name="ids" value="<%= p.id %>" data-row-check aria-label="Select <%= p.name %>"></td>
+                      <td>
+                        <div class="prod">
+                          <img class="thumb" src="<%= imgSrc(p.image, { w: 120, h: 120, hint: p.category_name, name: p.name }) %>" alt="" loading="lazy">
+                          <span>
+                            <b><a href="/admin/products/<%= p.id %>/edit"><%= p.name %></a></b>
+                            <span class="muted">
+                              <%= p.sku || 'no SKU' %> · <%= p.slug %>
+                              <% if (p.is_featured) { %> · <span style="color:#F26B21;font-weight:800">★ featured</span><% } %>
+                            </span>
+                          </span>
+                        </div>
+                      </td>
+                      <td style="font-size:.8rem">
+                        <%= p.category_name || '—' %>
+                        <% if (p.brand_name) { %><br><span class="muted"><%= p.brand_name %></span><% } %>
+                      </td>
+                      <td class="num">
+                        <b><%= settings.currency_symbol %> <%= money(p.price) %></b>
+                        <% if (p.compare_at_price && p.compare_at_price > p.price) { %>
+                          <br><span class="muted" style="font-size:.72rem;text-decoration:line-through"><%= money(p.compare_at_price) %></span>
+                          <span class="badge danger" style="font-size:.64rem">−<%= p.discount %>%</span>
+                        <% } %>
+                        <button class="btn-link" type="button" data-edit-price="<%= p.id %>" data-price="<%= p.price %>" data-compare="<%= p.compare_at_price || '' %>" style="display:block;font-size:.7rem">change</button>
+                      </td>
+                      <td class="num muted"><%= p.cost_price ? settings.currency_symbol + ' ' + money(p.cost_price) : '—' %></td>
+                      <td class="num">
+                        <% if (margin === null) { %><span class="muted">—</span>
+                        <% } else { %><span class="badge <%= margin >= 30 ? 'success' : margin >= 15 ? 'warn' : 'danger' %>"><%= margin %>%</span><% } %>
+                      </td>
+                      <td class="num">
+                        <div class="row" style="gap:.3rem;justify-content:flex-end">
+                          <span class="stock-pill <%= p.stock <= 0 ? 'out' : p.stock <= p.low_stock_at ? 'low' : 'in' %>"><%= p.stock %></span>
+                          <button class="btn ghost xs" type="button" data-stock-adjust="<%= p.id %>" data-delta="1" title="Add 1 unit">+</button>
+                          <button class="btn ghost xs" type="button" data-stock-adjust="<%= p.id %>" data-delta="-1" title="Remove 1 unit">−</button>
+                        </div>
+                        <span class="muted" style="font-size:.68rem">reorder at <%= p.low_stock_at %></span>
+                      </td>
+                      <td style="font-size:.76rem" class="muted">
+                        <%= p.sold_count || 0 %> sold<br>
+                        <%= p.views_count || 0 %> views<br>
+                        <% if (p.rating_count) { %><span class="badge gold" style="font-size:.64rem">★ <%= Number(p.rating_avg).toFixed(1) %> (<%= p.rating_count %>)</span><% } %>
+                      </td>
+                      <td>
+                        <span class="badge <%= p.status === 'active' && p.is_active ? 'success' : p.status === 'draft' ? 'warn' : 'muted' %>"><%= p.status %></span>
+                        <div class="row" style="gap:.3rem;margin-top:.3rem">
+                          <label class="switch" title="Visible on the storefront">
+                            <input type="checkbox" data-toggle="<%= p.id %>" data-field="is_active" <%= p.is_active ? 'checked' : '' %>>
+                            <span></span>
+                          </label>
+                          <span class="muted" style="font-size:.68rem">visible</span>
+                        </div>
+                      </td>
+                      <td style="text-align:right">
+                        <div class="row-actions">
+                          <a class="btn ghost xs" href="/admin/products/<%= p.id %>/edit" title="Edit"><%- icon('edit') %></a>
+                          <a class="btn ghost xs" href="/p/<%= p.slug %>" target="_blank" title="View on storefront"><%- icon('eye') %></a>
+                          <form action="/admin/products/<%= p.id %>/duplicate" method="post" style="display:inline">
+                            <button class="btn ghost xs" type="submit" title="Duplicate as draft"><%- icon('copy') %></button>
+                          </form>
+                          <form action="/admin/products/<%= p.id %>/delete" method="post" style="display:inline"
+                                onsubmit="return confirm('Delete “<%= p.name.replace(/'/g, "\\'") %>” permanently? Archiving is safer if it has order history.')">
+                            <button class="btn ghost xs" type="submit" title="Delete" style="color:var(--red)"><%- icon('trash') %></button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <% if (pager.pages > 1) { %>
+            <div class="card-foot">
+              <%- include('../partials/pager', { pager: pager, filters: filters }) %>
+            </div>
+          <% } %>
+        </div>
+      </form>
+
+      <% if (topSellers.length) { %>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-head"><div><h2>Top sellers</h2><span class="sub">Units sold across paid orders</span></div></div>
+          <div class="card-body">
+            <div class="hbar">
+              <% const maxU = Math.max.apply(null, topSellers.map(function (t) { return t.units; }).concat([1])); %>
+              <% topSellers.forEach(function (t) { %>
+                <div class="hbar-row" style="grid-template-columns:1fr 200px 90px">
+                  <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= t.name %></span>
+                  <span class="track"><i style="width:<%= Math.max(3, Math.round(t.units / maxU * 100)) %>%"></i></span>
+                  <span class="v"><%= t.units %> units</span>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="priceModal" hidden>
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-head"><b>Change price</b><button class="modal-x" type="button" data-close-modal>&times;</button></div>
+    <form method="post" id="priceForm">
+      <div class="modal-body">
+        <div class="field">
+          <label class="label" for="pmPrice">Selling price (<%= settings.currency_symbol %>)</label>
+          <input class="input" id="pmPrice" name="price" type="number" step="0.01" min="1" required>
+        </div>
+        <div class="field">
+          <label class="label" for="pmCompare">Compare-at price <span class="muted">(optional — shows a discount)</span></label>
+          <input class="input" id="pmCompare" name="compare_at_price" type="number" step="0.01" min="0">
+          <span class="hint">Leave blank for no discount badge.</span>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" type="button" data-close-modal>Cancel</button>
+        <button class="btn primary" type="submit"><%- icon('save') %> Save price</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+  <h1>Returns &amp; refunds</h1>
+  <p class="muted" style="max-width:82ch;margin:0 0 1.4rem">
+    You have <b><%= settings.return_days %> days</b> from the day your order is delivered to return an item. Because we are the seller of
+    every product on this site, you deal with us directly — there is no third party to chase.
+  </p>
+
+  <div class="grid g-3" style="gap:.9rem;margin-bottom:1.4rem">
+    <div class="card pad stat" style="text-align:left">
+      <span style="color:#12805C"><%- icon('refresh') %></span>
+      <b style="font-size:1.15rem;display:block;margin:.2rem 0"><%= settings.return_days %> days to change your mind</b>
+      <span class="small muted">Unused, complete and in original packaging.</span>
+    </div>
+    <div class="card pad stat" style="text-align:left">
+      <span style="color:#F26B21"><%- icon('truck') %></span>
+      <b style="font-size:1.15rem;display:block;margin:.2rem 0">Free pickup if we got it wrong</b>
+      <span class="small muted">Faulty, damaged or incorrect items are collected at our cost.</span>
+    </div>
+    <div class="card pad stat" style="text-align:left">
+      <span style="color:#0F2A43"><%- icon('wallet') %></span>
+      <b style="font-size:1.15rem;display:block;margin:.2rem 0">Refunds in 24 hours – 7 days</b>
+      <span class="small muted">MoMo within 24 hours; cards and banks 3–7 working days.</span>
+    </div>
+  </div>
+
+  <div class="grid g-2" style="gap:1.2rem;align-items:start">
+    <div class="prose">
+      <h2>How to return something</h2>
+      <ol>
+        <li><b>Tell us within <%= settings.return_days %> days.</b> Open <a href="/account/orders">My orders</a>, choose the order, then WhatsApp or email us with the order number, what you are returning and why. Photos speed things up enormously.</li>
+        <li><b>We confirm and book a pickup.</b> You get a return reference and a collection window. In Greater Accra we usually collect within 48 hours.</li>
+        <li><b>Pack it as it arrived.</b> Include every accessory, cable, manual, gift and the original box. Write the return reference on the outside.</li>
+        <li><b>We inspect.</b> Items are checked against your order and tested where applicable — normally within one working day of arrival at our warehouse.</li>
+        <li><b>You are refunded or sent a replacement.</b> Your choice, subject to stock. Refunds go back to the original payment method.</li>
+      </ol>
+
+      <h2>What can be returned</h2>
+      <table class="table">
+        <thead><tr><th>Condition</th><th>Eligible?</th><th>Who pays delivery</th></tr></thead>
+        <tbody>
+          <tr><td>Item is faulty or does not work as described</td><td><span class="badge success">Yes</span></td><td>We pay, both ways</td></tr>
+          <tr><td>Wrong item sent, or an item is missing from the box</td><td><span class="badge success">Yes</span></td><td>We pay, both ways</td></tr>
+          <tr><td>Item damaged in transit</td><td><span class="badge success">Yes</span></td><td>We pay, both ways</td></tr>
+          <tr><td>You changed your mind (unused, sealed, complete)</td><td><span class="badge success">Yes</span></td><td>Original delivery fee is deducted from your refund</td></tr>
+          <tr><td>Used, opened or with missing accessories</td><td><span class="badge warn">Case by case</span></td><td>Assessed on inspection; partial refund possible</td></tr>
+          <tr><td>Perishable groceries, opened food or drinks</td><td><span class="badge danger">No</span></td><td>Unless faulty on arrival — then report within 24 hours</td></tr>
+          <tr><td>Underwear, swimwear, earrings and personal-care items once opened</td><td><span class="badge danger">No</span></td><td>Hygiene reasons</td></tr>
+          <tr><td>Software, game cards, SIM cards and airtime once activated</td><td><span class="badge danger">No</span></td><td>Licensing reasons</td></tr>
+          <tr><td>Items marked “final sale” or bought as clearance/open-box</td><td><span class="badge danger">No</span></td><td>Unless faulty</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Refund timings</h2>
+      <table class="table">
+        <thead><tr><th>How you paid</th><th>Refund method</th><th>Typical time after approval</th></tr></thead>
+        <tbody>
+          <tr><td>MTN MoMo / Telecel Cash / AT Money</td><td>Back to the same wallet</td><td>Within 24 hours</td></tr>
+          <tr><td>Debit or credit card</td><td>Back to the same card</td><td>3–7 working days (depends on your bank)</td></tr>
+          <tr><td>Bank transfer</td><td>Back to the same account</td><td>3–7 working days</td></tr>
+          <tr><td>Cash on delivery</td><td>Mobile Money to a number you give us</td><td>Within 24 hours of inspection</td></tr>
+        </tbody>
+      </table>
+      <p>You will get an email and SMS the moment a refund is approved, with the amount and the reference. If a card refund has not appeared after 7 working days, contact your bank first with that reference — the money leaves our gateway immediately on approval.</p>
+
+      <h2>Exchanges</h2>
+      <p>If you would rather swap for a different size, colour or model, tell us when you start the return. Where the replacement is in stock we dispatch it as soon as the original item is collected, so you are not left without it. If the replacement costs more, we send you a payment link for the difference; if it costs less, we refund the balance.</p>
+
+      <h2>Warranty claims after <%= settings.return_days %> days</h2>
+      <p>The returns window and the warranty are separate. <%= settings.warranty_note || 'Electronics and appliances carry a minimum 6-month warranty' %>, and phones and laptops typically 12 months. Warranty covers manufacturing defects — not physical damage, water ingress, unauthorised repairs or normal wear. Start a claim by contacting us with your order number and a short video of the fault; most in-house repairs are completed within 7 working days.</p>
+
+      <h2>Items you should never send back without talking to us</h2>
+      <p>Please do not post anything back unannounced — we cannot match an unlabelled parcel to an order and it will delay your refund. Always get a return reference first.</p>
+    </div>
+
+    <aside class="stack" style="gap:1rem">
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('refresh') %> Start a return</h3>
+        <p class="small muted" style="margin:0 0 .8rem">Fastest route: WhatsApp your order number and the reason. We reply within the hour during <%= settings.support_hours || 'business hours' %>.</p>
+        <a class="btn success block" href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>?text=I%20would%20like%20to%20return%20an%20item%20from%20order%20" target="_blank" rel="noopener"><%- icon('whatsapp') %> WhatsApp us</a>
+        <a class="btn primary block" style="margin-top:.5rem" href="/contact"><%- icon('mail') %> Contact form</a>
+        <a class="btn ghost block" style="margin-top:.5rem" href="/account/orders"><%- icon('box') %> Find my order</a>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('check-circle') %> Return checklist</h3>
+        <div class="stack small" style="gap:.5rem">
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Within <%= settings.return_days %> days of delivery</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Original box and packaging kept</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> All accessories, cables and manuals included</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Item unused and unmarked (unless faulty)</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Return reference written on the parcel</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Receipt or order number to hand</span>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('shield') %> Your statutory rights</h3>
+        <p class="small muted" style="margin:0">This policy is in addition to, and does not limit, your rights under the <b>Sale of Goods Act, 1962 (Act 137)</b> and the <b>Consumer Protection provisions</b> of Ghanaian law. Goods must be of satisfactory quality, fit for purpose and as described — if they are not, you are entitled to a remedy regardless of the <%= settings.return_days %>-day window.</p>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('info') %> Related pages</h3>
+        <div class="stack small" style="gap:.4rem">
+          <a href="/shipping-delivery" class="row" style="gap:.4rem"><%- icon('truck') %> Shipping &amp; delivery</a>
+          <a href="/faq" class="row" style="gap:.4rem"><%- icon('help') %> Frequently asked questions</a>
+          <a href="/terms" class="row" style="gap:.4rem"><%- icon('file') %> Terms &amp; conditions</a>
+          <a href="/track-order" class="row" style="gap:.4rem"><%- icon('search') %> Track an order</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+<%- include('../partials/footer') %>

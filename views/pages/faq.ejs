@@ -1,0 +1,190 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+  <h1>Frequently asked questions</h1>
+  <p class="muted" style="max-width:80ch;margin:0 0 1.4rem">Everything shoppers ask us most often — ordering, payment, delivery, returns and warranty. Cannot find your answer? <a href="/contact" style="color:#F26B21;font-weight:800">Contact us</a> or WhatsApp <%= settings.support_whatsapp || settings.support_phone %>.</p>
+
+  <div class="grid" style="grid-template-columns:200px 1fr;gap:1.4rem;align-items:start">
+    <nav class="acc-nav card" style="position:sticky;top:calc(var(--header-h) + 14px)">
+      <div class="head" style="padding:.8rem 1rem;text-align:left"><b style="font-size:.88rem">Jump to</b></div>
+      <% [['ordering', 'Ordering'], ['payment', 'Payment'], ['delivery', 'Delivery'], ['returns', 'Returns & refunds'], ['warranty', 'Warranty & authenticity'], ['account', 'Your account'], ['business', 'Bulk & business']].forEach(function (s) { %>
+        <a href="#<%= s[0] %>"><%- icon('chevron-right') %> <%= s[1] %></a>
+      <% }); %>
+    </nav>
+
+    <div class="stack" style="gap:1.4rem">
+      <section id="ordering">
+        <h2 style="font-size:1.1rem;margin-bottom:.7rem"><%- icon('cart') %> Ordering</h2>
+        <div class="faq">
+          <details>
+            <summary>How do I place an order?</summary>
+            <div class="faq-body">Add items to your cart, then choose <b>Proceed to secure checkout</b>. You will go through four short steps: delivery address, delivery method, payment method, and a final review. Once you place the order you get an order number (it looks like <code>BIA-000123</code>) and an email confirmation. You do not need an account — guest checkout works — but an account makes tracking and reordering much easier.</div>
+          </details>
+          <details>
+            <summary>Can I order by phone or WhatsApp instead?</summary>
+            <div class="faq-body">Yes. Call <%= settings.support_phone %> or WhatsApp us during <%= settings.support_hours || 'business hours' %> and our team will place the order for you, then send you the order number and a payment link. Phone orders are held for 24 hours.</div>
+          </details>
+          <details>
+            <summary>Why does a product suddenly say “out of stock”?</summary>
+            <div class="faq-body">We show the exact quantity on our shelf, updated the moment someone else buys. Because we are the only seller, there is no queue of third parties overselling the same item. When stock returns we restock the same product page — save it to your wishlist and you will see it change back to in stock.</div>
+          </details>
+          <details>
+            <summary>Can I change or cancel an order after placing it?</summary>
+            <div class="faq-body">Yes, as long as it has not been dispatched. Open the order in <a href="/account/orders">My orders</a> and choose <b>Cancel this order</b> — available while the status is pending payment, paid or processing. Once an order is <b>shipped</b>, call us immediately; we can still recall the rider in many cases. To change an address before dispatch, WhatsApp the order number and the new address.</div>
+          </details>
+          <details>
+            <summary>Do you sell to customers outside Ghana?</summary>
+            <div class="faq-body">At the moment we deliver within Ghana’s 16 regions only. If you are abroad and want goods delivered to a Ghanaian address for family or a business, that works perfectly — just enter the local delivery details at checkout.</div>
+          </details>
+        </div>
+      </section>
+
+      <section id="payment">
+        <h2 style="font-size:1.1rem;margin-bottom:.7rem"><%- icon('wallet') %> Payment</h2>
+        <div class="faq">
+          <details>
+            <summary>Which payment methods do you accept?</summary>
+            <div class="faq-body">
+              <ul style="margin:.4rem 0">
+                <li><b>Mobile Money</b> — MTN MoMo, Telecel Cash and AT Money. You approve the prompt on your handset.</li>
+                <li><b>Debit / credit card</b> — Visa, Mastercard and Verve, processed by our PCI-DSS compliant gateway.</li>
+                <li><b>Bank transfer</b> — major Ghanaian banks through the gateway.</li>
+                <li><b>Cash on delivery</b> — pay the rider in cash, available for orders up to <%= settings.currency_symbol %> 5,000.</li>
+              </ul>
+            </div>
+          </details>
+          <details>
+            <summary>Is it safe to pay by card on this site?</summary>
+            <div class="faq-body">Card numbers are entered on the payment gateway’s own hosted page and never touch our servers or database. We only receive a cryptographically signed webhook confirming that the charge succeeded. All traffic is served over HTTPS.</div>
+          </details>
+          <details>
+            <summary>Why is cash on delivery capped at <%= settings.currency_symbol %> 5,000?</summary>
+            <div class="faq-body">Riders carry a limited amount of change and cash in transit is a security risk for them. For larger orders we ask for Mobile Money or card payment, or a deposit by MoMo with the balance on delivery — just ask and we will arrange it.</div>
+          </details>
+          <details>
+            <summary>My payment failed but the money left my account. What now?</summary>
+            <div class="faq-body">Do not pay twice. Send us the order number and a screenshot of the MoMo/card notification on WhatsApp. We check the gateway ledger the same day; if the charge was captured we mark the order paid, and if it was not we ask the gateway to reverse it — reversals typically land within 24 hours for MoMo and 3–7 working days for cards.</div>
+          </details>
+          <details>
+            <summary>Do you issue receipts?</summary>
+            <div class="faq-body">Yes. Every order has a printable receipt with our TIN, available from <b>My orders → Receipt</b> or on the confirmation page. Receipts are suitable for business expense claims and warranty registration.</div>
+          </details>
+        </div>
+      </section>
+
+      <section id="delivery">
+        <h2 style="font-size:1.1rem;margin-bottom:.7rem"><%- icon('truck') %> Delivery</h2>
+        <div class="faq">
+          <details>
+            <summary>How much is delivery and how long does it take?</summary>
+            <div class="faq-body">
+              Delivery depends on your region. Greater Accra and Tema are the fastest and cheapest, with <b>same-day or next-day</b> standard delivery. Other regions take 1–6 working days. Orders above <b><%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %></b> ship free on the standard method anywhere in Ghana. See the full table on our <a href="/shipping-delivery">shipping page</a>.
+            </div>
+          </details>
+          <details>
+            <summary>Can I get it the same day?</summary>
+            <div class="faq-body">Yes, within Greater Accra and Tema if you order before 2pm and choose <b>Express delivery</b> (<%= settings.currency_symbol %> <%= Number(settings.express_shipping_fee).toFixed(0) %>). Orders placed after 2pm are delivered the next morning.</div>
+          </details>
+          <details>
+            <summary>Can I collect my order myself?</summary>
+            <div class="faq-body">Choose <b>Pickup at our warehouse</b> at checkout — it is free and usually ready within 2–6 hours. Come to <%= settings.address_line %>, <%= settings.address_city %> with your order number and a photo ID. If someone else is collecting for you, send us their name in advance.</div>
+          </details>
+          <details>
+            <summary>What if I am not home when the rider arrives?</summary>
+            <div class="faq-body">Our riders call the phone number on the order before arriving. If you miss them we attempt delivery twice more over the following two days at no extra cost, after which the order returns to the warehouse and we contact you to arrange a pickup or redelivery.</div>
+          </details>
+          <details>
+            <summary>How do I track my order?</summary>
+            <div class="faq-body">Use <a href="/track-order">Track an order</a> with your order number plus the phone number or email you checked out with. Signed-in customers see a live timeline under <a href="/account/orders">My orders</a>, including when the rider leaves the warehouse.</div>
+          </details>
+          <details>
+            <summary>Do you deliver to rural areas?</summary>
+            <div class="faq-body">Yes — all 16 regions, including Northern, Savannah, Upper East, Upper West, Oti and North East. Remote districts can take up to 6 working days and we may call you to agree a convenient pickup point in the district capital.</div>
+          </details>
+        </div>
+      </section>
+
+      <section id="returns">
+        <h2 style="font-size:1.1rem;margin-bottom:.7rem"><%- icon('refresh') %> Returns &amp; refunds</h2>
+        <div class="faq">
+          <details>
+            <summary>What is your returns window?</summary>
+            <div class="faq-body">You have <b><%= settings.return_days %> days</b> from delivery to return an item. It must be unused, complete with all accessories and in its original packaging. Groceries, underwear, earrings and opened software or media cannot be returned for hygiene and licensing reasons unless faulty.</div>
+          </details>
+          <details>
+            <summary>The item arrived damaged or wrong. What do I do?</summary>
+            <div class="faq-body">Contact us within 48 hours with photos of the item and the packaging. We arrange a free pickup and either send the correct item immediately or refund you in full — your choice. You never pay for our mistake.</div>
+          </details>
+          <details>
+            <summary>How long do refunds take?</summary>
+            <div class="faq-body">Once the returned item reaches our warehouse and passes inspection, refunds are issued to the original payment method. Mobile Money refunds usually land within 24 hours; card and bank refunds take 3–7 working days depending on your bank. Cash-on-delivery orders are refunded by MoMo to a number you give us.</div>
+          </details>
+          <details>
+            <summary>Do I pay for return delivery?</summary>
+            <div class="faq-body">If the item is faulty, wrong or not as described, return delivery is free. If you simply changed your mind, we deduct the original delivery fee from your refund; the return pickup itself is still free within Greater Accra.</div>
+          </details>
+        </div>
+      </section>
+
+      <section id="warranty">
+        <h2 style="font-size:1.1rem;margin-bottom:.7rem"><%- icon('shield') %> Warranty &amp; authenticity</h2>
+        <div class="faq">
+          <details>
+            <summary>Are your products genuine?</summary>
+            <div class="faq-body">Yes. We buy from authorised distributors and importers only, and we verify serial numbers and packaging when goods arrive. Anything that fails inspection is destroyed rather than sold at a discount. If you ever suspect an item, send it back and we will test it and replace or refund it.</div>
+          </details>
+          <details>
+            <summary>What warranty do I get?</summary>
+            <div class="faq-body"><%= settings.warranty_note || 'Electronics and appliances carry a minimum 6-month warranty handled by us.' %> Phones and laptops typically carry 12 months. Warranty covers manufacturing defects, not physical damage, water ingress or unauthorised repairs. Keep your receipt — it is your warranty certificate.</div>
+          </details>
+          <details>
+            <summary>How do I make a warranty claim?</summary>
+            <div class="faq-body">Bring or send the item to our warehouse with the receipt, or start by contacting us on WhatsApp with the order number and a short video of the fault. We assess it, and if it is a genuine defect we repair, replace or refund — usually within 7 working days for items we can service in-house.</div>
+          </details>
+        </div>
+      </section>
+
+      <section id="account">
+        <h2 style="font-size:1.1rem;margin-bottom:.7rem"><%- icon('user') %> Your account</h2>
+        <div class="faq">
+          <details>
+            <summary>Do I need an account to buy?</summary>
+            <div class="faq-body">No — guest checkout is available. But an account gives you order history, a wishlist, saved addresses, one-tap reordering and a private spending summary. Creating one takes about 30 seconds and there is no fee.</div>
+          </details>
+          <details>
+            <summary>I forgot my password.</summary>
+            <div class="faq-body">Use <a href="/forgot-password">Forgot password</a>. We email a single-use link that expires after 45 minutes. If you cannot access that email, call us and we can verify you using your order history and phone number.</div>
+          </details>
+          <details>
+            <summary>How do I delete my account?</summary>
+            <div class="faq-body">Email <%= settings.support_email %> from the address on your account asking us to close it. We delete your personal data within 30 days, keeping only the transaction records Ghanaian tax law requires us to retain.</div>
+          </details>
+          <details>
+            <summary>Do you send marketing emails?</summary>
+            <div class="faq-body">Only if you opt in. Every marketing email has an unsubscribe link, and unsubscribing does not affect the transactional emails you need — order confirmations, dispatch notices and delivery updates always continue.</div>
+          </details>
+        </div>
+      </section>
+
+      <section id="business">
+        <h2 style="font-size:1.1rem;margin-bottom:.7rem"><%- icon('briefcase') %> Bulk &amp; business</h2>
+        <div class="faq">
+          <details>
+            <summary>Can I buy in bulk for my shop or office?</summary>
+            <div class="faq-body">Yes. Tell us the products and quantities on WhatsApp or through the contact form and we will quote a wholesale price with delivery included. Bulk orders above <%= settings.currency_symbol %> 10,000 can be paid by bank transfer against a pro-forma invoice.</div>
+          </details>
+          <details>
+            <summary>Do you offer credit terms to businesses?</summary>
+            <div class="faq-body">After three successfully paid orders we can discuss 14-day terms for registered businesses with a valid TIN. This is arranged individually — email <%= settings.support_email %>.</div>
+          </details>
+          <details>
+            <summary>Can I sell my products on <%= settings.store_name %>?</summary>
+            <div class="faq-body">No, and that is deliberate. <%= settings.store_name %> is a single-seller store: every product is owned, inspected and delivered by us, so you always know exactly who is responsible when something goes wrong. Read our <a href="/sell-with-us">single-seller promise</a> for the full reasoning. We do buy wholesale from distributors — see the bulk question above.</div>
+          </details>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

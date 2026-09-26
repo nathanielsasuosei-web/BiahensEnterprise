@@ -1,0 +1,143 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Orders' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Orders</h1>
+          <p class="sub"><%= totals.n %> paid order<%= totals.n === 1 ? '' : 's' %> worth <b><%= settings.currency_symbol %> <%= money(totals.revenue) %></b> · <%= pendingCount %> need action now.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/orders/fulfilment/picklist" target="_blank"><%- icon('printer') %> Pick list</a>
+          <a class="btn ghost" href="/admin/orders/export.csv"><%- icon('download') %> Export CSV</a>
+          <a class="btn ghost" href="/admin/system/payments"><%- icon('wallet') %> Payment ledger</a>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <% [['all', 'All', pager.total], ['pending_payment', 'Awaiting payment', statusCounts.pending_payment || 0],
+            ['paid', 'Paid', statusCounts.paid || 0], ['processing', 'Processing', statusCounts.processing || 0],
+            ['shipped', 'Shipped', statusCounts.shipped || 0], ['delivered', 'Delivered', statusCounts.delivered || 0],
+            ['cancelled', 'Cancelled', statusCounts.cancelled || 0], ['refunded', 'Refunded', statusCounts.refunded || 0]].forEach(function (t) { %>
+          <a class="tab <%= filters.status === t[0] ? 'active' : '' %>" href="/admin/orders?status=<%= t[0] %><%= filters.q ? '&q=' + encodeURIComponent(filters.q) : '' %>">
+            <%= t[1] %> <span class="n"><%= t[2] %></span>
+          </a>
+        <% }); %>
+      </div>
+
+      <form class="toolbar" method="get" action="/admin/orders">
+        <input type="hidden" name="status" value="<%= filters.status %>">
+        <div class="search" style="flex:1;min-width:220px">
+          <input class="input" type="search" name="q" value="<%= filters.q %>" placeholder="Search order number, name, phone, email or tracking…">
+        </div>
+        <select class="select" name="payment" onchange="this.form.submit()">
+          <% [['all', 'Any payment status'], ['unpaid', 'Unpaid'], ['paid', 'Paid'], ['partially_refunded', 'Partially refunded'], ['refunded', 'Refunded']].forEach(function (p) { %>
+            <option value="<%= p[0] %>" <%= filters.payment === p[0] ? 'selected' : '' %>><%= p[1] %><%= paymentCounts[p[0]] ? ' (' + paymentCounts[p[0]] + ')' : '' %></option>
+          <% }); %>
+        </select>
+        <select class="select" name="method" onchange="this.form.submit()">
+          <% [['all', 'Any method'], ['momo', 'Mobile Money'], ['card', 'Card'], ['cod', 'Cash on delivery']].forEach(function (m) { %>
+            <option value="<%= m[0] %>" <%= filters.method === m[0] ? 'selected' : '' %>><%= m[1] %></option>
+          <% }); %>
+        </select>
+        <label class="row" style="gap:.3rem;font-size:.8rem"><span class="muted">From</span>
+          <input class="input" type="date" name="from" value="<%= filters.from %>" style="max-width:150px"></label>
+        <label class="row" style="gap:.3rem;font-size:.8rem"><span class="muted">To</span>
+          <input class="input" type="date" name="to" value="<%= filters.to %>" style="max-width:150px"></label>
+        <button class="btn ghost" type="submit"><%- icon('search') %> Filter</button>
+        <a class="btn ghost" href="/admin/orders">Reset</a>
+      </form>
+
+      <form method="post" action="/admin/orders/bulk" data-bulk>
+        <div class="bulk-bar hidden" data-bulk-bar>
+          <b><span data-bulk-count>0</span> selected</b>
+          <select class="select" name="action" data-bulk-action style="max-width:230px">
+            <option value="">Choose an action…</option>
+            <option value="mark_processing">Move to processing</option>
+            <option value="mark_shipped">Mark as shipped (paid only)</option>
+            <option value="cancel">Cancel orders</option>
+            <option value="print">Print packing slips</option>
+          </select>
+          <button class="btn primary sm" type="submit"
+                  onclick="return confirm('Apply this action to the selected orders?')">Apply</button>
+          <button class="btn ghost sm" type="button" data-bulk-clear>Clear</button>
+        </div>
+
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table class="table" style="min-width:1120px">
+                <thead>
+                  <tr>
+                    <th style="width:36px"><input type="checkbox" data-check-all aria-label="Select all orders"></th>
+                    <th>Order</th><th>Customer</th><th>Destination</th><th>Placed</th>
+                    <th class="num">Items</th><th class="num">Total</th><th>Payment</th><th>Status</th>
+                    <th style="text-align:right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!orders.length) { %>
+                    <tr><td colspan="10"><div class="empty"><span class="ico">&#128230;</span><h3>No orders match these filters</h3><p class="muted">Try a different status, payment filter or date range.</p></div></td></tr>
+                  <% } %>
+                  <% orders.forEach(function (o) { %>
+                    <% const sm = STATUS_META[o.status] || { label: o.status, tone: 'muted' }; %>
+                    <tr data-row="<%= o.id %>">
+                      <td><input type="checkbox" name="ids" value="<%= o.id %>" data-row-check aria-label="Select <%= o.order_number %>"></td>
+                      <td><a href="/admin/orders/<%= o.id %>" style="font-weight:800"><%= o.order_number %></a>
+                        <% if (o.tracking_number) { %><br><span class="mono muted" style="font-size:.7rem"><%= o.tracking_number %></span><% } %></td>
+                      <td>
+                        <b style="font-size:.85rem"><%= o.ship_name %></b>
+                        <span class="muted" style="display:block;font-size:.74rem">
+                          <%= o.customer_email || o.ship_email || o.guest_email || '—' %><br><%= o.ship_phone %>
+                          <% if (!o.user_id) { %> · <span class="badge outline" style="font-size:.62rem">guest</span><% } %>
+                        </span>
+                      </td>
+                      <td style="font-size:.8rem"><%= o.ship_city %><br><span class="muted"><%= o.ship_region %></span>
+                        <% if (o.delivery_method === 'express') { %><br><span class="badge gold" style="font-size:.62rem">express</span>
+                        <% } else if (o.delivery_method === 'pickup') { %><br><span class="badge info" style="font-size:.62rem">pickup</span><% } %>
+                      </td>
+                      <td class="muted" style="font-size:.78rem"><%= dateFmt(o.placed_at, 'D MMM') %><br><%= timeAgo(o.placed_at) %></td>
+                      <td class="num"><%= o.item_count || 0 %></td>
+                      <td class="num strong"><%= settings.currency_symbol %> <%= money(o.total) %></td>
+                      <td>
+                        <span class="badge <%= o.payment_method === 'momo' ? 'gold' : o.payment_method === 'cod' ? 'success' : 'info' %> outline" style="font-size:.66rem"><%= o.payment_method.toUpperCase() %></span>
+                        <span class="badge <%= o.payment_status === 'paid' ? 'success' : o.payment_status === 'unpaid' ? 'warn' : 'danger' %>" style="font-size:.66rem;display:inline-block;margin-top:.2rem"><%= o.payment_status.replace(/_/g, ' ') %></span>
+                      </td>
+                      <td><span class="badge <%= sm.tone %>"><%= sm.label %></span></td>
+                      <td>
+                        <div class="row-actions">
+                          <a class="btn ghost xs" href="/admin/orders/<%= o.id %>" title="Open order"><%- icon('eye') %></a>
+                          <% if (o.payment_status !== 'paid' && o.status !== 'cancelled') { %>
+                            <form action="/admin/orders/<%= o.id %>/collect" method="post" style="display:inline"
+                                  onsubmit="return confirm('Confirm you have received <%= settings.currency_symbol %> <%= money(o.total) %> for <%= o.order_number %>?')">
+                              <button class="btn success xs" type="submit" title="Mark as paid"><%- icon('check') %></button>
+                            </form>
+                          <% } %>
+                          <% if (o.payment_status === 'paid' && ['paid', 'processing'].includes(o.status)) { %>
+                            <form action="/admin/orders/<%= o.id %>/status" method="post" style="display:inline">
+                              <input type="hidden" name="status" value="shipped">
+                              <button class="btn primary xs" type="submit" title="Mark shipped"><%- icon('truck') %></button>
+                            </form>
+                          <% } %>
+                          <a class="btn ghost xs" href="/admin/orders/<%= o.id %>/invoice" target="_blank" title="Invoice"><%- icon('printer') %></a>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <% if (pager.pages > 1) { %>
+            <div class="card-foot"><%- include('../partials/pager', { pager: pager, filters: filters }) %></div>
+          <% } %>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container narrow" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+  <h1>Terms &amp; conditions</h1>
+  <p class="muted small">Last updated <%= dateFmt(new Date(), 'D MMMM YYYY') %> · These terms govern your use of <%= cfg.publicUrl %> and any purchase you make from <%= settings.store_name %>.</p>
+
+  <div class="prose">
+    <h2>1. Who we are</h2>
+    <p><%= settings.store_name %> (“we”, “us”, “the store”) is a single-seller retail business registered in Ghana, trading from <%= settings.address_line %>, <%= settings.address_city %>. We are the seller of every product listed on this website. We are <b>not</b> a marketplace, we do not host third-party sellers, and we do not act as an agent between you and another trader. Contact us on <%= settings.support_phone %> or <%= settings.support_email %>.</p>
+
+    <h2>2. Using this website</h2>
+    <p>You may browse, search and purchase from this site if you are at least 18 years old, or if you are younger and a parent or guardian has agreed to these terms on your behalf. You agree not to:</p>
+    <ul>
+      <li>use the site for anything unlawful, or in a way that infringes somebody else’s rights;</li>
+      <li>attempt to gain unauthorised access to our systems, admin area or database;</li>
+      <li>scrape, crawl or bulk-download catalogue data, prices or customer content without our written permission;</li>
+      <li>submit false, misleading or another person’s details when registering or checking out;</li>
+      <li>place orders with no intention of paying for or accepting them;</li>
+      <li>upload malicious code, or use automated tools that place an unreasonable load on our servers.</li>
+    </ul>
+    <p>We may suspend or block an account that breaches these terms. Where an order has already been paid for, any money due to you is refunded in line with clause 9.</p>
+
+    <h2>3. Your account</h2>
+    <p>You are responsible for keeping your sign-in details confidential and for everything that happens under your account. Tell us immediately if you believe your account has been used without your permission. We may close dormant accounts after 24 months of inactivity, but your order history and any statutory warranty rights survive closure and can be restored on request.</p>
+
+    <h2>4. Products, prices and stock</h2>
+    <p>We take care to describe and photograph products accurately, including specifications, dimensions, colours and what is in the box. Colours can vary slightly between screens. Where a manufacturer changes packaging or specification without telling us, the item you receive may differ cosmetically while remaining functionally equivalent.</p>
+    <p>All prices are shown in Ghana cedis (<%= settings.currency_symbol %>) and include VAT and any applicable levies where we are required to charge them. Delivery fees are shown separately before you pay and are never added afterwards.</p>
+    <p>We publish live stock quantities. An item added to your cart is <b>not</b> reserved until your order is placed; if two customers buy the last unit at the same moment, the first completed order wins and the second is refunded in full.</p>
+    <p>If we cannot supply an item you have paid for — because of a stock error, supplier failure or a pricing mistake — we will tell you as soon as we know and either offer a substitute of equal or greater value or refund you in full. We are not obliged to sell at an obviously incorrect price, and where a pricing error is discovered after dispatch we will contact you rather than charge you retrospectively.</p>
+
+    <h2>5. Placing an order</h2>
+    <p>Your order is an offer to buy. A contract is formed only when we send you the order confirmation and the order appears in your account, not when you add an item to your cart or submit payment. Until that point we may decline an order — for example where we cannot verify payment, where the item is out of stock, where we suspect fraud, or where delivery to your address is not possible.</p>
+    <p>By placing an order you confirm that the delivery details you gave are accurate and that somebody will be available to receive the goods. Please check your address carefully: redelivery caused by an incorrect address may be charged at the applicable regional rate.</p>
+
+    <h2>6. Payment</h2>
+    <p>We accept Mobile Money (MTN, Telecel, AT), debit and credit cards, bank transfer, and cash on delivery for orders up to <%= settings.currency_symbol %> 5,000. Card and Mobile Money transactions are processed by a third-party payment gateway; card details are entered on the gateway’s hosted page and are never stored on our servers. We receive only a signed confirmation that the charge succeeded.</p>
+    <p>Where you pay cash on delivery, the goods remain our property until the rider has collected the full amount. Refusing a cash-on-delivery delivery at the door without a valid reason relating to the goods may result in the delivery fee being charged to your account before we accept a further order.</p>
+
+    <h2>7. Delivery</h2>
+    <p>Delivery times shown on product pages and at checkout are estimates, not guarantees. Estimated windows begin when your order is dispatched from our warehouse, not when you place it. Delivery to all 16 regions is available; remote districts may take longer and may require collection from a district hub, which we will agree with you in advance.</p>
+    <p>Risk in the goods passes to you on delivery. Please inspect the parcel before signing. If something is visibly damaged or missing, refuse it or note the damage on the rider’s device and tell us the same day — this makes a replacement immediate rather than a claim to investigate.</p>
+    <p>If we miss a promised express delivery window, contact us and we will refund the express surcharge.</p>
+
+    <h2>8. Cancellation by you</h2>
+    <p>You may cancel an order at any time before it is dispatched, through <a href="/account/orders">My orders</a> or by contacting us. Paid orders cancelled before dispatch are refunded in full. After dispatch, cancellation becomes a return under clause 9.</p>
+
+    <h2>9. Returns, refunds and your statutory rights</h2>
+    <p>Our full returns procedure is set out on the <a href="/returns-refunds">Returns &amp; refunds</a> page, which forms part of these terms. In summary: you have <%= settings.return_days %> days from delivery to return unused items in their original packaging; faulty, damaged or incorrectly supplied items may be returned at our cost; refunds are issued to the original payment method within 24 hours for Mobile Money and 3–7 working days for card and bank payments.</p>
+    <p>Nothing in these terms limits your rights under the <b>Sale of Goods Act, 1962 (Act 137)</b> or any other Ghanaian consumer-protection law, including the requirement that goods be of satisfactory quality, fit for purpose and as described.</p>
+
+    <h2>10. Warranty</h2>
+    <p><%= settings.warranty_note || 'Electronics and appliances carry a minimum 6-month warranty against manufacturing defects.' %> Your receipt is your warranty certificate. Warranty does not cover accidental or physical damage, water or liquid ingress, power surge damage where a stabiliser was recommended, unauthorised repair or modification, consumables that wear out normally, or defects reported after the warranty period.</p>
+
+    <h2>11. Reviews and user content</h2>
+    <p>When you post a review, question or photo you grant us a non-exclusive, royalty-free licence to display, reproduce and moderate that content on this site and in our marketing. You confirm the content is your own, is truthful about a product you actually bought, and contains nothing unlawful, defamatory, obscene or infringing. We moderate reviews and may remove or edit content that breaks these rules, including reviews we believe are fake or posted by someone who never bought the item. We never pay for, or remove, genuine negative reviews.</p>
+
+    <h2>12. Intellectual property</h2>
+    <p>The <%= settings.store_name %> name, logo, this website’s design, text, photography and software are owned by us or licensed to us. You may not copy, reproduce, republish or commercially exploit any of it without our written permission. Manufacturer product names, brands and images belong to their respective owners and are used for identification only.</p>
+
+    <h2>13. Personal data</h2>
+    <p>We handle your personal data as described in our <a href="/privacy">Privacy policy</a>, which forms part of these terms. By using the site you consent to that handling.</p>
+
+    <h2>14. Liability</h2>
+    <p>We are responsible for loss or damage you suffer that is a foreseeable result of our breach of these terms or our negligence, up to the value of your order. We are not liable for indirect or consequential losses, lost profits, lost business or lost data where we have not been negligent.</p>
+    <p>Nothing in these terms excludes or limits our liability for death or personal injury caused by negligence, for fraud or fraudulent misrepresentation, for defective products under applicable law, or for any other liability that cannot lawfully be excluded.</p>
+
+    <h2>15. Events outside our control</h2>
+    <p>We are not liable for delay or failure to perform caused by events beyond our reasonable control — including power outages, network or gateway failures, fuel shortages, road closures, civil unrest, extreme weather, epidemics or government action. Where such an event lasts more than 14 days, either party may cancel the affected order and you will be refunded in full.</p>
+
+    <h2>16. Changes to these terms and to the site</h2>
+    <p>We may update these terms and the site from time to time. The version that applies to your order is the one published when you placed it. Material changes are announced on the site and, where we have your email address, by email.</p>
+
+    <h2>17. Governing law and disputes</h2>
+    <p>These terms are governed by the laws of the Republic of Ghana, and the courts of Ghana have exclusive jurisdiction. Before going to court, please let us try to put things right — most disputes are resolved by a single phone call to <%= settings.support_phone %>. You may also refer a complaint to the Ghana Consumer Protection agencies.</p>
+
+    <h2>18. Contact</h2>
+    <p>
+      <%= settings.store_name %><br>
+      <%= settings.address_line %>, <%= settings.address_city %>, <%= settings.address_region || 'Greater Accra' %>, Ghana<br>
+      Phone / WhatsApp: <%= settings.support_phone %><br>
+      Email: <%= settings.support_email %><br>
+      Hours: <%= settings.support_hours || 'Mon–Fri 8:00am – 6:00pm, Sat 9:00am – 4:00pm' %>
+    </p>
+  </div>
+</main>
+<%- include('../partials/footer') %>

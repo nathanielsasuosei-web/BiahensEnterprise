@@ -1,0 +1,131 @@
+<%- include('partials/head') %>
+<%
+  const TYPE_META = {
+    order:   ['Order', 'brand', 'box'],
+    stock:   ['Stock', 'warn', 'package'],
+    review:  ['Review', 'gold', 'star'],
+    system:  ['System', 'muted', 'settings'],
+    payment: ['Payment', 'info', 'wallet'],
+    security:['Security', 'danger', 'shield'],
+    info:    ['Notice', 'info', 'info'],
+  };
+  const LEVEL_TONE = { info: 'info', warn: 'warn', danger: 'danger', success: 'success' };
+  const unread = items.filter(function (n) { return !n.is_read; }).length;
+  const groups = {};
+  items.forEach(function (n) { const k = n.type || 'info'; (groups[k] = groups[k] || []).push(n); });
+%>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar', { pageHeading: 'Notifications' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Notifications</h1>
+          <p class="sub">
+            <% if (unread) { %><b><%= unread %> unread</b> of <%= items.length %> — new orders, low stock, review flags and system alerts.
+            <% } else if (items.length) { %>All <%= items.length %> notification<%= items.length === 1 ? '' : 's' %> read. Nothing needs you right now.
+            <% } else { %>Nothing yet. Alerts appear here as soon as the store needs your attention.
+            <% } %>
+          </p>
+        </div>
+        <div class="actions">
+          <% if (unread) { %>
+            <form action="/admin/notifications/read-all" method="post" style="display:inline">
+              <button class="btn ghost" type="submit"><%- icon('check') %> Mark all read</button>
+            </form>
+          <% } %>
+          <button class="btn ghost" type="button" onclick="window.location.reload()"><%- icon('refresh') %> Refresh</button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <% ['order', 'stock', 'review', 'system'].forEach(function (t) {
+             const m = TYPE_META[t];
+             const list = groups[t] || [];
+             const un = list.filter(function (n) { return !n.is_read; }).length; %>
+          <a class="kpi" href="#group-<%= t %>" style="--accent:<%= t === 'order' ? '#F26B21' : t === 'stock' ? '#FFB300' : t === 'review' ? '#1D4E6B' : '#64748B' %>;text-decoration:none">
+            <div class="k"><span class="ico"><%- icon(m[2]) %></span> <%= m[0] %></div>
+            <div class="v"><%= list.length %></div>
+            <div class="d"><%= un ? un + ' unread' : 'All read' %></div>
+          </a>
+        <% }); %>
+      </div>
+
+      <% if (!items.length) { %>
+        <div class="card"><div class="empty" style="padding:3.4rem">
+          <span class="ico">&#128276;</span>
+          <h3>You are all caught up</h3>
+          <p class="muted">The system raises a notification when an order arrives, when stock hits your reorder point, when a review needs moderating and when a payment webhook fails.</p>
+          <div class="row wrap" style="gap:.4rem;justify-content:center;margin-top:.9rem">
+            <a class="btn primary sm" href="/admin"><%- icon('grid') %> Back to dashboard</a>
+            <a class="btn ghost sm" href="/admin/orders"><%- icon('box') %> Open orders</a>
+          </div>
+        </div></div>
+      <% } %>
+
+      <% ['order', 'stock', 'review', 'system'].concat(Object.keys(groups).filter(function (k) { return ['order', 'stock', 'review', 'system'].indexOf(k) === -1; })).forEach(function (t) {
+           const list = groups[t]; if (!list || !list.length) return;
+           const m = TYPE_META[t] || [t, 'muted', 'bell']; %>
+        <div class="card" id="group-<%= t %>" style="margin-top:1rem">
+          <div class="card-head">
+            <div><h2><%- icon(m[2]) %> <%= m[0] %> notifications</h2>
+              <span class="sub"><%= list.length %> total · <%= list.filter(function (n) { return !n.is_read; }).length %> unread</span></div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="notif-list">
+              <% list.forEach(function (n) {
+                 const tone = LEVEL_TONE[n.level] || 'info'; %>
+                <div class="notif <%= n.is_read ? 'read' : 'unread' %>">
+                  <span class="dot <%= tone %>"><%- icon(m[2]) %></span>
+                  <div class="notif-body">
+                    <div class="row between wrap" style="gap:.4rem">
+                      <b><%= n.title %></b>
+                      <time class="tiny muted" title="<%= dateFmt(n.created_at, 'D MMM YYYY, h:mm:ss a') %>"><%= timeAgo(n.created_at) %></time>
+                    </div>
+                    <% if (n.body) { %><p class="small" style="margin:.2rem 0 0"><%= n.body %></p><% } %>
+                    <div class="row wrap" style="gap:.4rem;margin-top:.45rem">
+                      <span class="badge <%= tone %>"><%= n.level %></span>
+                      <% if (n.link) { %><a class="btn ghost xs" href="<%= n.link %>"><%- icon('arrow-right') %> Open</a><% } %>
+                      <% if (!n.is_read) { %>
+                        <form action="/admin/notifications/<%= n.id %>/read" method="post" style="display:inline">
+                          <button class="btn ghost xs" type="submit"><%- icon('check') %> Mark read</button>
+                        </form>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+
+      <div class="card" style="margin-top:1rem">
+        <div class="card-head"><div><h2>What triggers a notification</h2><span class="sub">So you know what each colour means</span></div></div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table class="table compact" style="min-width:620px">
+              <thead><tr><th>Event</th><th>Type</th><th>Level</th><th>What to do</th></tr></thead>
+              <tbody>
+                <tr><td><b>New order placed</b></td><td><span class="badge brand">order</span></td><td><span class="badge info">info</span></td><td class="muted">Confirm payment, then move it to processing.</td></tr>
+                <tr><td><b>High-value order</b></td><td><span class="badge brand">order</span></td><td><span class="badge warn">warn</span></td><td class="muted">Verify the customer by phone before dispatching.</td></tr>
+                <tr><td><b>Order cancelled</b></td><td><span class="badge brand">order</span></td><td><span class="badge warn">warn</span></td><td class="muted">Check stock was released and the reason is logged.</td></tr>
+                <tr><td><b>Low stock</b></td><td><span class="badge warn">stock</span></td><td><span class="badge warn">warn</span></td><td class="muted">Reorder from your supplier or archive the product.</td></tr>
+                <tr><td><b>Out of stock</b></td><td><span class="badge warn">stock</span></td><td><span class="badge danger">danger</span></td><td class="muted">Restock or the listing stops converting immediately.</td></tr>
+                <tr><td><b>Review awaiting moderation</b></td><td><span class="badge info">review</span></td><td><span class="badge info">info</span></td><td class="muted">Publish it, or reply first if the rating is low.</td></tr>
+                <tr><td><b>1-star review published</b></td><td><span class="badge info">review</span></td><td><span class="badge danger">danger</span></td><td class="muted">Reply publicly and fix the underlying issue.</td></tr>
+                <tr><td><b>Failed / unsigned webhook</b></td><td><span class="badge muted">system</span></td><td><span class="badge danger">danger</span></td><td class="muted">Check the gateway secret and the payment ledger.</td></tr>
+                <tr><td><b>Backup, reset or settings change</b></td><td><span class="badge muted">system</span></td><td><span class="badge info">info</span></td><td class="muted">No action — recorded for the audit trail.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="tiny muted" style="margin:.8rem 0 0">Notifications are stored in the database, so they survive restarts. The bell in the top bar shows the unread count on every admin page.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

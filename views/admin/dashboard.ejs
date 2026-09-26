@@ -1,0 +1,331 @@
+<%- include('partials/head') %>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar') %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Good <%= new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening' %>, <%= user.name.split(' ')[0] %></h1>
+          <p class="sub">Here is how <%= settings.store_name %> is trading today — <%= dateFmt(new Date(), 'dddd, D MMMM YYYY') %>.</p>
+        </div>
+        <div class="actions">
+          <% if (isOwner) { %>
+            <a class="btn primary" href="/admin/products/new"><%- icon('plus') %> Upload product</a>
+          <% } %>
+          <a class="btn ghost" href="/admin/orders"><%- icon('box') %> Orders <span class="badge warn" style="margin-left:.3rem"><%= pendingCount %></span></a>
+          <a class="btn ghost" href="/admin/analytics/export.csv"><%- icon('download') %> Export CSV</a>
+        </div>
+      </div>
+
+      <%# ───────────────────────────── KPIs ───────────────────────────── %>
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#F26B21">
+          <div class="k"><span class="ico"><%- icon('cash') %></span> Revenue today</div>
+          <div class="v"><%= settings.currency_symbol %> <%= money(data.kpis.revenueToday) %></div>
+          <div class="d"><span class="delta <%= data.kpis.orders7Delta > 0 ? 'up' : data.kpis.orders7Delta < 0 ? 'down' : 'flat' %>"><%= data.kpis.orders7Delta > 0 ? '▲' : data.kpis.orders7Delta < 0 ? '▼' : '■' %> <%= Math.abs(data.kpis.orders7Delta) %>%</span> vs previous 7 days</div>
+          <div class="spark"><%- include('partials/chart', { points: data.chart.slice(-14).map(function (d) { return { label: d.label, value: d.value }; }), opts: { height: 40, id: 'sparkRev', prefix: '' } }) %></div>
+        </div>
+        <div class="kpi" style="--accent:#1D4E6B">
+          <div class="k"><span class="ico"><%- icon('box') %></span> Orders today</div>
+          <div class="v"><%= data.kpis.ordersToday %></div>
+          <div class="d"><%= data.kpis.orders7 %> in the last 7 days · <%= data.totals.pendingFulfil %> to fulfil</div>
+        </div>
+        <div class="kpi" style="--accent:#12805C">
+          <div class="k"><span class="ico"><%- icon('chart') %></span> Revenue · 30 days</div>
+          <div class="v"><%= settings.currency_symbol %> <%= moneyShort(data.kpis.revenue30) %></div>
+          <div class="d"><%= data.kpis.units30 %> units sold · AOV <%= settings.currency_symbol %> <%= money(data.kpis.aov) %></div>
+        </div>
+        <div class="kpi" style="--accent:#FFB300">
+          <div class="k"><span class="ico"><%- icon('wallet') %></span> Awaiting payment</div>
+          <div class="v"><%= settings.currency_symbol %> <%= moneyShort(data.totals.outstanding) %></div>
+          <div class="d"><%= data.totals.outstandingOrders %> unpaid order<%= data.totals.outstandingOrders === 1 ? '' : 's' %></div>
+        </div>
+        <div class="kpi" style="--accent:#0F2A43">
+          <div class="k"><span class="ico"><%- icon('users') %></span> Customers</div>
+          <div class="v"><%= data.totals.customers %></div>
+          <div class="d"><%= data.growth.filter(function (g) { return g.added > 0; }).reduce(function (s, g) { return s + g.added; }, 0) %> new in 30 days</div>
+        </div>
+        <div class="kpi" style="--accent:#D64545">
+          <div class="k"><span class="ico"><%- icon('alert') %></span> Stock alerts</div>
+          <div class="v"><%= data.totals.lowStock + data.totals.outOfStock %></div>
+          <div class="d"><%= data.totals.lowStock %> low · <%= data.totals.outOfStock %> out of stock</div>
+        </div>
+      </div>
+
+      <%# ───────────────────────── revenue + orders charts ───────────────────────── %>
+      <div class="grid g-2-1" style="gap:1rem;margin-bottom:1rem">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Revenue · last 30 days</h2>
+              <span class="sub">Paid orders only, in <%= settings.currency %></span>
+            </div>
+            <div class="row" style="gap:.4rem">
+              <span class="badge success"><%= settings.currency_symbol %> <%= moneyShort(data.kpis.revenue30) %></span>
+              <a class="btn ghost sm" href="/admin/analytics"><%- icon('chart') %> Full analytics</a>
+            </div>
+          </div>
+          <div class="card-body">
+            <%- include('partials/chart', { points: data.chart.map(function (d) { return { label: d.label, value: d.value }; }), opts: { height: 210, id: 'rev30', prefix: settings.currency_symbol } }) %>
+            <div class="legend" style="margin-top:.5rem">
+              <span><i style="background:#F26B21"></i> Daily revenue</span>
+              <span>Best day: <b><%= data.chart.reduce(function (b, d) { return d.value > b.value ? d : b; }, data.chart[0]).label %></b> · <%= settings.currency_symbol %> <%= money(data.chart.reduce(function (b, d) { return d.value > b.value ? d : b; }, data.chart[0]).value) %></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Orders · 14 days</h2><span class="sub">Volume per day</span></div></div>
+          <div class="card-body">
+            <%- include('partials/chart', { points: data.chartOrders.map(function (d) { return { label: d.label, value: d.orders }; }), opts: { height: 170, id: 'ord14', bars: true, color: '#1D4E6B' } }) %>
+            <div class="divider" style="height:1px;background:var(--line-2);margin:.9rem 0"></div>
+            <div class="stat-line row between"><span class="muted">Lifetime paid orders</span><b><%= data.totals.paidOrders %></b></div>
+            <div class="stat-line row between"><span class="muted">Lifetime revenue</span><b><%= settings.currency_symbol %> <%= moneyShort(data.totals.revenue) %></b></div>
+            <div class="stat-line row between"><span class="muted">Average order value</span><b><%= settings.currency_symbol %> <%= money(data.kpis.aov) %></b></div>
+            <div class="stat-line row between"><span class="muted">Units in stock</span><b><%= data.totals.units %></b></div>
+            <div class="stat-line row between"><span class="muted">Live products</span><b><%= data.totals.products %></b></div>
+          </div>
+        </div>
+      </div>
+
+      <%# ───────────────────────── orders table + sidebar ───────────────────────── %>
+      <div class="grid g-2-1" style="gap:1rem;margin-bottom:1rem">
+        <div class="card">
+          <div class="card-head">
+            <div><h2>Latest orders</h2><span class="sub"><%= pendingOrders.length %> needing attention</span></div>
+            <a class="btn ghost sm" href="/admin/orders">View all orders</a>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table class="table compact" style="min-width:640px">
+                <thead><tr><th>Order</th><th>Customer</th><th>Placed</th><th class="num">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  <% (pendingOrders.length ? pendingOrders : data.recentOrders).forEach(function (o) { %>
+                    <% const sm = STATUS_META[o.status] || { label: o.status, tone: 'muted' }; %>
+                    <tr>
+                      <td><a href="/admin/orders/<%= o.id %>" style="font-weight:800"><%= o.order_number %></a></td>
+                      <td><%= o.customer_name || o.ship_name || o.guest_name || 'Guest' %><br><span class="muted" style="font-size:.72rem"><%= o.ship_city %>, <%= o.ship_region %></span></td>
+                      <td class="muted" style="font-size:.78rem"><%= timeAgo(o.placed_at) %></td>
+                      <td class="num strong"><%= settings.currency_symbol %> <%= money(o.total) %></td>
+                      <td><span class="badge <%= o.payment_status === 'paid' ? 'success' : 'warn' %> outline" style="font-size:.68rem"><%= o.payment_method.toUpperCase() %></span></td>
+                      <td><span class="badge <%= sm.tone %>"><%= sm.label %></span></td>
+                      <td style="text-align:right"><a class="btn ghost xs" href="/admin/orders/<%= o.id %>">Open</a></td>
+                    </tr>
+                  <% }); %>
+                  <% if (!pendingOrders.length && !data.recentOrders.length) { %>
+                    <tr><td colspan="7"><div class="empty"><span class="ico">&#128230;</span><h3>No orders yet</h3><p class="muted">Orders will appear here the moment a customer checks out.</p></div></td></tr>
+                  <% } %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="stack" style="gap:1rem">
+          <div class="card">
+            <div class="card-head"><div><h2>Order pipeline</h2><span class="sub">By status</span></div></div>
+            <div class="card-body">
+              <% const maxStatus = Math.max.apply(null, data.statuses.map(function (s) { return s.n; }).concat([1])); %>
+              <div class="hbar">
+                <% data.statuses.forEach(function (s) { %>
+                  <% const sm = STATUS_META[s.status] || { label: s.status, tone: 'muted' }; %>
+                  <div class="hbar-row">
+                    <a href="/admin/orders?status=<%= s.status %>" style="font-weight:700"><%= sm.label %></a>
+                    <span class="track"><i style="width:<%= Math.max(2, Math.round(s.n / maxStatus * 100)) %>%"></i></span>
+                    <span class="v"><%= s.n %></span>
+                  </div>
+                <% }); %>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Payment mix</h2><span class="sub">All orders</span></div></div>
+            <div class="card-body">
+              <% const payTotal = data.payments.reduce(function (s, p) { return s + p.n; }, 0) || 1; %>
+              <% const colors = { momo: '#FFB300', card: '#1D4E6B', cod: '#12805C' }; %>
+              <div class="donut-wrap">
+                <svg width="120" height="120" viewBox="0 0 42 42" aria-label="Payment method mix">
+                  <circle cx="21" cy="21" r="15.9" fill="none" stroke="#EDF1F6" stroke-width="6"></circle>
+                  <% let acc = 0; data.payments.forEach(function (p) { const pct = p.n / payTotal * 100; %>
+                    <circle cx="21" cy="21" r="15.9" fill="none" stroke="<%= colors[p.method] || '#F26B21' %>" stroke-width="6"
+                      stroke-dasharray="<%= pct.toFixed(2) %> <%= (100 - pct).toFixed(2) %>" stroke-dashoffset="<%= (25 - acc).toFixed(2) %>"></circle>
+                  <% acc += pct; }); %>
+                  <text x="21" y="20.5" text-anchor="middle" style="font-size:5px;font-weight:900;fill:#0B1A27"><%= payTotal %></text>
+                  <text x="21" y="25.5" text-anchor="middle" style="font-size:2.6px;fill:#64748B">orders</text>
+                </svg>
+                <div class="donut-legend">
+                  <% data.payments.forEach(function (p) { %>
+                    <div class="row"><i style="background:<%= colors[p.method] || '#F26B21' %>"></i>
+                      <span><%= p.method === 'momo' ? 'Mobile Money' : p.method === 'cod' ? 'Cash on delivery' : 'Card' %></span>
+                      <span class="v"><%= p.n %> · <%= settings.currency_symbol %> <%= moneyShort(p.value) %></span>
+                    </div>
+                  <% }); %>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Notifications</h2><span class="sub"><%= unreadNotifications %> unread</span></div>
+              <a class="btn ghost sm" href="/admin/notifications">All</a></div>
+            <div class="card-body" style="padding:.4rem .8rem">
+              <% if (notifications.length) { %>
+                <% notifications.forEach(function (n) { %>
+                  <div class="notif-item <%= n.is_read ? '' : 'unread' %> <%= n.level %>">
+                    <span class="dot"></span>
+                    <div style="flex:1">
+                      <b><%= n.title %></b>
+                      <p><%= truncate(n.body || '', 90) %></p>
+                      <time><%= timeAgo(n.created_at) %></time>
+                    </div>
+                    <% if (n.link) { %><a class="btn ghost xs" href="<%= n.link %>">Open</a><% } %>
+                  </div>
+                <% }); %>
+              <% } else { %>
+                <div class="empty"><span class="ico">&#128276;</span><p class="muted small">No notifications.</p></div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%# ───────────────────────── stock, top products, categories, activity ───────────────────────── %>
+      <div class="grid g-3" style="gap:1rem;margin-bottom:1rem">
+        <div class="card">
+          <div class="card-head"><div><h2>Low &amp; out of stock</h2><span class="sub">Restock these first</span></div>
+            <% if (isOwner) { %><a class="btn ghost sm" href="/admin/products/inventory/overview">Inventory</a><% } %></div>
+          <div class="card-body" style="padding:.4rem .8rem">
+            <% if (lowStock.length) { %>
+              <% lowStock.forEach(function (p) { %>
+                <div class="row" style="gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--line-2)">
+                  <img class="thumb" style="width:36px;height:36px" src="<%= imgSrc(p.image, { w: 90, h: 90, hint: p.category_name, name: p.name }) %>" alt="" loading="lazy">
+                  <span style="flex:1;min-width:0">
+                    <b style="display:block;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= p.name %></b>
+                    <span class="muted" style="font-size:.72rem"><%= p.category_name || 'Uncategorised' %></span>
+                  </span>
+                  <span class="stock-pill <%= p.stock <= 0 ? 'out' : 'low' %>"><%= p.stock <= 0 ? 'Out' : p.stock + ' left' %></span>
+                  <% if (isOwner) { %><a class="btn ghost xs" href="/admin/products/<%= p.id %>/edit">Fix</a><% } %>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <div class="empty"><span class="ico">&#10003;</span><h3>Stock levels are healthy</h3><p class="muted small">Nothing is at or below its reorder point.</p></div>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Best sellers</h2><span class="sub">By units sold, all time</span></div></div>
+          <div class="card-body" style="padding:.4rem .8rem">
+            <% if (data.topProducts.length) { %>
+              <% data.topProducts.forEach(function (p, i) { %>
+                <div class="row" style="gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--line-2)">
+                  <span class="badge outline" style="min-width:24px;text-align:center"><%= i + 1 %></span>
+                  <img class="thumb" style="width:36px;height:36px" src="<%= imgSrc(p.image, { w: 90, h: 90, hint: settings.store_name, name: p.name }) %>" alt="" loading="lazy">
+                  <span style="flex:1;min-width:0">
+                    <b style="display:block;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= p.name %></b>
+                    <span class="muted" style="font-size:.72rem"><%= p.units %> units · <%= settings.currency_symbol %> <%= moneyShort(p.revenue) %></span>
+                  </span>
+                  <% if (p.product_id && isOwner) { %><a class="btn ghost xs" href="/admin/products/<%= p.product_id %>/edit"><%- icon('edit') %></a><% } %>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <div class="empty"><span class="ico">&#128202;</span><p class="muted small">No sales recorded yet.</p></div>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Revenue by category</h2><span class="sub">Paid orders</span></div></div>
+          <div class="card-body">
+            <% const maxCat = Math.max.apply(null, data.byCategory.map(function (c) { return Number(c.revenue) || 0; }).concat([1])); %>
+            <div class="hbar">
+              <% data.byCategory.forEach(function (c) { %>
+                <div class="hbar-row">
+                  <span style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= c.name || 'Other' %></span>
+                  <span class="track"><i style="width:<%= Math.max(2, Math.round((Number(c.revenue) || 0) / maxCat * 100)) %>%"></i></span>
+                  <span class="v"><%= moneyShort(c.revenue) %></span>
+                </div>
+              <% }); %>
+            </div>
+            <div class="divider" style="height:1px;background:var(--line-2);margin:.9rem 0"></div>
+            <div style="font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:.5rem">Top regions</div>
+            <div class="hbar">
+              <% data.regions.slice(0, 5).forEach(function (r) { %>
+                <div class="hbar-row">
+                  <span style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= r.region %></span>
+                  <span class="track"><i style="width:<%= Math.max(2, Math.round(r.orders / (data.regions[0] ? data.regions[0].orders : 1) * 100)) %>%"></i></span>
+                  <span class="v"><%= r.orders %></span>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid g-2" style="gap:1rem">
+        <div class="card">
+          <div class="card-head"><div><h2>Recent activity</h2><span class="sub">Audit log — who did what</span></div>
+            <% if (isOwner) { %><a class="btn ghost sm" href="/admin/system/audit">Full log</a><% } %></div>
+          <div class="card-body">
+            <% if (activity.length) { %>
+              <div class="activity">
+                <% activity.forEach(function (a) { %>
+                  <% const kind = /create|add|new/.test(a.action) ? 'create' : /delete|remove/.test(a.action) ? 'delete' : 'update'; %>
+                  <div class="act">
+                    <span class="ico <%= kind %>"><%- icon(kind === 'create' ? 'plus' : kind === 'delete' ? 'trash' : 'edit') %></span>
+                    <span style="flex:1">
+                      <b><%= a.actor_name || a.actor_role || 'system' %></b> <code><%= a.action %></code>
+                      <% if (a.entity) { %> on <b><%= a.entity %><%= a.entity_id ? ' #' + a.entity_id : '' %></b><% } %>
+                      <time><%= timeAgo(a.created_at) %><% if (a.ip) { %> · <%= a.ip %><% } %></time>
+                    </span>
+                  </div>
+                <% }); %>
+              </div>
+            <% } else { %>
+              <div class="empty"><span class="ico">&#128221;</span><p class="muted small">No administrative actions recorded yet.</p></div>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Newest customers</h2><span class="sub">Registrations</span></div>
+            <a class="btn ghost sm" href="/admin/customers">All customers</a></div>
+          <div class="card-body" style="padding:.4rem .8rem">
+            <% if (data.recentCustomers.length) { %>
+              <% data.recentCustomers.forEach(function (c) { %>
+                <div class="row" style="gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--line-2)">
+                  <span class="avatar" style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1D4E6B,#2E86AB);color:#fff;display:grid;place-items:center;font-weight:900;font-size:.72rem;flex:none"><%= initials(c.name) %></span>
+                  <span style="flex:1;min-width:0">
+                    <a href="/admin/customers/<%= c.id %>" style="font-weight:800;font-size:.84rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= c.name %></a>
+                    <span class="muted" style="font-size:.72rem"><%= c.email %> · joined <%= timeAgo(c.created_at) %></span>
+                  </span>
+                  <span style="text-align:right">
+                    <b style="font-size:.82rem;display:block"><%= c.orders %> order<%= c.orders === 1 ? '' : 's' %></b>
+                    <span class="muted" style="font-size:.72rem"><%= settings.currency_symbol %> <%= moneyShort(c.spent) %></span>
+                  </span>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <div class="empty"><span class="ico">&#128101;</span><p class="muted small">No customer registrations yet.</p></div>
+            <% } %>
+            <div class="divider" style="height:1px;background:var(--line-2);margin:.9rem 0"></div>
+            <div style="font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:.5rem">Customer growth · 30 days</div>
+            <%- include('partials/chart', { points: data.growth.map(function (g) { return { label: g.label, value: g.value }; }), opts: { height: 90, id: 'growth', color: '#12805C' } }) %>
+          </div>
+        </div>
+      </div>
+
+      <% if (!isOwner) { %>
+        <div class="card pad" style="margin-top:1rem;border-left:4px solid var(--gold)">
+          <b><%- icon('lock') %> Staff access</b>
+          <p class="muted small" style="margin:.3rem 0 0">You are signed in as a staff member. You can manage orders, customers, marketing and support, but the product catalogue, pricing, shipping zones, staff accounts and store settings are locked to the owner. Every action you take is written to the audit log.</p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<%- include('partials/head') %>
+<%
+  const STATUS = {
+    success: ['Successful', 'success', 'check-circle'],
+    failed: ['Failed', 'danger', 'x-circle'],
+    initiated: ['Initiated', 'info', 'clock'],
+    abandoned: ['Abandoned', 'warn', 'alert'],
+    refunded: ['Refunded', 'muted', 'refresh'],
+  };
+  const CHANNEL = { card: ['Card', 'card'], mobile_money: ['Mobile Money', 'momo'], bank: ['Bank transfer', 'bank'], cod: ['Cash on delivery', 'cash'] };
+  const order = ['success', 'failed', 'initiated', 'abandoned', 'refunded'];
+  const grandTotal = order.reduce(function (s, k) { return s + (totals[k] ? totals[k].value : 0); }, 0);
+  const captured = totals.success ? totals.success.value : 0;
+  const captureRate = grandTotal ? Math.round(captured / grandTotal * 100) : 0;
+%>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar', { pageHeading: 'Payments' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Payment ledger</h1>
+          <p class="sub">Every charge attempt, gateway response and refund — reconciled against orders. Gateway: <b><%= gateway.brand %></b> in <b><%= gateway.mode %></b> mode.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/settings?tab=payments"><%- icon('settings') %> Gateway settings</a>
+          <a class="btn ghost" href="/admin/orders?payment_status=unpaid"><%- icon('clock') %> Unpaid orders</a>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#12805C">
+          <div class="k"><span class="ico"><%- icon('cash') %></span> Captured</div>
+          <div class="v"><%= settings.currency_symbol %> <%= moneyShort(captured) %></div>
+          <div class="d"><%= totals.success ? totals.success.n : 0 %> successful charge<%= totals.success && totals.success.n === 1 ? '' : 's' %></div>
+        </div>
+        <div class="kpi" style="--accent:#D64545">
+          <div class="k"><span class="ico"><%- icon('x-circle') %></span> Failed / declined</div>
+          <div class="v"><%= totals.failed ? totals.failed.n : 0 %></div>
+          <div class="d"><%= settings.currency_symbol %> <%= money(totals.failed ? totals.failed.value : 0) %> attempted and lost</div>
+        </div>
+        <div class="kpi" style="--accent:#FFB300">
+          <div class="k"><span class="ico"><%- icon('clock') %></span> Awaiting payment</div>
+          <div class="v"><%= (totals.initiated ? totals.initiated.n : 0) + (totals.abandoned ? totals.abandoned.n : 0) %></div>
+          <div class="d"><%= settings.currency_symbol %> <%= money((totals.initiated ? totals.initiated.value : 0) + (totals.abandoned ? totals.abandoned.value : 0)) %> in flight or dropped</div>
+        </div>
+        <div class="kpi" style="--accent:#0F2A43">
+          <div class="k"><span class="ico"><%- icon('target') %></span> Capture rate</div>
+          <div class="v"><%= captureRate %>%</div>
+          <div class="d">Of <%= settings.currency_symbol %> <%= moneyShort(grandTotal) %> attempted across all channels</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <a class="tab <%= status === 'all' || !status ? 'active' : '' %>" href="/admin/system/payments">All <span class="n"><%= payments.length %></span></a>
+        <% order.forEach(function (k) { %>
+          <a class="tab <%= status === k ? 'active' : '' %>" href="/admin/system/payments?status=<%= k %>">
+            <%= STATUS[k][0] %><% if (totals[k]) { %> <span class="n"><%= totals[k].n %></span><% } %></a>
+        <% }); %>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><h2>Charges</h2><span class="sub">Most recent 200 attempts<%= status !== 'all' ? ' · filtered to ' + (STATUS[status] ? STATUS[status][0] : status) : '' %></span></div>
+          <span class="badge <%= gateway.mode === 'live' ? 'success' : 'gold' %>"><%= gateway.mode === 'live' ? 'LIVE' : 'TEST MODE' %></span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table class="table" style="min-width:980px">
+              <thead><tr>
+                <th>Reference</th><th>Order</th><th>Customer</th><th>Channel</th>
+                <th class="num">Amount</th><th>Status</th><th>Gateway ref</th><th>When</th><th style="text-align:right">Actions</th>
+              </tr></thead>
+              <tbody>
+                <% if (!payments.length) { %>
+                  <tr><td colspan="9"><div class="empty"><span class="ico">&#128179;</span><h3>No payments in this view</h3>
+                    <p class="muted">Charges appear here the moment a shopper reaches the gateway.</p></div></td></tr>
+                <% } %>
+                <% payments.forEach(function (p) {
+                   const st = STATUS[p.status] || [p.status, 'muted', 'info'];
+                   const ch = CHANNEL[p.channel] || [p.channel || '—', 'card']; %>
+                  <tr>
+                    <td><span class="mono" style="font-size:.74rem"><%= p.reference %></span>
+                      <% if (p.payer) { %><span class="tiny muted" style="display:block"><%= p.payer %><%= p.last4 ? ' •••• ' + p.last4 : '' %></span><% } %></td>
+                    <td><% if (p.order_number) { %><a href="/admin/orders/<%= p.order_id %>" style="font-weight:800"><%= p.order_number %></a><% } else { %><span class="muted">#<%= p.order_id %></span><% } %></td>
+                    <td class="small"><%= p.ship_name || '—' %></td>
+                    <td><span class="row" style="gap:.3rem"><span class="ico" style="color:var(--navy-3)"><%- icon(ch[1]) %></span>
+                      <span class="small"><%= ch[0] %><%= p.method && p.method !== p.channel ? ' · ' + p.method : '' %></span></span></td>
+                    <td class="num strong"><%= settings.currency_symbol %> <%= money(p.amount) %></td>
+                    <td><span class="badge <%= st[1] %>"><%= st[0] %></span>
+                      <% if (p.error) { %><span class="tiny" style="display:block;color:var(--red)"><%= truncate(p.error, 34) %></span><% } %></td>
+                    <td class="mono tiny muted"><%= p.gateway_ref || '—' %></td>
+                    <td class="small"><%= dateFmt(p.paid_at || p.created_at, 'D MMM YYYY') %>
+                      <span class="tiny muted" style="display:block"><%= timeAgo(p.paid_at || p.created_at) %></span></td>
+                    <td>
+                      <div class="row-actions">
+                        <a class="btn ghost xs" href="/admin/orders/<%= p.order_id %>" title="Open order"><%- icon('eye') %></a>
+                        <button class="btn ghost xs" type="button" data-copy="<%= p.reference %>" title="Copy reference"><%- icon('copy') %></button>
+                        <button class="btn ghost xs" type="button" title="Raw gateway payload" data-raw-toggle="raw-<%= p.id %>"><%- icon('code') %></button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="raw-row" id="raw-<%= p.id %>" hidden>
+                    <td colspan="9" style="background:#F8FAFC">
+                      <div class="row wrap" style="gap:.4rem;margin-bottom:.4rem">
+                        <span class="badge muted mono" style="font-size:.64rem">gateway: <%= p.gateway %></span>
+                        <span class="badge muted mono" style="font-size:.64rem">currency: <%= p.currency %></span>
+                        <span class="badge muted mono" style="font-size:.64rem">method: <%= p.method %></span>
+                        <% if (p.paid_at) { %><span class="badge success" style="font-size:.64rem">paid <%= dateFmt(p.paid_at, 'D MMM YYYY, h:mm a') %></span><% } %>
+                      </div>
+                      <pre class="mono" style="margin:0;font-size:.72rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:#22405C"><%= JSON.stringify((function () { try { return JSON.parse(p.raw || '{}'); } catch (e) { return p.raw; } })(), null, 2) %></pre>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-foot">
+          <span class="tiny muted">Webhook endpoint <b class="mono"><%= gateway.webhookUrl %></b> · signature
+            <%= gateway.secretSet ? '<b style="color:var(--green)">secret configured</b>' : '<b style="color:var(--red)">no secret set — signatures are not verified</b>' %> ·
+            references are unique so a replayed webhook can never double-complete an order.</span>
+        </div>
+      </div>
+
+      <div class="grid g-3" style="gap:1rem;margin-top:1rem">
+        <div class="card">
+          <div class="card-head"><div><h2>Channel totals</h2></div></div>
+          <div class="card-body">
+            <% const byChannel = {};
+               payments.forEach(function (p) { const k = p.channel || p.method || 'other';
+                 if (!byChannel[k]) byChannel[k] = { n: 0, value: 0 };
+                 byChannel[k].n += 1; byChannel[k].value += Number(p.amount) || 0; }); %>
+            <% Object.keys(byChannel).forEach(function (k) { const ch = CHANNEL[k] || [k, 'card']; %>
+              <div class="stat-line row between">
+                <span class="row" style="gap:.4rem"><span class="ico" style="color:var(--navy-3)"><%- icon(ch[1]) %></span>
+                  <span class="muted"><%= ch[0] %></span></span>
+                <b><%= byChannel[k].n %> · <%= settings.currency_symbol %> <%= moneyShort(byChannel[k].value) %></b>
+              </div>
+            <% }); %>
+            <% if (!Object.keys(byChannel).length) { %><p class="tiny muted">No channel data yet.</p><% } %>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Test-mode cheat sheet</h2></div></div>
+          <div class="card-body small">
+            <div class="stat-line row between"><span class="muted">Card — success</span><b class="mono">4084 0840 8408 4081</b></div>
+            <div class="stat-line row between"><span class="muted">Card — declined</span><b class="mono">5060 6666 6666 6666 666</b></div>
+            <div class="stat-line row between"><span class="muted">Card — insufficient funds</span><b class="mono">4084 0999 9999 9995</b></div>
+            <div class="stat-line row between"><span class="muted">MoMo — fail</span><b class="mono">any number ending 0000</b></div>
+            <div class="stat-line row between"><span class="muted">Expiry / CVV</span><b>anything valid</b></div>
+            <div class="divider"></div>
+            <p class="tiny muted" style="margin:0">In test mode the simulator settles instantly and writes a real <code>payments</code> row plus a signed webhook, so the flow is identical to production.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div><h2>Reconciliation checklist</h2></div></div>
+          <div class="card-body small">
+            <ul class="checklist">
+              <li>Every <b>success</b> row has a matching order with <b>payment_status = paid</b>.</li>
+              <li>COD orders show no gateway charge — they are settled in <a href="/admin/orders?payment_status=cod_pending">COD pending</a>.</li>
+              <li>Refunds appear here <b>and</b> on the order timeline with the actor’s name.</li>
+              <li>Failed attempts are kept so you can see abandonment and retry rates.</li>
+              <li>Export the ledger monthly and match it against your gateway dashboard statement.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-raw-toggle]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var row = document.getElementById(b.getAttribute('data-raw-toggle'));
+        if (row) row.hidden = !row.hidden;
+      });
+    });
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (navigator.clipboard) navigator.clipboard.writeText(b.getAttribute('data-copy'));
+        var old = b.innerHTML; b.innerHTML = '✓'; setTimeout(function () { b.innerHTML = old; }, 1200);
+      });
+    });
+  });
+</script>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<%- include('partials/head') %>
+<% const e = editing || {}; %>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar', { pageHeading: 'Homepage banners' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Homepage hero banners</h1>
+          <p class="sub">Owner only. These rotate in the hero carousel at the top of the homepage — <%= slides.filter(function (s) { return s.is_active; }).length %> of <%= slides.length %> are live.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/" target="_blank"><%- icon('eye') %> View homepage</a>
+          <% if (editing) { %><a class="btn ghost" href="/admin/slides"><%- icon('x') %> Cancel edit</a><% } %>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div>
+          <div class="card" style="margin-bottom:1rem">
+            <div class="card-head"><div><h2>Live banners</h2><span class="sub">In carousel order</span></div></div>
+            <div class="card-body stack" style="gap:.9rem">
+              <% if (!slides.length) { %>
+                <div class="empty"><span class="ico">&#127912;</span><h3>No banners yet</h3><p class="muted">Create your first hero banner with the form.</p></div>
+              <% } %>
+              <% slides.forEach(function (s) { %>
+                <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
+                  <div style="background:<%= s.bg || 'linear-gradient(120deg,#0F2A43,#1D4E6B)' %>;padding:1.1rem 1.2rem;color:#fff;position:relative;min-height:110px">
+                    <% if (s.image) { %><img src="<%= imgSrc(s.image, { w: 900, h: 300, hint: 'banner', name: s.title }) %>" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.32"><% } %>
+                    <div style="position:relative">
+                      <% if (s.badge) { %><span class="badge gold" style="margin-bottom:.4rem"><%= s.badge %></span><% } %>
+                      <b style="display:block;font-size:1.05rem;color:#fff"><%= s.title %></b>
+                      <% if (s.subtitle) { %><span style="color:#D6E4EF;font-size:.82rem"><%= s.subtitle %></span><% } %>
+                      <div style="margin-top:.6rem"><span class="btn gold sm"><%= s.link_text || 'Shop now' %> → <%= s.link_url || '/' %></span></div>
+                    </div>
+                  </div>
+                  <div class="row between wrap" style="gap:.5rem;padding:.6rem .9rem;background:#FAFCFE;border-top:1px solid var(--line)">
+                    <span class="muted small">
+                      <span class="badge outline">#<%= s.sort_order %></span>
+                      <%= s.is_active ? '<span class="badge success">live</span>' : '<span class="badge muted">hidden</span>' %>
+                      <span class="mono" style="font-size:.72rem;margin-left:.4rem"><%= truncate(s.bg || '', 44) %></span>
+                    </span>
+                    <span class="row-actions">
+                      <a class="btn ghost xs" href="/admin/slides?edit=<%= s.id %>"><%- icon('edit') %> Edit</a>
+                      <form action="/admin/slides/<%= s.id %>/delete" method="post" style="display:inline" onsubmit="return confirm('Delete this homepage banner?')">
+                        <button class="btn ghost xs" type="submit" style="color:var(--red)"><%- icon('trash') %> Delete</button>
+                      </form>
+                    </span>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+
+        <form class="card" action="/admin/slides" method="post">
+          <div class="card-head"><div><h2><%= editing ? 'Edit banner' : 'Create a banner' %></h2>
+            <span class="sub">Preview updates as you type</span></div></div>
+          <div class="card-body">
+            <% if (editing) { %><input type="hidden" name="id" value="<%= editing.id %>"><% } %>
+            <div class="field">
+              <label class="label" for="sBadge">Badge <span class="muted">(small label)</span></label>
+              <input class="input" id="sBadge" name="badge" value="<%= e.badge || '' %>" maxlength="40" placeholder="e.g. FLASH SALE · ENDS 8PM">
+            </div>
+            <div class="field">
+              <label class="label" for="sTitle">Headline <span style="color:var(--red)">*</span></label>
+              <input class="input" id="sTitle" name="title" value="<%= e.title || '' %>" required minlength="3" placeholder="e.g. Up to 35% off smartphones">
+            </div>
+            <div class="field">
+              <label class="label" for="sSub">Sub-headline</label>
+              <textarea class="textarea" id="sSub" name="subtitle" rows="2" maxlength="180" placeholder="e.g. Samsung, Tecno, Infinix & iPhone — genuine, warrantied and delivered same-day in Accra."><%= e.subtitle || '' %></textarea>
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field">
+                <label class="label" for="sLinkText">Button text</label>
+                <input class="input" id="sLinkText" name="link_text" value="<%= e.link_text || 'Shop now' %>" maxlength="30">
+              </div>
+              <div class="field">
+                <label class="label" for="sLinkUrl">Button link</label>
+                <input class="input" id="sLinkUrl" name="link_url" value="<%= e.link_url || '/' %>" placeholder="/c/phones-tablets">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="sBg">Background <span class="muted">(CSS colour or gradient)</span></label>
+              <input class="input mono" id="sBg" name="bg" value="<%= e.bg || 'linear-gradient(120deg,#0F2A43,#1D4E6B)' %>" placeholder="linear-gradient(120deg,#0F2A43,#1D4E6B)">
+              <div class="row wrap" style="gap:.3rem;margin-top:.4rem">
+                <% ['linear-gradient(120deg,#0F2A43,#1D4E6B)', 'linear-gradient(120deg,#B7410E,#F26B21)', 'linear-gradient(120deg,#0B5A41,#12805C)', 'linear-gradient(120deg,#5B2A86,#8E4EC6)', '#0F2A43'].forEach(function (g) { %>
+                  <button type="button" class="btn ghost xs" data-set-bg="<%= g %>" style="background:<%= g %>;color:#fff;border-color:transparent;min-width:38px"><%= '' %></button>
+                <% }); %>
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="sImage">Background image URL <span class="muted">(optional, shown at 32% opacity)</span></label>
+              <input class="input" id="sImage" name="image" value="<%= e.image || '' %>" placeholder="/uploads/slides/holiday-sale.jpg">
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field">
+                <label class="label" for="sSort">Sort order</label>
+                <input class="input" id="sSort" name="sort_order" type="number" step="1" value="<%= e.sort_order !== undefined && e.sort_order !== null ? e.sort_order : 0 %>">
+              </div>
+              <div class="field">
+                <label class="label">&nbsp;</label>
+                <label class="switch">
+                  <input type="checkbox" name="is_active" value="1" <%= (e.is_active === undefined ? 1 : e.is_active) ? 'checked' : '' %>>
+                  <span></span><b style="font-size:.85rem;margin-left:.6rem">Live</b>
+                </label>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+            <div class="tiny" style="letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:.4rem">Preview</div>
+            <div id="slidePreview" style="background:linear-gradient(120deg,#0F2A43,#1D4E6B);border-radius:12px;padding:1rem;color:#fff;min-height:96px">
+              <span class="badge gold" id="pvBadge" style="margin-bottom:.35rem">BADGE</span>
+              <b id="pvTitle" style="display:block;font-size:1rem;color:#fff">Your headline</b>
+              <span id="pvSub" style="color:#D6E4EF;font-size:.8rem">Your sub-headline</span>
+              <div style="margin-top:.55rem"><span class="btn gold sm" id="pvLink">Shop now</span></div>
+            </div>
+          </div>
+          <div class="card-foot">
+            <% if (editing) { %><a class="btn ghost" href="/admin/slides">Cancel</a><% } %>
+            <button class="btn primary block" type="submit"><%- icon('save') %> <%= editing ? 'Save banner' : 'Create banner' %></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var $ = function (s) { return document.querySelector(s); };
+    var pv = $('#slidePreview'), badge = $('#sBadge'), title = $('#sTitle'), sub = $('#sSub'),
+        link = $('#sLinkText'), bg = $('#sBg');
+    function sync() {
+      $('#pvBadge').textContent = badge.value || 'BADGE';
+      $('#pvBadge').style.display = badge.value ? '' : 'none';
+      $('#pvTitle').textContent = title.value || 'Your headline';
+      $('#pvSub').textContent = sub.value || 'Your sub-headline';
+      $('#pvLink').textContent = link.value || 'Shop now';
+      if (bg.value) pv.style.background = bg.value;
+    }
+    [badge, title, sub, link, bg].forEach(function (el) { if (el) el.addEventListener('input', sync); });
+    document.querySelectorAll('[data-set-bg]').forEach(function (b) {
+      b.addEventListener('click', function () { bg.value = b.getAttribute('data-set-bg'); sync(); });
+    });
+    sync();
+  });
+</script>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

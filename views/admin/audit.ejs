@@ -1,0 +1,184 @@
+<%- include('partials/head') %>
+<%
+  const ACTION_META = {
+    'product.create': ['Product published', 'success', 'plus'],
+    'product.update': ['Product updated', 'info', 'edit'],
+    'product.delete': ['Product deleted', 'danger', 'trash'],
+    'product.stock': ['Stock adjusted', 'warn', 'box'],
+    'product.price': ['Price changed', 'warn', 'tag'],
+    'product.toggle': ['Visibility toggled', 'info', 'eye'],
+    'product.duplicate': ['Product duplicated', 'info', 'copy'],
+    'product.import': ['CSV import', 'info', 'upload'],
+    'product.export': ['CSV export', 'muted', 'download'],
+    'catalog.upsert': ['Taxonomy changed', 'info', 'layers'],
+    'catalog.delete': ['Taxonomy deleted', 'danger', 'trash'],
+    'slide.upsert': ['Hero banner saved', 'info', 'image'],
+    'slide.delete': ['Hero banner removed', 'danger', 'trash'],
+    'order.status': ['Order status changed', 'brand', 'truck'],
+    'order.update': ['Order edited', 'info', 'edit'],
+    'order.event': ['Order note added', 'muted', 'message'],
+    'order.collect': ['COD marked collected', 'success', 'cash'],
+    'order.refund': ['Refund issued', 'danger', 'refresh'],
+    'order.bulk': ['Bulk order action', 'warn', 'layers'],
+    'coupon.create': ['Coupon created', 'success', 'percent'],
+    'coupon.update': ['Coupon updated', 'info', 'percent'],
+    'coupon.delete': ['Coupon deleted', 'danger', 'trash'],
+    'review.approve': ['Review published', 'success', 'star'],
+    'review.hide': ['Review unpublished', 'warn', 'eye-off'],
+    'review.delete': ['Review deleted', 'danger', 'trash'],
+    'review.reply': ['Review reply posted', 'info', 'message'],
+    'customer.block': ['Customer blocked', 'danger', 'slash'],
+    'customer.unblock': ['Customer unblocked', 'success', 'check-circle'],
+    'customer.note': ['Internal note added', 'muted', 'message'],
+    'customer.delete': ['Customer deleted', 'danger', 'trash'],
+    'staff.create': ['Staff account created', 'success', 'user-plus'],
+    'staff.update': ['Staff account updated', 'info', 'edit'],
+    'staff.block': ['Staff suspended', 'danger', 'slash'],
+    'staff.unblock': ['Staff reinstated', 'success', 'check-circle'],
+    'staff.delete': ['Staff removed', 'danger', 'trash'],
+    'settings.update': ['Settings changed', 'warn', 'settings'],
+    'shipping.upsert': ['Delivery rate saved', 'info', 'truck'],
+    'shipping.delete': ['Delivery rate removed', 'danger', 'trash'],
+    'shipping.seed_defaults': ['Default rates created', 'info', 'zap'],
+    'gateway.webhook_test': ['Webhook test fired', 'warn', 'zap'],
+    'auth.login': ['Admin signed in', 'success', 'login'],
+    'auth.logout': ['Admin signed out', 'muted', 'logout'],
+    'auth.login_failed': ['Failed sign-in attempt', 'danger', 'alert'],
+    'analytics.export': ['Report exported', 'muted', 'download'],
+    'system.backup': ['Database backup taken', 'success', 'database'],
+    'system.vacuum': ['Database compacted', 'info', 'database'],
+    'system.cache_clear': ['Cache cleared', 'info', 'refresh'],
+    'system.audit_clear': ['Audit log cleared', 'danger', 'trash'],
+    'system.reset_demo': ['Demo data reset', 'danger', 'refresh'],
+    'upload.image': ['Image uploaded', 'info', 'image'],
+  };
+  const roleTone = { owner: 'gold', staff: 'info', customer: 'muted', system: 'outline' };
+  const parseMeta = function (raw) { try { return JSON.parse(raw || '{}'); } catch (e) { return {}; } };
+%>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar', { pageHeading: 'Audit log' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Audit log</h1>
+          <p class="sub">Every change made in this panel, who made it, from which address and exactly what changed. <%= pager.total %> entr<%= pager.total === 1 ? 'y' : 'ies' %> recorded.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/system/health"><%- icon('activity') %> System health</a>
+          <% if (isOwner) { %>
+            <form action="/admin/system/audit/clear" method="post" style="display:inline"
+              onsubmit="return confirm('Clear the entire audit log?\n\nAll <%= pager.total %> entries will be deleted. This itself is logged.')">
+              <button class="btn danger" type="submit"><%- icon('trash') %> Clear log</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div>
+          <form class="toolbar" method="get" action="/admin/system/audit">
+            <div class="search" style="flex:1;min-width:200px">
+              <input class="input" type="search" name="q" value="<%= filters.q %>" placeholder="Search action, entity or change details…">
+            </div>
+            <select class="select" name="actor" style="max-width:170px" onchange="this.form.submit()">
+              <option value="all" <%= filters.actor === 'all' || !filters.actor ? 'selected' : '' %>>All actors</option>
+              <% actors.forEach(function (a) { %>
+                <option value="<%= a %>" <%= filters.actor === a ? 'selected' : '' %>><%= a %></option>
+              <% }); %>
+            </select>
+            <button class="btn ghost" type="submit"><%- icon('search') %> Filter</button>
+            <% if (filters.q || (filters.actor && filters.actor !== 'all')) { %>
+              <a class="btn ghost" href="/admin/system/audit">Reset</a>
+            <% } %>
+          </form>
+
+          <div class="card">
+            <div class="card-head">
+              <div><h2>Recent activity</h2><span class="sub">Newest first · 40 per page</span></div>
+              <% if (filters.q) { %><span class="badge outline">“<%= filters.q %>”</span><% } %>
+            </div>
+            <div class="card-body" style="padding:0">
+              <% if (!entries.length) { %>
+                <div class="empty" style="padding:2.6rem">
+                  <span class="ico">&#128203;</span>
+                  <h3>No entries match</h3>
+                  <p class="muted">Adjust the search or actor filter. The log fills up as soon as anyone changes something.</p>
+                </div>
+              <% } else { %>
+                <div class="activity">
+                  <% entries.forEach(function (e) {
+                     const m = ACTION_META[e.action] || [e.action, 'muted', 'history'];
+                     const meta = parseMeta(e.meta);
+                     const metaKeys = Object.keys(meta); %>
+                    <div class="act">
+                      <span class="dot <%= m[1] %>"><%- icon(m[2]) %></span>
+                      <div class="act-body">
+                        <div class="row between wrap" style="gap:.4rem">
+                          <b><%= m[0] %></b>
+                          <time class="tiny muted" title="<%= dateFmt(e.created_at, 'D MMM YYYY, h:mm:ss a') %>"><%= timeAgo(e.created_at) %></time>
+                        </div>
+                        <div class="row wrap" style="gap:.35rem;margin-top:.25rem">
+                          <span class="badge <%= roleTone[e.actor_role] || 'muted' %>"><%= e.actor_name || 'System' %><%= e.actor_role ? ' · ' + e.actor_role : '' %></span>
+                          <span class="badge outline mono" style="font-size:.64rem"><%= e.action %></span>
+                          <% if (e.entity) { %><span class="badge muted"><%= e.entity %><%= e.entity_id ? ' #' + e.entity_id : '' %></span><% } %>
+                          <% if (e.ip) { %><span class="badge muted mono" style="font-size:.64rem"><%= e.ip %></span><% } %>
+                        </div>
+                        <% if (metaKeys.length) { %>
+                          <div class="meta-grid" style="margin-top:.4rem">
+                            <% metaKeys.slice(0, 8).forEach(function (k) { %>
+                              <span class="kv"><b><%= k.replace(/_/g, ' ') %></b>
+                                <code><%= typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k]).slice(0, 90) %></code></span>
+                            <% }); %>
+                            <% if (metaKeys.length > 8) { %><span class="kv"><b>…</b><code>+<%= metaKeys.length - 8 %> more fields</code></span><% } %>
+                          </div>
+                        <% } %>
+                      </div>
+                    </div>
+                  <% }); %>
+                </div>
+              <% } %>
+            </div>
+            <% if (pager.pages > 1) { %>
+              <div class="card-foot"><%- include('partials/pager', { pager: pager, filters: filters }) %></div>
+            <% } %>
+          </div>
+        </div>
+
+        <aside class="stack" style="gap:1rem">
+          <div class="card">
+            <div class="card-head"><div><h2>Action breakdown</h2><span class="sub">Most frequent first</span></div></div>
+            <div class="card-body" style="padding:.6rem 0">
+              <% const maxAction = actions.length ? actions[0].n : 1; %>
+              <% actions.forEach(function (a) { const m = ACTION_META[a.action] || [a.action, 'muted', '']; %>
+                <a class="hbar-row" href="/admin/system/audit?q=<%= encodeURIComponent(a.action) %>" style="padding:.32rem 1rem">
+                  <span style="font-weight:700;font-size:.78rem;width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="<%= a.action %>"><%= m[0] %></span>
+                  <span class="track"><i style="width:<%= Math.max(3, Math.round(a.n / maxAction * 100)) %>%"></i></span>
+                  <span class="v"><%= a.n %></span>
+                </a>
+              <% }); %>
+              <% if (!actions.length) { %><p class="tiny muted" style="padding:0 1rem">Nothing logged yet.</p><% } %>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Why this matters</h2></div></div>
+            <div class="card-body small">
+              <p class="muted" style="margin-bottom:.6rem">The audit trail is your protection when a staff account makes a mistake, a price is changed by accident, or a customer disputes a refund.</p>
+              <div class="stat-line row between"><span class="muted">Records who</span><b>Name, role, user ID</b></div>
+              <div class="stat-line row between"><span class="muted">Records what</span><b>Action + before/after payload</b></div>
+              <div class="stat-line row between"><span class="muted">Records where</span><b>IP address</b></div>
+              <div class="stat-line row between"><span class="muted">Retention</span><b>Until cleared by the owner</b></div>
+              <div class="divider"></div>
+              <p class="tiny muted" style="margin:0">Clearing the log is itself recorded as <code>system.audit_clear</code>, so a wipe can never be hidden.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><a href="/account">Account</a><span class="sep">/</span><span class="cur">Wishlist</span></nav>
+
+  <div class="account-layout">
+    <%- include('../partials/account-nav', { wishlistCount: items.length }) %>
+    <div>
+      <div class="row between wrap" style="gap:.6rem;margin-bottom:1rem">
+        <div>
+          <h1 style="margin:0">My wishlist</h1>
+          <p class="muted" style="margin:.2rem 0 0"><%= items.length %> saved item<%= items.length === 1 ? '' : 's' %><% if (items.some(function (i) { return !i.in_stock; })) { %> · some items are currently out of stock<% } %></p>
+        </div>
+        <% if (items.length) { %>
+          <form action="/wishlist/move-all" method="post" onsubmit="return confirm('Move every in-stock wishlist item into your cart?')">
+            <button class="btn primary" type="submit"><%- icon('cart') %> Move all to cart</button>
+          </form>
+        <% } %>
+      </div>
+
+      <% if (!items.length) { %>
+        <div class="empty-state card">
+          <div class="ico">&#129293;</div>
+          <h3>Your wishlist is empty</h3>
+          <p>Tap the heart on any product to keep an eye on it — we will show price drops here.</p>
+          <div class="row" style="justify-content:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1.4rem">
+            <a class="btn primary" href="/deals"><%- icon('fire') %> Today’s deals</a>
+            <a class="btn ghost" href="/categories"><%- icon('layers') %> Browse categories</a>
+          </div>
+        </div>
+      <% } else { %>
+        <div class="p-grid">
+          <% items.forEach(function (p) { %>
+            <%- include('../partials/product-card', { p: p }) %>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <% if (recommended && recommended.length) { %>
+        <div class="section" style="margin-top:1.6rem">
+          <div class="section-head"><h2>You might also like</h2><a class="link" href="/best-sellers">Best sellers</a></div>
+          <div class="p-grid"><% recommended.slice(0, 4).forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }); %></div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

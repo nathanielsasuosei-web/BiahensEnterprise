@@ -1,0 +1,108 @@
+<%- include('partials/head') %>
+<% const e = editing || {}; %>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar', { pageHeading: 'Brands' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Brands</h1>
+          <p class="sub">Owner only. Brands power the storefront brand pages, filters and the homepage brand strip — <%= brands.length %> brand<%= brands.length === 1 ? '' : 's' %> configured.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/brands" target="_blank"><%- icon('eye') %> View brand directory</a>
+          <% if (editing) { %><a class="btn ghost" href="/admin/brands"><%- icon('x') %> Cancel edit</a><% } %>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div class="card">
+          <div class="card-head"><div><h2>All brands</h2><span class="sub">With product counts and units sold</span></div>
+            <span class="badge outline"><%= brands.filter(function (b) { return b.is_active; }).length %> active</span></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table class="table" style="min-width:760px">
+                <thead><tr><th>Brand</th><th>Slug</th><th class="num">Products</th><th class="num">Units sold</th><th class="num">Sort</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+                <tbody>
+                  <% if (!brands.length) { %>
+                    <tr><td colspan="7"><div class="empty"><span class="ico">&#127942;</span><h3>No brands yet</h3><p class="muted">Add your first brand using the form.</p></div></td></tr>
+                  <% } %>
+                  <% brands.forEach(function (b) { %>
+                    <tr>
+                      <td>
+                        <div class="row" style="gap:.55rem">
+                          <% if (b.logo) { %><img class="thumb" style="width:34px;height:34px;background:#fff;padding:3px" src="<%= imgSrc(b.logo, { w: 100, h: 100, hint: 'brand', name: b.name }) %>" alt="" loading="lazy">
+                          <% } else { %><span style="width:34px;height:34px;border-radius:9px;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:900;font-size:.78rem;flex:none"><%= initials(b.name) %></span><% } %>
+                          <span><b style="font-size:.9rem"><%= b.name %></b>
+                            <% if (b.tagline) { %><span class="muted" style="display:block;font-size:.72rem"><%= truncate(b.tagline, 60) %></span><% } %></span>
+                        </div>
+                      </td>
+                      <td class="mono muted"><%= b.slug %></td>
+                      <td class="num"><%= b.product_count %></td>
+                      <td class="num"><%= b.units_sold %></td>
+                      <td class="num muted"><%= b.sort_order %></td>
+                      <td><%= b.is_active ? '<span class="badge success">Active</span>' : '<span class="badge muted">Hidden</span>' %></td>
+                      <td>
+                        <div class="row-actions">
+                          <a class="btn ghost xs" href="/b/<%= b.slug %>" target="_blank" title="View brand page"><%- icon('eye') %></a>
+                          <a class="btn ghost xs" href="/admin/products?brand=<%= b.slug %>" title="Products"><%- icon('tag') %></a>
+                          <a class="btn ghost xs" href="/admin/brands?edit=<%= b.id %>" title="Edit"><%- icon('edit') %></a>
+                          <form action="/admin/brands/<%= b.id %>/delete" method="post" style="display:inline"
+                                onsubmit="return confirm('Delete the “<%= b.name.replace(/'/g, "\\'") %>” brand?\n\nIts products are kept and simply become unbranded.')">
+                            <button class="btn ghost xs" type="submit" style="color:var(--red)" title="Delete"><%- icon('trash') %></button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <form class="card" action="/admin/brands" method="post">
+          <div class="card-head"><div><h2><%= editing ? 'Edit brand' : 'Add a brand' %></h2>
+            <span class="sub">Slugs are generated from the name automatically</span></div></div>
+          <div class="card-body">
+            <% if (editing) { %><input type="hidden" name="id" value="<%= editing.id %>"><% } %>
+            <div class="field">
+              <label class="label" for="bName">Brand name <span style="color:var(--red)">*</span></label>
+              <input class="input" id="bName" name="name" value="<%= e.name || '' %>" required minlength="2" placeholder="e.g. Samsung">
+            </div>
+            <div class="field">
+              <label class="label" for="bTagline">Tagline <span class="muted">(optional)</span></label>
+              <input class="input" id="bTagline" name="tagline" value="<%= e.tagline || '' %>" maxlength="140" placeholder="e.g. Do what you can't">
+            </div>
+            <div class="field">
+              <label class="label" for="bLogo">Logo URL <span class="muted">(optional)</span></label>
+              <input class="input" id="bLogo" name="logo" value="<%= e.logo || '' %>" placeholder="/uploads/brands/samsung.png">
+              <span class="hint">Upload the file first in the product form’s image uploader, then paste the path here. Initials are used when empty.</span>
+            </div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field">
+                <label class="label" for="bSort">Sort order</label>
+                <input class="input" id="bSort" name="sort_order" type="number" step="1" value="<%= e.sort_order !== undefined && e.sort_order !== null ? e.sort_order : 0 %>">
+              </div>
+              <div class="field">
+                <label class="label">&nbsp;</label>
+                <label class="switch">
+                  <input type="checkbox" name="is_active" value="1" <%= (e.is_active === undefined ? 1 : e.is_active) ? 'checked' : '' %>>
+                  <span></span><b style="font-size:.85rem;margin-left:.6rem">Active</b>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="card-foot">
+            <% if (editing) { %><a class="btn ghost" href="/admin/brands">Cancel</a><% } %>
+            <button class="btn primary block" type="submit"><%- icon('save') %> <%= editing ? 'Save brand' : 'Create brand' %></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

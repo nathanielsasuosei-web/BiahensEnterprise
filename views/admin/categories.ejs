@@ -1,0 +1,175 @@
+<%- include('partials/head') %>
+<% const e = editing || {}; %>
+<div class="admin-shell">
+  <%- include('partials/sidebar') %>
+  <div class="main">
+    <%- include('partials/topbar', { pageHeading: 'Categories' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Categories &amp; departments</h1>
+          <p class="sub">Owner only. These drive the storefront mega-menu, category pages, filters and breadcrumbs — <%= tree.length %> departments, <%= flat.length %> categories in total.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/" target="_blank"><%- icon('eye') %> View storefront</a>
+          <% if (editing) { %><a class="btn ghost" href="/admin/categories"><%- icon('x') %> Cancel edit</a><% } %>
+        </div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div class="card">
+          <div class="card-head"><div><h2>Category tree</h2><span class="sub">Departments and their sub-categories</span></div>
+            <span class="badge outline"><%= flat.length %> total</span></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrap">
+              <table class="table" style="min-width:820px">
+                <thead><tr><th>Category</th><th>Slug</th><th class="num">Products</th><th class="num">Sort</th><th>Menu</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+                <tbody>
+                  <% tree.forEach(function (c) { %>
+                    <tr style="background:#FAFCFE">
+                      <td>
+                        <div class="row" style="gap:.55rem">
+                          <span style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:<%= c.accent || '#0F2A43' %>1A;font-size:1rem;flex:none"><%= c.icon || '&#128722;' %></span>
+                          <span><b style="font-size:.9rem"><%= c.name %></b>
+                            <span class="muted" style="display:block;font-size:.72rem">Department · <%= (c.children || []).length %> sub-categories</span></span>
+                        </div>
+                      </td>
+                      <td class="mono muted"><%= c.slug %></td>
+                      <td class="num"><%= c.total_count || 0 %></td>
+                      <td class="num muted"><%= c.sort_order %></td>
+                      <td><%= c.show_in_menu ? '<span class="badge success">In menu</span>' : '<span class="badge outline">Hidden</span>' %></td>
+                      <td><%= c.is_active ? '<span class="badge success">Active</span>' : '<span class="badge muted">Inactive</span>' %></td>
+                      <td>
+                        <div class="row-actions">
+                          <a class="btn ghost xs" href="/c/<%= c.slug %>" target="_blank" title="View"><%- icon('eye') %></a>
+                          <a class="btn ghost xs" href="/admin/products?category=<%= c.slug %>" title="Products"><%- icon('tag') %></a>
+                          <a class="btn ghost xs" href="/admin/categories?edit=<%= c.id %>" title="Edit"><%- icon('edit') %></a>
+                          <form action="/admin/categories/<%= c.id %>/delete" method="post" style="display:inline"
+                                onsubmit="return confirm('Delete the “<%= c.name.replace(/'/g, "\\'") %>” department and all its sub-categories?\n\nProducts in it will be left uncategorised unless you force the delete.')">
+                            <button class="btn ghost xs" type="submit" style="color:var(--red)" title="Delete"><%- icon('trash') %></button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                    <% (c.children || []).forEach(function (sc) { %>
+                      <tr>
+                        <td style="padding-left:2.4rem">
+                          <span class="muted" style="margin-right:.35rem">└</span>
+                          <b style="font-size:.86rem"><%= sc.name %></b>
+                        </td>
+                        <td class="mono muted"><%= sc.slug %></td>
+                        <td class="num"><%= sc.product_count || 0 %></td>
+                        <td class="num muted"><%= sc.sort_order %></td>
+                        <td><%= sc.show_in_menu ? '<span class="badge success">In menu</span>' : '<span class="badge outline">Hidden</span>' %></td>
+                        <td><%= sc.is_active ? '<span class="badge success">Active</span>' : '<span class="badge muted">Inactive</span>' %></td>
+                        <td>
+                          <div class="row-actions">
+                            <a class="btn ghost xs" href="/c/<%= sc.slug %>" target="_blank"><%- icon('eye') %></a>
+                            <a class="btn ghost xs" href="/admin/products?category=<%= sc.slug %>"><%- icon('tag') %></a>
+                            <a class="btn ghost xs" href="/admin/categories?edit=<%= sc.id %>"><%- icon('edit') %></a>
+                            <form action="/admin/categories/<%= sc.id %>/delete" method="post" style="display:inline"
+                                  onsubmit="return confirm('Delete “<%= sc.name.replace(/'/g, "\\'") %>”?')">
+                              <button class="btn ghost xs" type="submit" style="color:var(--red)"><%- icon('trash') %></button>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <form class="card" action="/admin/categories" method="post" id="catForm">
+          <div class="card-head"><div><h2><%= editing ? 'Edit category' : 'Add a category' %></h2>
+            <span class="sub"><%= editing ? 'Update the details and save' : 'Departments sit at the top level; sub-categories belong to a department' %></span></div></div>
+          <div class="card-body">
+            <% if (editing) { %><input type="hidden" name="id" value="<%= editing.id %>"><% } %>
+            <div class="field">
+              <label class="label" for="catName">Name <span style="color:var(--red)">*</span></label>
+              <input class="input" id="catName" name="name" value="<%= e.name || '' %>" required minlength="2" placeholder="e.g. Phones & Tablets" data-slug-source="#catSlug">
+            </div>
+            <div class="field">
+              <label class="label" for="catSlug">Slug</label>
+              <div class="input-group"><span class="prefix">/c/</span>
+                <input class="input" id="catSlug" name="slug" value="<%= e.slug || '' %>" placeholder="auto-generated">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="catParent">Parent department</label>
+              <select class="select" id="catParent" name="parent_id">
+                <option value="">— Top level (department) —</option>
+                <% tree.forEach(function (c) { %>
+                  <% if (!editing || c.id !== editing.id) { %>
+                    <option value="<%= c.id %>" <%= Number(e.parent_id) === c.id ? 'selected' : '' %>><%= c.name %></option>
+                  <% } %>
+                <% }); %>
+              </select>
+              <span class="hint">Leave empty to create a department that appears in the main menu.</span>
+            </div>
+            <div class="form-grid" style="grid-template-columns:90px 1fr 90px">
+              <div class="field">
+                <label class="label" for="catIcon">Icon</label>
+                <input class="input" id="catIcon" name="icon" value="<%= e.icon || '' %>" placeholder="📱" maxlength="4" style="text-align:center">
+                <span class="hint">One emoji</span>
+              </div>
+              <div class="field">
+                <label class="label" for="catAccent">Accent colour</label>
+                <input class="input" id="catAccent" name="accent" type="color" value="<%= e.accent || '#0F2A43' %>" style="height:40px;padding:.25rem">
+              </div>
+              <div class="field">
+                <label class="label" for="catSort">Sort</label>
+                <input class="input" id="catSort" name="sort_order" type="number" step="1" value="<%= e.sort_order !== undefined && e.sort_order !== null ? e.sort_order : 0 %>">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="catDesc">Description <span class="muted">(shown on the category page)</span></label>
+              <textarea class="textarea" id="catDesc" name="description" rows="3" placeholder="A short sentence about what shoppers will find here — also used for SEO."><%= e.description || '' %></textarea>
+            </div>
+            <label class="switch" style="margin-bottom:.6rem">
+              <input type="checkbox" name="is_active" value="1" <%= (e.is_active === undefined ? 1 : e.is_active) ? 'checked' : '' %>>
+              <span></span><b style="font-size:.85rem;margin-left:.6rem">Active</b>
+            </label>
+            <label class="switch" style="margin-bottom:.4rem">
+              <input type="checkbox" name="show_in_menu" value="1" <%= (e.show_in_menu === undefined ? 1 : e.show_in_menu) ? 'checked' : '' %>>
+              <span></span><b style="font-size:.85rem;margin-left:.6rem">Show in the main menu</b>
+            </label>
+          </div>
+          <div class="card-foot">
+            <% if (editing) { %><a class="btn ghost" href="/admin/categories">Cancel</a><% } %>
+            <button class="btn primary block" type="submit"><%- icon('save') %> <%= editing ? 'Save category' : 'Create category' %></button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:1rem">
+        <div class="card-head"><div><h2>All categories (flat list)</h2><span class="sub">Handy for auditing slugs and parents</span></div></div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap" style="max-height:420px;overflow:auto">
+            <table class="table compact" style="min-width:700px">
+              <thead><tr><th>ID</th><th>Name</th><th>Parent</th><th>Slug</th><th class="num">Products</th><th>Accent</th><th>Status</th></tr></thead>
+              <tbody>
+                <% flat.forEach(function (c) { %>
+                  <tr>
+                    <td class="muted"><%= c.id %></td>
+                    <td><b><%= c.name %></b></td>
+                    <td class="muted"><%= c.parent_name || '— department —' %></td>
+                    <td class="mono muted"><%= c.slug %></td>
+                    <td class="num"><%= c.product_count %></td>
+                    <td><span style="display:inline-block;width:22px;height:14px;border-radius:4px;background:<%= c.accent || '#ccc' %>;border:1px solid var(--line)"></span></td>
+                    <td><%= c.is_active ? '<span class="badge success">active</span>' : '<span class="badge muted">off</span>' %></td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

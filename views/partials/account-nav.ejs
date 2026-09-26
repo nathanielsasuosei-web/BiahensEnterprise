@@ -1,0 +1,30 @@
+<%
+  const items = [
+    ['dashboard', '/account', 'Home', 'grid'],
+    ['orders', '/account/orders', 'My orders', 'box'],
+    ['wishlist', '/account/wishlist', 'Wishlist', 'heart'],
+    ['addresses', '/account/addresses', 'Addresses', 'pin'],
+    ['profile', '/account/profile', 'Profile', 'user'],
+    ['security', '/account/security', 'Password & security', 'shield'],
+    ['reviews', '/account/reviews', 'My reviews', 'star'],
+    ['insights', '/account/insights', 'Spending insights', 'chart'],
+  ];
+%>
+<nav class="acc-nav card">
+  <div class="head">
+    <div class="avatar"><%= initials(user.name) %></div>
+    <b><%= user.name %></b>
+    <span><%= user.email %></span>
+    <% if (user.role !== 'customer') { %><span class="badge gold" style="margin-top:.4rem"><%= user.role.toUpperCase() %></span><% } %>
+  </div>
+  <% items.forEach(function (it) { %>
+    <a href="<%= it[1] %>" class="<%= accountNav === it[0] ? 'active' : '' %>">
+      <%- icon(it[3]) %> <%= it[2] %>
+      <% if (it[0] === 'orders' && typeof pendingCount !== 'undefined' && pendingCount) { %><span class="n"><%= pendingCount %></span><% } %>
+      <% if (it[0] === 'wishlist' && wishlistCount) { %><span class="n"><%= wishlistCount %></span><% } %>
+    </a>
+  <% }); %>
+  <form action="/logout" method="post" style="padding:.6rem 1rem;border-top:1px solid #E8EDF3">
+    <button class="btn ghost sm block" type="submit" style="width:100%;justify-content:center"><%- icon('logout') %> Sign out</button>
+  </form>
+</nav>

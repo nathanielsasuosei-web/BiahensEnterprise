@@ -1,0 +1,208 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: customer.name, crumbSub: 'Customer file' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div class="row" style="gap:.9rem;align-items:center">
+          <span class="avatar" style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#2E86AB);color:#fff;display:grid;place-items:center;font-weight:900;font-size:1.1rem;flex:none"><%= initials(customer.name) %></span>
+          <div>
+            <h1 style="margin:0"><%= customer.name %>
+              <% if (customer.is_blocked) { %><span class="badge danger big">Blocked</span><% } %>
+              <% if (stats.spent >= 5000) { %><span class="badge gold big">VIP</span><% } %>
+              <% if (customer.email_verified) { %><span class="badge success">Email verified</span><% } %>
+            </h1>
+            <p class="sub" style="margin:.15rem 0 0">
+              Customer #<%= customer.id %> · joined <%= dateFmt(customer.created_at, 'D MMMM YYYY') %>
+              <% if (customer.last_login_at) { %> · last signed in <%= timeAgo(customer.last_login_at) %><% } else { %> · never signed in since registering<% } %>
+            </p>
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/customers"><%- icon('arrow-left') %> All customers</a>
+          <a class="btn ghost" href="mailto:<%= customer.email %>"><%- icon('mail') %> Email</a>
+          <a class="btn ghost" href="https://wa.me/<%= (customer.phone || '').replace(/[^0-9]/g,'') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> WhatsApp</a>
+          <% if (customer.phone) { %><a class="btn ghost" href="tel:<%= customer.phone.replace(/\s/g,'') %>"><%- icon('phone') %> Call</a><% } %>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#0F2A43"><div class="k"><span class="ico"><%- icon('box') %></span> Orders</div><div class="v"><%= stats.orders || 0 %></div><div class="d"><%= stats.cancelled || 0 %> cancelled · <%= stats.refunded || 0 %> refunded</div></div>
+        <div class="kpi" style="--accent:#12805C"><div class="k"><span class="ico"><%- icon('cash') %></span> Lifetime spend</div><div class="v"><%= settings.currency_symbol %> <%= money(stats.spent || 0) %></div><div class="d">Paid orders only</div></div>
+        <div class="kpi" style="--accent:#F26B21"><div class="k"><span class="ico"><%- icon('chart') %></span> Average order</div><div class="v"><%= settings.currency_symbol %> <%= money(stats.aov || 0) %></div><div class="d"><%= stats.last_order ? 'Last order ' + timeAgo(stats.last_order) : 'No orders yet' %></div></div>
+        <div class="kpi" style="--accent:#FFB300"><div class="k"><span class="ico"><%- icon('star') %></span> Engagement</div><div class="v"><%= reviews.length %></div><div class="d"><%= reviews.length %> review<%= reviews.length === 1 ? '' : 's' %> · <%= wishlist.length %> wishlisted</div></div>
+      </div>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div class="stack" style="gap:1rem">
+          <div class="card">
+            <div class="card-head"><div><h2>Order history</h2><span class="sub"><%= orders.length %> order<%= orders.length === 1 ? '' : 's' %></span></div>
+              <a class="btn ghost sm" href="/admin/orders?q=<%= encodeURIComponent(customer.email) %>">Search orders</a></div>
+            <div class="card-body" style="padding:0">
+              <div class="table-wrap">
+                <table class="table compact" style="min-width:640px">
+                  <thead><tr><th>Order</th><th>Placed</th><th class="num">Items</th><th class="num">Total</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+                  <tbody>
+                    <% if (!orders.length) { %>
+                      <tr><td colspan="7"><div class="empty"><span class="ico">&#128230;</span><h3>No orders yet</h3><p class="muted">This customer has registered but has not bought anything.</p></div></td></tr>
+                    <% } %>
+                    <% orders.forEach(function (o) { %>
+                      <% const sm = STATUS_META[o.status] || { label: o.status, tone: 'muted' }; %>
+                      <tr>
+                        <td><a href="/admin/orders/<%= o.id %>" style="font-weight:800"><%= o.order_number %></a></td>
+                        <td class="muted"><%= dateFmt(o.placed_at, 'D MMM YYYY') %></td>
+                        <td class="num"><%= o.item_count %></td>
+                        <td class="num strong"><%= settings.currency_symbol %> <%= money(o.total) %></td>
+                        <td><span class="badge <%= o.payment_status === 'paid' ? 'success' : 'warn' %> outline" style="font-size:.66rem"><%= o.payment_method.toUpperCase() %> · <%= o.payment_status.replace(/_/g, ' ') %></span></td>
+                        <td><span class="badge <%= sm.tone %>"><%= sm.label %></span></td>
+                        <td style="text-align:right"><a class="btn ghost xs" href="/admin/orders/<%= o.id %>"><%- icon('eye') %></a></td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid g-2" style="gap:1rem">
+            <div class="card">
+              <div class="card-head"><div><h2>Saved addresses</h2><span class="sub"><%= addresses.length %> on file</span></div></div>
+              <div class="card-body">
+                <% if (!addresses.length) { %><p class="muted small">No addresses saved.</p><% } %>
+                <% addresses.forEach(function (a) { %>
+                  <div style="padding:.55rem 0;border-bottom:1px solid var(--line-2)">
+                    <div class="row between"><b style="font-size:.85rem"><%= a.label %></b>
+                      <% if (a.is_default) { %><span class="badge brand">default</span><% } %></div>
+                    <p class="small muted" style="margin:.2rem 0 0">
+                      <%= a.receiver %> · <%= a.phone %><br>
+                      <%= a.line %><% if (a.landmark) { %>, near <%= a.landmark %><% } %><br>
+                      <%= a.city %>, <%= a.region %>
+                    </p>
+                  </div>
+                <% }); %>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><h2>Favourite categories</h2><span class="sub">By spend</span></div></div>
+              <div class="card-body">
+                <% if (!topCategories.length) { %><p class="muted small">No purchase data yet.</p><% } %>
+                <% const maxC = Math.max.apply(null, topCategories.map(function (c) { return Number(c.revenue) || 0; }).concat([1])); %>
+                <div class="hbar">
+                  <% topCategories.forEach(function (c) { %>
+                    <div class="hbar-row">
+                      <span style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= c.name || 'Other' %></span>
+                      <span class="track"><i style="width:<%= Math.max(3, Math.round((Number(c.revenue) || 0) / maxC * 100)) %>%"></i></span>
+                      <span class="v"><%= moneyShort(c.revenue) %></span>
+                    </div>
+                  <% }); %>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Wishlist</h2><span class="sub"><%= wishlist.length %> saved item<%= wishlist.length === 1 ? '' : 's' %></span></div></div>
+            <div class="card-body" style="padding:.5rem .8rem">
+              <% if (!wishlist.length) { %><p class="muted small">Nothing wishlisted.</p><% } %>
+              <% wishlist.forEach(function (p) { %>
+                <div class="row" style="gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--line-2)">
+                  <img class="thumb" style="width:36px;height:36px" src="<%= imgSrc(p.image, { w: 90, h: 90, hint: settings.store_name, name: p.name }) %>" alt="" loading="lazy">
+                  <span style="flex:1;min-width:0"><b style="display:block;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= p.name %></b>
+                    <span class="muted" style="font-size:.72rem"><%= settings.currency_symbol %> <%= money(p.price) %> · <%= p.stock > 0 ? p.stock + ' in stock' : 'out of stock' %></span></span>
+                  <% if (isOwner) { %><a class="btn ghost xs" href="/admin/products/<%= p.id %>/edit"><%- icon('edit') %></a><% } %>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Reviews written</h2><span class="sub"><%= reviews.length %></span></div>
+              <a class="btn ghost sm" href="/admin/marketing/reviews">Moderation queue</a></div>
+            <div class="card-body">
+              <% if (!reviews.length) { %><p class="muted small">This customer has not written any reviews.</p><% } %>
+              <% reviews.slice(0, 8).forEach(function (r) { %>
+                <div style="padding:.55rem 0;border-bottom:1px solid var(--line-2)">
+                  <div class="row between"><b style="font-size:.84rem"><a href="/p/<%= r.product_slug %>" target="_blank"><%= r.product_name %></a></b>
+                    <span class="badge gold" style="font-size:.66rem">★ <%= r.rating %></span></div>
+                  <% if (r.title) { %><div class="small strong"><%= r.title %></div><% } %>
+                  <p class="small muted" style="margin:.2rem 0 0"><%= truncate(r.body || '', 150) %></p>
+                  <time class="tiny"><%= dateFmt(r.created_at, 'D MMM YYYY') %> · <%= r.is_approved ? 'published' : 'pending moderation' %></time>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        </div>
+
+        <aside class="stack" style="gap:1rem">
+          <div class="card">
+            <div class="card-head"><div><h2>Account details</h2></div></div>
+            <div class="card-body">
+              <div class="stat-line row between"><span class="muted">Name</span><b><%= customer.name %></b></div>
+              <div class="stat-line row between"><span class="muted">Email</span><b style="font-size:.78rem"><%= customer.email %></b></div>
+              <div class="stat-line row between"><span class="muted">Phone</span><b><%= customer.phone || '—' %></b></div>
+              <div class="stat-line row between"><span class="muted">Role</span><b><%= customer.role %></b></div>
+              <div class="stat-line row between"><span class="muted">Registered</span><b style="font-size:.8rem"><%= dateFmt(customer.created_at, 'D MMM YYYY') %></b></div>
+              <div class="stat-line row between"><span class="muted">Last login</span><b style="font-size:.8rem"><%= customer.last_login_at ? dateFmt(customer.last_login_at, 'D MMM YYYY') : 'never' %></b></div>
+              <div class="stat-line row between"><span class="muted">Email verified</span><b><%= customer.email_verified ? 'Yes' : 'No' %></b></div>
+              <div class="divider"></div>
+              <form action="/admin/customers/<%= customer.id %>/block" method="post">
+                <input type="hidden" name="block" value="<%= customer.is_blocked ? '0' : '1' %>">
+                <div class="field">
+                  <label class="label" for="blockReason">Reason <span class="muted">(recorded in the audit log)</span></label>
+                  <input class="input" id="blockReason" name="reason" placeholder="<%= customer.is_blocked ? 'Why are you unblocking?' : 'e.g. repeated fraudulent COD refusals' %>" maxlength="200">
+                </div>
+                <button class="btn <%= customer.is_blocked ? 'success' : 'danger' %> block" type="submit"
+                        onclick="return confirm('<%= customer.is_blocked ? 'Unblock' : 'Block' %> this customer?\n\nBlocking prevents sign-in and checkout immediately.')">
+                  <%- icon(customer.is_blocked ? 'check-circle' : 'slash') %> <%= customer.is_blocked ? 'Unblock customer' : 'Block customer' %>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <form class="card" action="/admin/customers/<%= customer.id %>/note" method="post">
+            <div class="card-head"><div><h2>Internal note</h2><span class="sub">Never visible to the customer</span></div></div>
+            <div class="card-body">
+              <div class="field">
+                <label class="label" for="note">Note</label>
+                <textarea class="textarea" id="note" name="note" rows="3" required maxlength="500" placeholder="e.g. Prefers delivery after 5pm; asked us to call before dispatch."></textarea>
+              </div>
+            </div>
+            <div class="card-foot"><button class="btn primary block" type="submit"><%- icon('save') %> Save note</button></div>
+          </form>
+
+          <% if (notes && notes.length) { %>
+            <div class="card">
+              <div class="card-head"><div><h2>Note history</h2><span class="sub">From the audit log</span></div></div>
+              <div class="card-body activity" style="padding:.5rem .8rem">
+                <% notes.slice(0, 12).forEach(function (n) { %>
+                  <div class="act">
+                    <span class="ico update"><%- icon('file') %></span>
+                    <span style="flex:1"><b><%= n.action %></b>
+                      <% if (n.meta && n.meta !== '{}') { %><div class="tiny muted mono" style="word-break:break-all"><%= truncate(n.meta, 150) %></div><% } %>
+                      <time><%= timeAgo(n.created_at) %> · <%= n.actor_name || n.actor_role || 'system' %></time></span>
+                  </div>
+                <% }); %>
+              </div>
+            </div>
+          <% } %>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Danger zone</h2></div></div>
+            <div class="card-body">
+              <form action="/admin/customers/<%= customer.id %>/delete" method="post"
+                    onsubmit="return confirm('Delete this customer account permanently?\n\nOrders are kept for your records but the account, addresses, wishlist and reviews are removed.')">
+                <button class="btn danger block" type="submit"><%- icon('trash') %> Delete account</button>
+              </form>
+              <p class="tiny muted" style="margin:.5rem 0 0">Deleting keeps existing orders (they become guest orders) so your revenue reporting stays accurate.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

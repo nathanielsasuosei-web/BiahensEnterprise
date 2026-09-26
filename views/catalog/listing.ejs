@@ -1,0 +1,311 @@
+<%- include('../partials/head') %>
+<%
+  const basePath = currentPath;
+  function buildUrl(page) {
+    const p = new URLSearchParams();
+    Object.keys(query || {}).forEach((k) => {
+      const v = query[k];
+      if (v === undefined || v === null || v === '') return;
+      if (k === 'page' || k === 'view') return;
+      [].concat(v).forEach((vv) => p.append(k, vv));
+    });
+    if (page > 1) p.set('page', page);
+    if (view === 'list') p.set('view', 'list');
+    const s = p.toString();
+    return basePath + (s ? `?${s}` : '');
+  }
+  function clearUrl(key, value) {
+    const p = new URLSearchParams();
+    Object.keys(query || {}).forEach((k) => {
+      const v = query[k];
+      if (v === undefined || v === null || v === '') return;
+      if (k === 'page') return;
+      if (k === key) {
+        if (value !== undefined && Array.isArray(v)) [].concat(v).filter((x) => x !== value).forEach((x) => p.append(k, x));
+        return;
+      }
+      [].concat(v).forEach((vv) => p.append(k, vv));
+    });
+    if (view === 'list') p.set('view', 'list');
+    const s = p.toString();
+    return basePath + (s ? `?${s}` : '');
+  }
+%>
+<%- include('../partials/header') %>
+
+<div class="page-head">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a>
+      <% (breadcrumbs || []).forEach(function (b, i, arr) { %>
+        <span class="sep">/</span>
+        <% if (b.url && i < arr.length - 1) { %><a href="<%= b.url %>"><%= b.label %></a>
+        <% } else { %><span class="cur"><%= b.label %></span><% } %>
+      <% }); %>
+    </nav>
+    <h1><%= heading %></h1>
+    <% if (subheading) { %><p class="sub"><%= subheading %></p><% } %>
+    <div class="row wrap" style="gap:.6rem;margin-top:.8rem">
+      <span class="badge gold"><%- icon('package') %> <%= totalFound %> product<%= totalFound === 1 ? '' : 's' %></span>
+      <% if (typeof activeCategory !== 'undefined' && activeCategory) { %>
+        <span class="badge" style="background:rgba(255,255,255,.14);color:#fff"><%= activeCategory.icon || '' %> <%= activeCategory.name %></span>
+      <% } %>
+      <% if (typeof activeBrand !== 'undefined' && activeBrand) { %>
+        <span class="badge" style="background:rgba(255,255,255,.14);color:#fff">Brand · <%= activeBrand.name %></span>
+      <% } %>
+      <span class="badge" style="background:rgba(255,255,255,.14);color:#fff"><%- icon('truck') %> <%= settings.hero_note %></span>
+    </div>
+  </div>
+</div>
+
+<main class="container" id="main" style="padding-bottom:2rem">
+
+  <% if (typeof children !== 'undefined' && children && children.length) { %>
+  <div class="sub-cats">
+    <a class="sub-cat <%= !query.sub ? 'active' : '' %>" href="<%= clearUrl('sub') %>">All <%= heading %></a>
+    <% children.forEach(function (c) { %>
+      <a class="sub-cat" href="/c/<%= c.slug %>"><%= c.name %></a>
+    <% }); %>
+  </div>
+  <% } %>
+
+  <% if (activeFilters && activeFilters.length) { %>
+  <div class="chips">
+    <% activeFilters.forEach(function (f) { %>
+      <span class="chip"><%= f.label %> <a href="<%= clearUrl(f.clear, f.value) %>" aria-label="Remove filter">&times;</a></span>
+    <% }); %>
+    <a class="chip" href="<%= basePath %>" style="border-color:#F26B21;color:#F26B21;font-weight:800">Clear all &times;</a>
+  </div>
+  <% } %>
+
+  <div class="listing">
+    <%# ───────────────────────── filters ───────────────────────── %>
+    <aside class="filters" id="filters">
+      <div class="filter-card only-mobile">
+        <button class="btn ghost block sm" type="button" id="filterToggle"><%- icon('filter') %> Show / hide filters</button>
+      </div>
+
+      <div id="filterBody">
+      <div class="filter-card">
+        <h4><%- icon('filter') %> Refine results</h4>
+        <form action="<%= basePath %>" method="get" id="filterForm">
+          <% Object.keys(query || {}).forEach(function (k) { %>
+            <% if (['q','min','max','rating','stock','sale','sort','brand','page','view'].indexOf(k) === -1) { %>
+              <% [].concat(query[k]).forEach(function (v) { %>
+                <input type="hidden" name="<%= k %>" value="<%= v %>">
+              <% }); %>
+            <% } %>
+          <% }); %>
+          <% if (query.q) { %><input type="hidden" name="q" value="<%= query.q %>"><% } %>
+          <% (query.brand ? [].concat(query.brand) : []).forEach(function (b) { %>
+            <input type="hidden" name="brand" value="<%= b %>">
+          <% }); %>
+
+          <div class="field">
+            <label class="label" for="fMin">Price range (GH&#8373;)</label>
+            <div class="price-inputs">
+              <input class="input" id="fMin" type="number" name="min" min="0" step="10" placeholder="<%= bounds.min %>" value="<%= query.min || '' %>">
+              <span class="muted">–</span>
+              <input class="input" id="fMax" type="number" name="max" min="0" step="10" placeholder="<%= bounds.max %>" value="<%= query.max || '' %>">
+            </div>
+            <div class="row wrap" style="gap:.3rem;margin-top:.5rem">
+              <% [[0,200],[200,500],[500,1500],[1500,5000],[5000,'']].forEach(function (r) { %>
+                <a class="sub-cat" style="padding:.22rem .6rem;font-size:.76rem" href="<%= basePath %>?min=<%= r[0] %><%= r[1] ? '&max=' + r[1] : '' %><%= query.q ? '&q=' + encodeURIComponent(query.q) : '' %>">
+                  <%= r[1] ? `${settings.currency_symbol}${r[0]}–${r[1]}` : `Above ${settings.currency_symbol}${r[0]}` %>
+                </a>
+              <% }); %>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Customer rating</label>
+            <% [4,3,2,1].forEach(function (r) { %>
+              <label class="checkbox"><input type="radio" name="rating" value="<%= r %>" <%= String(query.rating) === String(r) ? 'checked' : '' %>>
+                <span class="stars"><%= '&#9733;'.repeat(r) %><span style="opacity:.25"><%= '&#9733;'.repeat(5 - r) %></span></span>
+                <span class="muted small">&amp; up</span></label>
+            <% }); %>
+            <label class="checkbox"><input type="radio" name="rating" value="" <%= !query.rating ? 'checked' : '' %>> <span class="small">Any rating</span></label>
+          </div>
+
+          <div class="field">
+            <label class="checkbox"><input type="checkbox" name="stock" value="1" <%= query.stock === '1' ? 'checked' : '' %>> In stock only</label>
+            <label class="checkbox"><input type="checkbox" name="sale" value="1" <%= query.sale === '1' ? 'checked' : '' %>> On sale / discounted</label>
+          </div>
+
+          <div class="row" style="gap:.5rem">
+            <button class="btn primary sm grow" type="submit"><%- icon('check') %> Apply filters</button>
+            <a class="btn ghost sm" href="<%= basePath %>">Reset</a>
+          </div>
+        </form>
+      </div>
+
+      <div class="filter-card">
+        <h4><%- icon('tag') %> Brand</h4>
+        <div class="filter-list">
+          <% brands.filter(function (b) { return b.product_count > 0; }).slice(0, 14).forEach(function (b) { %>
+            <% const checked = (query.brand ? [].concat(query.brand) : []).indexOf(b.slug) !== -1; %>
+            <label>
+              <input type="checkbox" data-brand-filter="<%= b.slug %>" <%= checked ? 'checked' : '' %>>
+              <a href="/b/<%= b.slug %>" style="flex:1"><%= b.name %></a>
+              <span class="n"><%= b.product_count %></span>
+            </label>
+          <% }); %>
+        </div>
+        <a class="btn ghost sm block" href="/brands" style="margin-top:.6rem">Browse all brands</a>
+      </div>
+
+      <% if (typeof cats !== 'undefined' && cats.length && !(typeof searchMode !== 'undefined' && searchMode)) { %>
+      <div class="filter-card">
+        <h4><%- icon('layers') %> Departments</h4>
+        <div class="filter-list">
+          <% cats.forEach(function (c) { %>
+            <a href="/c/<%= c.slug %>" style="display:flex;gap:.4rem;font-size:.86rem;padding:.16rem 0;<%= typeof activeCategory !== 'undefined' && activeCategory && activeCategory.slug === c.slug ? 'color:#F26B21;font-weight:800' : '' %>">
+              <span><%= c.icon || '' %></span><span class="grow"><%= c.name %></span><span class="n muted small"><%= c.total_count || 0 %></span>
+            </a>
+          <% }); %>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="filter-card" style="background:linear-gradient(140deg,#0F2A43,#1D4E6B);border:0;color:#fff">
+        <h4 style="color:#B9CBDA"><%- icon('truck') %> Delivery</h4>
+        <p class="small" style="color:#C7D6E2">FREE delivery in Greater Accra &amp; Tema on orders above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %>. All 16 regions covered in 1–6 days.</p>
+        <label class="select" style="background:#fff;border-radius:9px;padding:0;margin:.6rem 0;display:block">
+          <select data-ship-region style="border:0;width:100%;padding:.55rem .7rem;border-radius:9px;background:#fff;font-size:.85rem">
+            <option value="">Estimate delivery…</option>
+            <option value="Greater Accra">Greater Accra</option>
+            <option value="Ashanti">Ashanti</option>
+            <option value="Western">Western</option>
+            <option value="Central">Central</option>
+            <option value="Eastern">Eastern</option>
+            <option value="Volta">Volta</option>
+            <option value="Northern">Northern</option>
+          </select>
+        </label>
+        <div class="small" data-ship-quote style="color:#FFD66B;font-weight:700"></div>
+        <a class="btn gold sm block" href="/shipping-delivery" style="margin-top:.7rem">Delivery details</a>
+      </div>
+      </div>
+    </aside>
+
+    <%# ───────────────────────── results ───────────────────────── %>
+    <section>
+      <div class="toolbar">
+        <span class="small muted hide-mobile"><b><%= totalFound %></b> result<%= totalFound === 1 ? '' : 's' %><%= query.q ? ` for “${query.q}”` : '' %></span>
+        <button class="btn ghost sm only-mobile" type="button" id="filterToggle2"><%- icon('filter') %> Filters</button>
+        <div class="grow"></div>
+        <form action="<%= basePath %>" method="get" class="row" style="gap:.4rem">
+          <% Object.keys(query || {}).forEach(function (k) { %>
+            <% if (['sort','page','view'].indexOf(k) === -1) { %>
+              <% [].concat(query[k]).forEach(function (v) { %><input type="hidden" name="<%= k %>" value="<%= v %>"><% }); %>
+            <% } %>
+          <% }); %>
+          <label class="small muted nowrap hide-mobile" for="sortSel">Sort by</label>
+          <select class="select" id="sortSel" name="sort" onchange="this.form.submit()">
+            <% [
+              ['relevance','Most relevant'],
+              ['popular','Most popular'],
+              ['newest','Newest first'],
+              ['price_asc','Price: low to high'],
+              ['price_desc','Price: high to low'],
+              ['rating','Best rated'],
+              ['discount','Biggest discount'],
+              ['name','Name A–Z']
+            ].forEach(function (o) { %>
+              <option value="<%= o[0] %>" <%= sort === o[0] ? 'selected' : '' %>><%= o[1] %></option>
+            <% }); %>
+          </select>
+          <noscript><button class="btn ghost sm" type="submit">Go</button></noscript>
+        </form>
+        <div class="view-toggle">
+          <a href="<%= clearUrl('view') %>" aria-label="Grid view" class="<%= view === 'grid' ? 'active' : '' %>"><%- icon('grid') %></a>
+          <a href="<%= basePath %>?view=list<%= query.q ? '&q=' + encodeURIComponent(query.q) : '' %>" aria-label="List view" class="<%= view === 'list' ? 'active' : '' %>"><%- icon('list') %></a>
+        </div>
+      </div>
+
+      <% if (!items.length) { %>
+        <div class="empty-state">
+          <div class="ico">&#128269;</div>
+          <h3>No products matched your search</h3>
+          <p>Try a different keyword, widen your price range, or browse one of our departments. If you are looking for something specific we can often source it — just ask.</p>
+          <div class="row" style="justify-content:center;gap:.5rem;flex-wrap:wrap">
+            <a class="btn primary" href="/categories">Browse all categories</a>
+            <a class="btn ghost" href="/deals">See today’s deals</a>
+            <a class="btn ghost" href="/contact">Ask us to source it</a>
+          </div>
+        </div>
+      <% } else if (view === 'list') { %>
+        <div class="p-list">
+          <% items.forEach(function (p) { %>
+            <article class="p-row" data-product-card="<%= p.id %>">
+              <a class="p-media" href="/p/<%= p.slug %>">
+                <img src="<%= imgSrc(p.image, { w: 400, h: 400, hint: p.category_name, name: p.name, palette: p.id % 8 }) %>" alt="<%= p.name %>" loading="lazy">
+                <span class="p-flags">
+                  <% if (p.discount >= 5) { %><span class="badge orange">-<%= p.discount %>%</span><% } %>
+                  <% if (p.is_featured) { %><span class="badge brand">Featured</span><% } %>
+                </span>
+              </a>
+              <div class="p-body">
+                <% if (p.brand_name) { %><div class="p-brand"><a href="/b/<%= p.brand_slug %>"><%= p.brand_name %></a></div><% } %>
+                <a class="p-name" href="/p/<%= p.slug %>"><%= p.name %></a>
+                <div class="p-rating"><%- stars(p.rating_avg) %> <b><%= Number(p.rating_avg).toFixed(1) %></b> <span class="muted">(<%= p.rating_count %> reviews · <%= p.sold_count %> sold)</span></div>
+                <p class="desc clamp-3"><%= p.short_description || truncate(p.description, 220) %></p>
+                <div class="specs">
+                  <% if (p.category_name) { %><a class="chip" href="/c/<%= p.category_slug %>"><%= p.category_name %></a><% } %>
+                  <span class="chip"><%= p.in_stock ? (p.low_stock ? 'Only ' + p.stock + ' left' : 'In stock') : 'Out of stock' %></span>
+                  <% String(p.tags || '').split(',').filter(Boolean).slice(0, 3).forEach(function (t) { %>
+                    <a class="chip" href="/search?q=<%= encodeURIComponent(t.trim()) %>"><%= t.trim() %></a>
+                  <% }); %>
+                </div>
+                <div class="row between wrap" style="margin-top:.5rem">
+                  <div class="p-price-row">
+                    <span class="p-price" style="font-size:1.25rem"><%= settings.currency_symbol %> <%= Number(p.price).toFixed(2) %></span>
+                    <% if (p.discount) { %><span class="p-compare"><%= settings.currency_symbol %> <%= Number(p.compare_at_price).toFixed(2) %></span>
+                      <span class="p-off">Save <%= settings.currency_symbol %> <%= (p.compare_at_price - p.price).toFixed(2) %></span><% } %>
+                  </div>
+                  <div class="row" style="gap:.4rem">
+                    <button class="btn ghost sm" type="button" data-wish="<%= p.id %>"><%- icon('heart') %></button>
+                    <button class="btn ghost sm" type="button" data-quickview="<%= p.slug %>">Quick view</button>
+                    <button class="btn primary sm" type="button" data-add-cart="<%= p.id %>" data-variants="<%= p.variants ? p.variants.length : 0 %>" data-slug="<%= p.slug %>" <%= p.in_stock ? '' : 'disabled' %>>
+                      <%- icon('cart') %> Add to cart
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <div class="p-grid">
+          <% items.forEach(function (p) { %><%- include('../partials/product-card', { p: p }) %><% }); %>
+        </div>
+      <% } %>
+
+      <%- include('../partials/pagination', { pager: pager, buildUrl: buildUrl }) %>
+    </section>
+  </div>
+</main>
+
+<script>
+  // mobile filter toggle + brand checkbox navigation
+  document.addEventListener('DOMContentLoaded', function () {
+    var body = document.getElementById('filterBody');
+    function toggle() { if (body) body.style.display = body.style.display === 'none' ? '' : 'none'; }
+    ['filterToggle', 'filterToggle2'].forEach(function (id) {
+      var b = document.getElementById(id); if (b) b.addEventListener('click', toggle);
+    });
+    if (window.innerWidth <= 1024 && body) body.style.display = 'none';
+    document.querySelectorAll('[data-brand-filter]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var url = new URL(window.location.href);
+        url.searchParams.delete('page');
+        var brands = url.searchParams.getAll('brand');
+        var slug = cb.getAttribute('data-brand-filter');
+        if (cb.checked) { if (brands.indexOf(slug) === -1) url.searchParams.append('brand', slug); }
+        else { url.searchParams.delete('brand'); brands.filter(function (b) { return b !== slug; }).forEach(function (b) { url.searchParams.append('brand', b); }); }
+        window.location.href = url.toString();
+      });
+    });
+  });
+</script>
+<%- include('../partials/footer') %>

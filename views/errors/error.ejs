@@ -1,0 +1,22 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:3rem 0">
+  <div class="empty-state" style="max-width:760px;margin:0 auto">
+    <div class="ico">&#9888;&#65039;</div>
+    <span class="badge danger big" style="margin-bottom:.7rem">Error <%= status %></span>
+    <h1>Something went wrong on our side</h1>
+    <p class="muted"><%= message %></p>
+    <div class="row" style="justify-content:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1.4rem">
+      <a class="btn primary lg" href="/"><%- icon('home') %> Back to the store</a>
+      <button class="btn ghost lg" type="button" onclick="history.back()"><%- icon('arrow-left') %> Go back</button>
+      <a class="btn ghost lg" href="/contact"><%- icon('mail') %> Report this to us</a>
+    </div>
+    <% if (stack) { %>
+      <details style="text-align:left;background:#F8FAFC;border:1px solid #E2E8EF;border-radius:10px;padding:.8rem">
+        <summary style="cursor:pointer;font-weight:800;font-size:.85rem">Technical details (development only)</summary>
+        <pre style="overflow:auto;font-size:.74rem;color:#475569;margin-top:.6rem"><%= stack %></pre>
+      </details>
+    <% } %>
+  </div>
+</main>
+<%- include('../partials/footer') %>

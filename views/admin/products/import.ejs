@@ -1,0 +1,165 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'CSV import' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Bulk import products from CSV</h1>
+          <p class="sub">Owner only. Paste a CSV or attach a file, run a dry run first, then import. Rows are matched to existing products by SKU.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/products"><%- icon('arrow-left') %> All products</a>
+          <a class="btn ghost" href="/admin/products/export.csv"><%- icon('download') %> Export current catalogue</a>
+        </div>
+      </div>
+
+      <% if (result) { %>
+        <div class="kpi-grid">
+          <div class="kpi" style="--accent:#12805C"><div class="k"><span class="ico"><%- icon('plus') %></span> <%= result.updated ? 'Created' : 'Would create' %></div><div class="v"><%= result.created %></div></div>
+          <div class="kpi" style="--accent:#1D4E6B"><div class="k"><span class="ico"><%- icon('refresh') %></span> Updated</div><div class="v"><%= result.updated %></div></div>
+          <div class="kpi" style="--accent:#D64545"><div class="k"><span class="ico"><%- icon('alert') %></span> Skipped</div><div class="v"><%= result.skipped %></div></div>
+          <div class="kpi" style="--accent:#FFB300"><div class="k"><span class="ico"><%- icon('file') %></span> Rows parsed</div><div class="v"><%= result.rows.length %></div></div>
+        </div>
+        <% if (result.errors && result.errors.length) { %>
+          <div class="card pad" style="border-left:4px solid var(--red);margin-bottom:1rem">
+            <b><%- icon('alert') %> Import stopped</b>
+            <ul style="margin:.4rem 0 0;padding-left:1.1rem;list-style:disc">
+              <% result.errors.forEach(function (e) { %><li class="small" style="color:var(--red)"><%= e %></li><% }); %>
+            </ul>
+          </div>
+        <% } %>
+        <% if (result.rows.length) { %>
+          <div class="card" style="margin-bottom:1rem">
+            <div class="card-head"><div><h2>Row-by-row result</h2><span class="sub">First 200 rows</span></div></div>
+            <div class="card-body" style="padding:0">
+              <div class="table-wrap" style="max-height:420px;overflow:auto">
+                <table class="table compact" style="min-width:560px">
+                  <thead><tr><th>Line</th><th>Name</th><th class="num">Price</th><th>Category</th><th>Result</th></tr></thead>
+                  <tbody>
+                    <% result.rows.slice(0, 200).forEach(function (r) { %>
+                      <tr>
+                        <td class="muted"><%= r.line %></td>
+                        <td><%= r.name || '—' %></td>
+                        <td class="num"><%= r.price || '—' %></td>
+                        <td><%= r.category || '—' %></td>
+                        <td>
+                          <% if (r.error) { %><span class="badge danger"><%= r.error %></span>
+                          <% } else { %><span class="badge success">OK</span><% } %>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        <% } %>
+      <% } %>
+
+      <div class="grid g-2-1" style="gap:1rem;align-items:start">
+        <div class="card">
+          <div class="card-head"><div><h2>Your CSV data</h2><span class="sub">Comma separated, with a header row</span></div></div>
+          <form action="/admin/products/import" method="post" data-busy>
+            <div class="card-body">
+              <div class="field">
+                <label class="label" for="csvFile">Attach a .csv file <span class="muted">(optional — its contents are pasted into the box below)</span></label>
+                <input class="input" type="file" id="csvFile" accept=".csv,text/csv" data-csv-file>
+              </div>
+              <div class="field">
+                <label class="label" for="csv">CSV content</label>
+                <textarea class="textarea mono" id="csv" name="csv" rows="16" required placeholder="name,price,category,brand,sku,stock,compare_at_price,cost_price,weight_kg,short_description,tags,status,featured">
+name,price,category,brand,sku,stock,compare_at_price,cost_price,weight_kg,short_description,tags,status,featured</textarea>
+                <span class="hint">Required columns: <code>name</code>, <code>price</code>, <code>category</code>. Everything else is optional.</span>
+              </div>
+              <div class="row" style="gap:.5rem;flex-wrap:wrap">
+                <button class="btn primary" type="submit" name="dry_run" value="1"><%- icon('eye') %> Dry run (check only)</button>
+                <button class="btn success" type="submit" name="dry_run" value="0"
+                        onclick="return confirm('Import for real? This creates or updates products in your live catalogue.')"><%- icon('upload') %> Import now</button>
+                <button class="btn ghost" type="button" id="loadSample">Load a sample</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <aside class="stack" style="gap:1rem">
+          <div class="card">
+            <div class="card-head"><div><h2>Column reference</h2></div></div>
+            <div class="card-body" style="padding:0">
+              <table class="table compact" style="min-width:0">
+                <thead><tr><th>Column</th><th>Notes</th></tr></thead>
+                <tbody>
+                  <tr><td><code>name</code> *</td><td>Product title, min 3 characters</td></tr>
+                  <tr><td><code>price</code> *</td><td>Selling price in <%= settings.currency %>, numbers only</td></tr>
+                  <tr><td><code>category</code> *</td><td>Must match an existing category name or slug</td></tr>
+                  <tr><td><code>brand</code></td><td>Existing brand name or slug, else ignored</td></tr>
+                  <tr><td><code>sku</code></td><td>If it matches an existing SKU the product is updated instead of created</td></tr>
+                  <tr><td><code>stock</code></td><td>Units on hand, defaults to 0</td></tr>
+                  <tr><td><code>low_stock_at</code></td><td>Reorder alert point, defaults to 5</td></tr>
+                  <tr><td><code>compare_at_price</code></td><td>“Was” price — must exceed price</td></tr>
+                  <tr><td><code>cost_price</code></td><td>Your cost, for margin reporting</td></tr>
+                  <tr><td><code>weight_kg</code></td><td>Defaults to 0.5</td></tr>
+                  <tr><td><code>short_description</code></td><td>Max 240 characters</td></tr>
+                  <tr><td><code>description</code></td><td>Long copy</td></tr>
+                  <tr><td><code>tags</code></td><td>Comma separated within the cell (quote it)</td></tr>
+                  <tr><td><code>status</code></td><td><code>active</code> or <code>draft</code></td></tr>
+                  <tr><td><code>featured</code></td><td><code>1</code> to feature on the homepage</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Valid categories</h2><span class="sub">Use one of these exact values</span></div></div>
+            <div class="card-body" style="max-height:280px;overflow:auto">
+              <div class="chips">
+                <% categories.forEach(function (c) { %>
+                  <span class="chip"><%= c.name %></span>
+                  <% (c.children || []).forEach(function (sc) { %><span class="chip"><%= sc.name %></span><% }); %>
+                <% }); %>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><div><h2>Valid brands</h2></div></div>
+            <div class="card-body" style="max-height:220px;overflow:auto">
+              <div class="chips"><% brands.forEach(function (b) { %><span class="chip"><%= b.name %></span><% }); %></div>
+            </div>
+          </div>
+
+          <div class="card pad" style="border-left:4px solid var(--gold)">
+            <b><%- icon('alert') %> Always dry-run first</b>
+            <p class="small muted" style="margin:.3rem 0 0">A dry run parses and validates every row without writing to the database, so you can see exactly what will happen. Images are not imported from CSV — add them on the product page afterwards, or paste image URLs into the product form.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var file = document.querySelector('[data-csv-file]');
+    var box = document.getElementById('csv');
+    if (file && box) file.addEventListener('change', function () {
+      var f = file.files[0];
+      if (!f) return;
+      var r = new FileReader();
+      r.onload = function () { box.value = String(r.result || ''); };
+      r.readAsText(f);
+    });
+    var sample = document.getElementById('loadSample');
+    if (sample) sample.addEventListener('click', function () {
+      box.value = [
+        'name,price,category,brand,sku,stock,compare_at_price,cost_price,weight_kg,short_description,tags,status,featured',
+        'Hisense 43" Smart TV 43A6K,3299,televisions,Hisense,BIA-TV-043,12,3899,2450,9.5,"43-inch 4K UHD smart television with VIDAA, 3 HDMI ports and a 2-year local warranty.","tv,4k,smart tv,hisense",active,1',
+        'Pepsi 50cl (crate of 12),180,beverages,,BIA-DRK-012,40,,132,14,"Crate of twelve 50cl bottles, delivered cold on request.","pepsi,drinks,crate",active,0',
+        'Nokia 105 Dual SIM,289,feature-phones,Nokia,BIA-PHN-105,60,329,190,0.2,"Long-lasting 105 keypad phone with dual SIM, FM radio and torch.","nokia,keypad phone,dual sim",active,0'
+      ].join('\n');
+    });
+  });
+</script>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

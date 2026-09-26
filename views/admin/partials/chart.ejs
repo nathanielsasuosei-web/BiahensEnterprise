@@ -1,0 +1,55 @@
+<%
+/**
+ * Inline SVG area/line chart. Expects:
+ *   points  – array of { label, value }
+ *   opts    – { height, color, prefix, area (bool), bars (bool), id }
+ */
+  const pts = (typeof points !== 'undefined' && points) ? points : [];
+  const o = Object.assign({ height: 190, color: '#F26B21', prefix: '', area: true, bars: false, id: 'c' }, typeof opts !== 'undefined' ? opts : {});
+  const W = 720;
+  const H = o.height;
+  const padL = 46; const padR = 10; const padT = 12; const padB = 24;
+  const iw = W - padL - padR;
+  const ih = H - padT - padB;
+  const vals = pts.map(function (p) { return Number(p.value) || 0; });
+  const max = Math.max.apply(null, vals.concat([1]));
+  const nice = (function (m) { const p = Math.pow(10, Math.floor(Math.log10(m))); return Math.ceil(m / p) * p; })(max);
+  const stepX = pts.length > 1 ? iw / (pts.length - 1) : iw;
+  const x = function (i) { return padL + (pts.length > 1 ? i * stepX : iw / 2); };
+  const y = function (v) { return padT + ih - (v / nice) * ih; };
+  const line = pts.map(function (p, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(Number(p.value) || 0).toFixed(1); }).join(' ');
+  const areaPath = pts.length ? line + ' L' + x(pts.length - 1).toFixed(1) + ' ' + (padT + ih) + ' L' + x(0).toFixed(1) + ' ' + (padT + ih) + ' Z' : '';
+  const gid = o.id + '-' + Math.random().toString(36).slice(2, 7);
+  const tickEvery = Math.max(1, Math.ceil(pts.length / 8));
+  const barW = Math.max(4, Math.min(28, stepX * 0.62));
+%>
+<svg class="chart" viewBox="0 0 <%= W %> <%= H %>" preserveAspectRatio="none" role="img" aria-label="Chart">
+  <defs>
+    <linearGradient id="areaGrad-<%= gid %>" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="<%= o.color %>" stop-opacity=".28"/>
+      <stop offset="100%" stop-color="<%= o.color %>" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <% for (let g = 0; g <= 4; g += 1) { const gy = padT + ih - (g / 4) * ih; %>
+    <line class="grid-line" x1="<%= padL %>" y1="<%= gy.toFixed(1) %>" x2="<%= W - padR %>" y2="<%= gy.toFixed(1) %>"/>
+    <text class="axis" x="<%= padL - 7 %>" y="<%= (gy + 3.5).toFixed(1) %>" text-anchor="end"><%= o.prefix %><%= moneyShort((nice / 4) * g) %></text>
+  <% } %>
+  <% if (o.bars) { %>
+    <% pts.forEach(function (p, i) { %>
+      <rect class="bar <%= Number(p.value) >= max * 0.85 ? 'hi' : '' %>" x="<%= (x(i) - barW / 2).toFixed(1) %>" y="<%= y(Number(p.value) || 0).toFixed(1) %>" width="<%= barW.toFixed(1) %>" height="<%= Math.max(1, (padT + ih) - y(Number(p.value) || 0)).toFixed(1) %>" rx="3">
+        <title><%= p.label %>: <%= o.prefix %><%= money(p.value) %></title>
+      </rect>
+    <% }); %>
+  <% } else { %>
+    <% if (o.area && pts.length) { %><path d="<%= areaPath %>" fill="url(#areaGrad-<%= gid %>)"/><% } %>
+    <path class="line" d="<%= line %>" stroke="<%= o.color %>"/>
+    <% pts.forEach(function (p, i) { if (pts.length <= 40 || i % tickEvery === 0) { %>
+      <circle class="dot" cx="<%= x(i).toFixed(1) %>" cy="<%= y(Number(p.value) || 0).toFixed(1) %>" r="3.2" stroke="<%= o.color %>">
+        <title><%= p.label %>: <%= o.prefix %><%= money(p.value) %></title>
+      </circle>
+    <% } }); %>
+  <% } %>
+  <% pts.forEach(function (p, i) { if (i % tickEvery === 0 || i === pts.length - 1) { %>
+    <text class="axis" x="<%= x(i).toFixed(1) %>" y="<%= H - 6 %>" text-anchor="middle"><%= p.label %></text>
+  <% } }); %>
+</svg>

@@ -1,0 +1,26 @@
+<%# expects: pager {pages,page,nums,hasPrev,hasNext,total}, buildUrl(page) function %>
+<% if (pager.pages > 1) { %>
+<nav class="pager" aria-label="Pagination">
+  <% if (pager.hasPrev) { %>
+    <a href="<%= buildUrl(pager.page - 1) %>" aria-label="Previous page"><%- icon('chevron-left') %></a>
+  <% } else { %><span class="dots">&lsaquo;</span><% } %>
+
+  <% if (pager.nums[0] > 1) { %>
+    <a href="<%= buildUrl(1) %>">1</a>
+    <% if (pager.nums[0] > 2) { %><span class="dots">…</span><% } %>
+  <% } %>
+  <% pager.nums.forEach(function (n) { %>
+    <% if (n === pager.page) { %><span class="cur" aria-current="page"><%= n %></span>
+    <% } else { %><a href="<%= buildUrl(n) %>"><%= n %></a><% } %>
+  <% }); %>
+  <% if (pager.nums[pager.nums.length - 1] < pager.pages) { %>
+    <% if (pager.nums[pager.nums.length - 1] < pager.pages - 1) { %><span class="dots">…</span><% } %>
+    <a href="<%= buildUrl(pager.pages) %>"><%= pager.pages %></a>
+  <% } %>
+
+  <% if (pager.hasNext) { %>
+    <a href="<%= buildUrl(pager.page + 1) %>" aria-label="Next page"><%- icon('chevron-right') %></a>
+  <% } else { %><span class="dots">&rsaquo;</span><% } %>
+</nav>
+<div class="pager-info">Page <%= pager.page %> of <%= pager.pages %> — <%= pager.total %> product<%= pager.total === 1 ? '' : 's' %></div>
+<% } %>

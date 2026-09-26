@@ -1,0 +1,41 @@
+<%
+  /**
+   * Admin pagination. Expects `pager` from helpers.paginate() and optional
+   * `filters` (object) whose keys are preserved as query params, plus `base`.
+   */
+  const base = (typeof pagerBase !== 'undefined' && pagerBase) ? pagerBase : currentPath;
+  const qs = function (page) {
+    const params = new URLSearchParams();
+    if (typeof filters !== 'undefined' && filters) {
+      Object.keys(filters).forEach(function (k) {
+        if (k === 'page') return;
+        const v = filters[k];
+        if (v !== undefined && v !== null && v !== '' && v !== 'all') params.set(k, v);
+      });
+    }
+    if (page && page > 1) params.set('page', page);
+    const s = params.toString();
+    return base + (s ? '?' + s : '');
+  };
+%>
+<div class="pager">
+  <span>Showing <%= pager.start + 1 %>–<%= Math.min(pager.start + pager.perPage, pager.total) %> of <b><%= pager.total %></b></span>
+  <div class="pages">
+    <% if (pager.hasPrev) { %><a href="<%= qs(pager.page - 1) %>" aria-label="Previous page">&lsaquo;</a>
+    <% } else { %><span class="dots">&lsaquo;</span><% } %>
+    <% if (pager.nums[0] > 1) { %>
+      <a href="<%= qs(1) %>">1</a>
+      <% if (pager.nums[0] > 2) { %><span class="dots">…</span><% } %>
+    <% } %>
+    <% pager.nums.forEach(function (n) { %>
+      <% if (n === pager.page) { %><span class="cur"><%= n %></span>
+      <% } else { %><a href="<%= qs(n) %>"><%= n %></a><% } %>
+    <% }); %>
+    <% if (pager.nums[pager.nums.length - 1] < pager.pages) { %>
+      <% if (pager.nums[pager.nums.length - 1] < pager.pages - 1) { %><span class="dots">…</span><% } %>
+      <a href="<%= qs(pager.pages) %>"><%= pager.pages %></a>
+    <% } %>
+    <% if (pager.hasNext) { %><a href="<%= qs(pager.page + 1) %>" aria-label="Next page">&rsaquo;</a>
+    <% } else { %><span class="dots">&rsaquo;</span><% } %>
+  </div>
+</div>

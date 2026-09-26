@@ -1,0 +1,327 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<%
+  const d = draft;
+  const sh = d.shipping || {};
+  const dl = d.delivery || { method: 'standard' };
+  const pm = d.payment || {};
+  const cardOn = settings.card_enabled === 'true' || settings.card_enabled === true;
+  const momoOn = settings.momo_enabled === 'true' || settings.momo_enabled === true;
+  const codOn = settings.cod_enabled === 'true' || settings.cod_enabled === true;
+%>
+<main class="container" id="main" style="padding:1.2rem 0 2.4rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><a href="/cart">Cart</a><span class="sep">/</span><span class="cur">Checkout</span></nav>
+
+  <div class="row between wrap" style="margin-bottom:1rem">
+    <div>
+      <h1 style="margin:0">Secure checkout</h1>
+      <p class="muted" style="margin:.2rem 0 0">Step <%= step %> of 4 — <%= (steps[step - 1] || {}).label || '' %></p>
+    </div>
+    <div class="row small muted" style="gap:.5rem">
+      <span class="row" style="gap:.3rem"><%- icon('lock') %> 256-bit encrypted</span>
+      <span class="row" style="gap:.3rem"><%- icon('support') %> <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" style="color:#F26B21;font-weight:800"><%= settings.support_phone %></a></span>
+    </div>
+  </div>
+
+  <div class="steps">
+    <% steps.forEach(function (s) { %>
+      <div class="step <%= s.n === step ? 'active' : '' %> <%= s.n < step ? 'done' : '' %>">
+        <span class="n"><%= s.n < step ? '&#10003;' : s.n %></span>
+        <span><%= s.label %></span>
+      </div>
+    <% }); %>
+  </div>
+
+  <div class="cart-layout">
+    <div>
+      <%# ───────────────── STEP 1 — delivery details ───────────────── %>
+      <% if (step === 1) { %>
+      <form action="/checkout/address" method="post" novalidate>
+        <div class="card">
+          <div class="summary-head row between">
+            <span><%- icon('pin') %> Where should we deliver?</span>
+            <% if (!user) { %><span class="badge gold">Guest checkout — no account needed</span><% } %>
+          </div>
+          <div class="summary-body">
+            <% if (!user) { %>
+              <div class="inline-alert">Checking out as a guest. <a href="/login" style="font-weight:800">Sign in</a> or <a href="/register" style="font-weight:800">create an account</a> to save addresses, track orders and use your wishlist. Your cart is kept either way.</div>
+            <% } else { %>
+              <div class="inline-alert success">Signed in as <b><%= user.name %></b> — tick the box below to save this address for next time.</div>
+            <% } %>
+
+            <div class="form-grid">
+              <div class="field">
+                <label class="label" for="fName">Full name of receiver <span style="color:#D64545">*</span></label>
+                <input class="input <%= errors.name ? 'err' : '' %>" id="fName" name="name" value="<%= sh.name || '' %>" required placeholder="e.g. Akosua Mensah">
+                <% if (errors.name) { %><span class="error-text"><%= errors.name %></span><% } %>
+              </div>
+              <div class="field">
+                <label class="label" for="fPhone">Phone number <span style="color:#D64545">*</span></label>
+                <input class="input <%= errors.phone ? 'err' : '' %>" id="fPhone" name="phone" value="<%= sh.phone || '' %>" required placeholder="024 123 4567" inputmode="tel">
+                <span class="hint">Our rider calls this number before arriving.</span>
+                <% if (errors.phone) { %><span class="error-text"><%= errors.phone %></span><% } %>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="fEmail">Email address <span class="muted">(optional — for receipts and tracking)</span></label>
+              <input class="input <%= errors.email ? 'err' : '' %>" id="fEmail" name="email" type="email" value="<%= sh.email || '' %>" placeholder="you@example.com">
+              <% if (errors.email) { %><span class="error-text"><%= errors.email %></span><% } %>
+            </div>
+
+            <div class="form-grid">
+              <div class="field">
+                <label class="label" for="fRegion">Region <span style="color:#D64545">*</span></label>
+                <select class="select <%= errors.region ? 'err' : '' %>" id="fRegion" name="region" required data-ship-region>
+                  <option value="">Choose your region…</option>
+                  <% regions.forEach(function (r) { %>
+                    <option value="<%= r %>" <%= sh.region === r ? 'selected' : '' %>><%= r %></option>
+                  <% }); %>
+                </select>
+                <% if (errors.region) { %><span class="error-text"><%= errors.region %></span><% } %>
+              </div>
+              <div class="field">
+                <label class="label" for="fCity">Town / city / suburb <span style="color:#D64545">*</span></label>
+                <input class="input <%= errors.city ? 'err' : '' %>" id="fCity" name="city" value="<%= sh.city || '' %>" required placeholder="e.g. East Legon, Accra">
+                <% if (errors.city) { %><span class="error-text"><%= errors.city %></span><% } %>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label" for="fLine">House / street description <span style="color:#D64545">*</span></label>
+              <input class="input <%= errors.line ? 'err' : '' %>" id="fLine" name="line" value="<%= sh.line || '' %>" required placeholder="Hse No. B12/4, Spintex Road, opposite Baatsona Junction">
+              <span class="hint">Be as specific as you would be when giving directions to a taxi driver.</span>
+              <% if (errors.line) { %><span class="error-text"><%= errors.line %></span><% } %>
+            </div>
+
+            <div class="field">
+              <label class="label" for="fLandmark">Nearest landmark <span class="muted">(optional)</span></label>
+              <input class="input" id="fLandmark" name="landmark" value="<%= sh.landmark || '' %>" placeholder="e.g. Behind the Total filling station">
+            </div>
+
+            <% if (user) { %>
+              <label class="checkbox" style="margin-bottom:.9rem">
+                <input type="checkbox" name="save_address" value="1" checked> Save this address to my account
+              </label>
+            <% } %>
+
+            <div class="secure-note"><%- icon('shield') %><span>We only use these details to deliver your order and contact you about it. We never sell your data — see our <a href="/privacy" style="font-weight:800;text-decoration:underline">privacy policy</a>.</span></div>
+          </div>
+          <div class="card-foot" style="justify-content:space-between">
+            <a class="btn ghost" href="/cart"><%- icon('arrow-left') %> Back to cart</a>
+            <button class="btn primary lg" type="submit">Continue to delivery method <%- icon('arrow-right') %></button>
+          </div>
+        </div>
+      </form>
+      <% } %>
+
+      <%# ───────────────── STEP 2 — delivery method ───────────────── %>
+      <% if (step === 2) { %>
+      <form action="/checkout/delivery" method="post">
+        <div class="card">
+          <div class="summary-head"><span><%- icon('truck') %> How would you like it delivered?</span></div>
+          <div class="summary-body">
+            <div class="inline-alert">
+              Delivering to <b><%= sh.city %>, <%= sh.region %></b> for <b><%= sh.name %></b>.
+              <a href="/checkout/back/1" style="font-weight:800">Change</a>
+            </div>
+            <div class="method-cards" data-method-group>
+              <% const zone = zones.find(function (z) { return z.region === sh.region; }); %>
+              <label class="method <%= dl.method === 'standard' ? 'active' : '' %>" data-method-card data-target="standard">
+                <input type="radio" name="method" value="standard" <%= dl.method === 'standard' ? 'checked' : '' %>>
+                <span class="tag badge success">Recommended</span>
+                <span class="top"><span class="ico"><%- icon('truck') %></span><b>Standard delivery</b></span>
+                <p><%= zone ? zone.eta_days : '1–6 working days' %> · <%= cart.ship.fee === 0 ? 'FREE' : settings.currency_symbol + ' ' + (zone ? Number(zone.fee).toFixed(2) : Number(settings.default_shipping_fee).toFixed(2)) %></p>
+                <% if (Number(settings.free_shipping_threshold) > 0) { %><p class="tiny" style="margin-top:.3rem">FREE above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %></p><% } %>
+              </label>
+              <label class="method <%= dl.method === 'express' ? 'active' : '' %>" data-method-card data-target="express">
+                <input type="radio" name="method" value="express" <%= dl.method === 'express' ? 'checked' : '' %>>
+                <span class="tag badge gold">Fastest</span>
+                <span class="top"><span class="ico"><%- icon('zap') %></span><b>Express delivery</b></span>
+                <p>Within 24 hours · <%= settings.currency_symbol %> <%= Number(settings.express_shipping_fee).toFixed(2) %><%= zone && zone.fee ? ' + zone surcharge' : '' %></p>
+                <p class="tiny" style="margin-top:.3rem">Available in Greater Accra, Tema, Ashanti &amp; Central</p>
+              </label>
+              <label class="method <%= dl.method === 'pickup' ? 'active' : '' %>" data-method-card data-target="pickup">
+                <input type="radio" name="method" value="pickup" <%= dl.method === 'pickup' ? 'checked' : '' %>>
+                <span class="tag badge info">Free</span>
+                <span class="top"><span class="ico"><%- icon('store') %></span><b>Pickup at our warehouse</b></span>
+                <p>Ready in 2–6 hours · FREE</p>
+                <p class="tiny" style="margin-top:.3rem"><%= settings.address_line %>, <%= settings.address_city %></p>
+              </label>
+            </div>
+
+            <div class="field" style="margin-top:1.1rem">
+              <label class="label" for="fNote">Delivery note for the rider <span class="muted">(optional)</span></label>
+              <textarea class="textarea" id="fNote" name="note" maxlength="240" placeholder="e.g. Call when you reach the junction, the gate is blue. Deliver after 5pm."><%= dl.note || '' %></textarea>
+              <span class="hint"><%= 240 - String(dl.note || '').length %> characters remaining</span>
+            </div>
+          </div>
+          <div class="card-foot" style="justify-content:space-between">
+            <a class="btn ghost" href="/checkout/back/1"><%- icon('arrow-left') %> Back</a>
+            <button class="btn primary lg" type="submit">Continue to payment <%- icon('arrow-right') %></button>
+          </div>
+        </div>
+      </form>
+      <% } %>
+
+      <%# ───────────────── STEP 3 — payment method ───────────────── %>
+      <% if (step === 3) { %>
+      <form action="/checkout/payment" method="post">
+        <div class="card">
+          <div class="summary-head"><span><%- icon('wallet') %> How would you like to pay?</span></div>
+          <div class="summary-body">
+            <div class="method-cards" data-method-group>
+              <% if (cardOn) { %>
+              <label class="method <%= pm.method === 'card' ? 'active' : '' %>" data-method-card data-target="card">
+                <input type="radio" name="method" value="card" <%= pm.method === 'card' ? 'checked' : '' %>>
+                <span class="top"><span class="ico"><%- icon('card') %></span><b>Debit / credit card</b></span>
+                <p>Visa, Mastercard &amp; Verve. Charged securely through our payment gateway.</p>
+                <span class="tag badge brand">Instant</span>
+              </label>
+              <% } %>
+              <% if (momoOn) { %>
+              <label class="method <%= pm.method === 'momo' ? 'active' : '' %>" data-method-card data-target="momo">
+                <input type="radio" name="method" value="momo" <%= pm.method === 'momo' ? 'checked' : '' %>>
+                <span class="top"><span class="ico"><%- icon('momo') %></span><b>Mobile Money</b></span>
+                <p>MTN MoMo, Telecel Cash &amp; AT Money. You approve the prompt on your phone.</p>
+                <span class="tag badge gold">Most popular</span>
+              </label>
+              <% } %>
+              <% if (codOn) { %>
+              <label class="method <%= pm.method === 'cod' ? 'active' : '' %>" data-method-card data-target="cod">
+                <input type="radio" name="method" value="cod" <%= pm.method === 'cod' ? 'checked' : '' %>>
+                <span class="top"><span class="ico"><%- icon('cash') %></span><b>Cash on delivery</b></span>
+                <p>Pay the rider in cash when your order arrives. Up to <%= settings.currency_symbol %> 5,000.</p>
+                <span class="tag badge success">Pay later</span>
+              </label>
+              <% } %>
+            </div>
+
+            <div class="inline-alert" style="margin-top:1.1rem">
+              <b>Test mode is on.</b> Card and Mobile Money payments run through our simulated Paystack-compatible gateway, so no real money moves. Test card <code style="background:#fff;padding:.1rem .35rem;border-radius:4px;border:1px solid #DFE6EE">4084 0840 8408 4081</code> succeeds; <code style="background:#fff;padding:.1rem .35rem;border-radius:4px;border:1px solid #DFE6EE">5060 6666 6666 6666 666</code> is declined.
+            </div>
+
+            <div class="secure-note" style="margin-top:1rem"><%- icon('lock') %><span>Card details are captured on the payment gateway’s own hosted page — they never touch our servers. We only receive a signed webhook confirming the charge.</span></div>
+          </div>
+          <div class="card-foot" style="justify-content:space-between">
+            <a class="btn ghost" href="/checkout/back/2"><%- icon('arrow-left') %> Back</a>
+            <button class="btn primary lg" type="submit">Review your order <%- icon('arrow-right') %></button>
+          </div>
+        </div>
+      </form>
+      <% } %>
+
+      <%# ───────────────── STEP 4 — review ───────────────── %>
+      <% if (step === 4) { %>
+      <form action="/checkout/place" method="post" data-busy>
+        <div class="card">
+          <div class="summary-head"><span><%- icon('check-circle') %> Review &amp; place your order</span></div>
+          <div class="summary-body">
+            <div class="grid g-3" style="gap:.8rem;margin-bottom:1.1rem">
+              <div class="card pad" style="box-shadow:none">
+                <div class="tiny" style="margin-bottom:.35rem">Deliver to <a href="/checkout/back/1" style="float:right;color:#F26B21">Edit</a></div>
+                <b style="display:block;font-size:.9rem"><%= sh.name %></b>
+                <span class="small muted"><%= sh.line %><br><%= sh.city %>, <%= sh.region %><br><%= sh.phone %><%= sh.email ? '<br>' + sh.email : '' %></span>
+              </div>
+              <div class="card pad" style="box-shadow:none">
+                <div class="tiny" style="margin-bottom:.35rem">Delivery method <a href="/checkout/back/2" style="float:right;color:#F26B21">Edit</a></div>
+                <b style="display:block;font-size:.9rem"><%= dl.method === 'express' ? 'Express (24h)' : dl.method === 'pickup' ? 'Warehouse pickup' : 'Standard delivery' %></b>
+                <span class="small muted">
+                  <%= dl.method === 'pickup' ? 'Ready in 2–6 hours at ' + settings.address_line : (zones.find(function (z) { return z.region === sh.region; }) || {}).eta_days || '1–6 working days' %>
+                  <% if (dl.note) { %><br>Note: “<%= dl.note %>”<% } %>
+                </span>
+              </div>
+              <div class="card pad" style="box-shadow:none">
+                <div class="tiny" style="margin-bottom:.35rem">Paying with <a href="/checkout/back/3" style="float:right;color:#F26B21">Edit</a></div>
+                <b style="display:block;font-size:.9rem"><%= pm.method === 'card' ? 'Debit / credit card' : pm.method === 'momo' ? 'Mobile Money' : 'Cash on delivery' %></b>
+                <span class="small muted"><%= pm.method === 'cod' ? 'Pay the rider on arrival' : 'You will be redirected to our secure payment page' %></span>
+              </div>
+            </div>
+
+            <h3 style="margin-bottom:.6rem"><%= cart.count %> item<%= cart.count === 1 ? '' : 's' %> in this order</h3>
+            <div class="table-wrap" style="border:1px solid #E2E8EF;border-radius:10px;margin-bottom:1rem">
+              <table class="table compact" style="min-width:0">
+                <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr></thead>
+                <tbody>
+                  <% cart.items.forEach(function (i) { %>
+                  <tr>
+                    <td><div class="row" style="gap:.55rem">
+                      <img src="<%= imgSrc(i.image, { w: 100, h: 100, hint: i.product.category_name, name: i.product.name }) %>" alt="" style="width:40px;height:40px;border-radius:8px;object-fit:cover">
+                      <span><b style="display:block;font-size:.85rem"><%= truncate(i.product.name, 52) %></b>
+                      <% if (i.variant) { %><span class="small muted"><%= i.variant.title %></span><% } %></span>
+                    </div></td>
+                    <td class="num"><%= i.qty %></td>
+                    <td class="num"><%= settings.currency_symbol %> <%= i.unit_price.toFixed(2) %></td>
+                    <td class="num strong"><%= settings.currency_symbol %> <%= i.line_total.toFixed(2) %></td>
+                  </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+
+            <label class="checkbox" style="margin-bottom:.9rem">
+              <input type="checkbox" name="terms" value="1" required>
+              <span>I agree to the <a href="/terms" target="_blank" style="color:#F26B21;font-weight:700">terms of sale</a>, the <a href="/returns-refunds" target="_blank" style="color:#F26B21;font-weight:700">returns policy</a> and the <a href="/privacy" target="_blank" style="color:#F26B21;font-weight:700">privacy policy</a>.</span>
+            </label>
+
+            <% if (!user) { %>
+              <div class="inline-alert">Checking out as a guest — save your order number from the confirmation page to track it. <a href="/login" style="font-weight:800">Sign in</a> instead to keep everything in one place.</div>
+            <% } %>
+          </div>
+          <div class="card-foot" style="justify-content:space-between">
+            <a class="btn ghost" href="/checkout/back/3"><%- icon('arrow-left') %> Back</a>
+            <button class="btn primary lg" type="submit">
+              <%- icon('lock') %> Place order · <%= settings.currency_symbol %> <%= cart.total.toFixed(2) %>
+            </button>
+          </div>
+        </div>
+      </form>
+      <% } %>
+    </div>
+
+    <%# ───────────────── sticky summary ───────────────── %>
+    <aside class="summary">
+      <div class="card">
+        <div class="summary-head row between"><span>Order summary</span><a href="/cart" class="btn light sm">Edit</a></div>
+        <div class="summary-body">
+          <div class="stack" style="gap:.55rem;max-height:230px;overflow:auto;margin-bottom:.9rem">
+            <% cart.items.forEach(function (i) { %>
+              <div class="row" style="gap:.55rem">
+                <img src="<%= imgSrc(i.image, { w: 100, h: 100, hint: i.product.category_name, name: i.product.name }) %>" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover" loading="lazy">
+                <span class="grow"><b class="small clamp-2" style="display:block"><%= i.product.name %></b>
+                  <span class="tiny"><%= i.qty %> × <%= settings.currency_symbol %> <%= i.unit_price.toFixed(2) %></span></span>
+                <b class="small"><%= settings.currency_symbol %> <%= i.line_total.toFixed(2) %></b>
+              </div>
+            <% }); %>
+          </div>
+          <div class="sum-row"><span>Subtotal</span><b><%= settings.currency_symbol %> <%= cart.subtotal.toFixed(2) %></b></div>
+          <% if (cart.discount > 0) { %><div class="sum-row"><span>Coupon <%= cart.coupon ? '(' + cart.coupon.code + ')' : '' %></span><b class="save">− <%= settings.currency_symbol %> <%= cart.discount.toFixed(2) %></b></div><% } %>
+          <div class="sum-row"><span>Delivery <%= dl.method === 'pickup' ? '(pickup)' : '' %></span><b><%= cart.shipping > 0 ? settings.currency_symbol + ' ' + cart.shipping.toFixed(2) : 'FREE' %></b></div>
+          <% if (cart.tax > 0) { %><div class="sum-row"><span>Tax</span><b><%= settings.currency_symbol %> <%= cart.tax.toFixed(2) %></b></div><% } %>
+          <div class="sum-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= cart.total.toFixed(2) %></b></div>
+          <div class="divider" style="margin:.9rem 0"></div>
+          <div class="stack small" style="gap:.4rem">
+            <span class="row" style="gap:.4rem"><span style="color:#12805C"><%- icon('shield') %></span> Buyer protection included</span>
+            <span class="row" style="gap:.4rem"><span style="color:#12805C"><%- icon('refresh') %></span> <%= settings.return_days %>-day returns</span>
+            <span class="row" style="gap:.4rem"><span style="color:#12805C"><%- icon('store') %></span> Sold &amp; shipped by <%= settings.store_name %></span>
+          </div>
+        </div>
+      </div>
+      <div class="card pad mt" style="margin-top:.9rem;text-align:center">
+        <div class="tiny" style="margin-bottom:.4rem">Need help ordering?</div>
+        <a class="btn ghost sm block" href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> WhatsApp us</a>
+        <a class="btn ghost sm block" style="margin-top:.4rem" href="tel:<%= settings.support_phone.replace(/\s/g,'') %>"><%- icon('phone') %> <%= settings.support_phone %></a>
+      </div>
+    </aside>
+  </div>
+</main>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var ta = document.getElementById('fNote');
+    if (ta) ta.addEventListener('input', function () {
+      var hint = ta.parentNode.querySelector('.hint');
+      if (hint) hint.textContent = (240 - ta.value.length) + ' characters remaining';
+    });
+  });
+</script>
+<%- include('../partials/footer') %>

@@ -1,0 +1,105 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container narrow" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+  <h1>Privacy policy</h1>
+  <p class="muted small">Last updated <%= dateFmt(new Date(), 'D MMMM YYYY') %> · We handle personal data in line with Ghana’s <b>Data Protection Act, 2012 (Act 843)</b>.</p>
+
+  <div class="prose">
+    <div class="inline-alert"><b>The short version:</b> we collect only what we need to deliver your order and support you afterwards, we never sell your data, we never store your card number, and you can ask us to delete your account at any time.</div>
+
+    <h2>1. Who is responsible for your data</h2>
+    <p><%= settings.store_name %> is the data controller for this website. Our registered address is <%= settings.address_line %>, <%= settings.address_city %>, Ghana. For any privacy question, including a subject-access or deletion request, write to <%= settings.support_email %> or call <%= settings.support_phone %>. We aim to answer privacy requests within 14 days and are required by law to respond within 30.</p>
+
+    <h2>2. What we collect</h2>
+    <table class="table">
+      <thead><tr><th>Category</th><th>Examples</th><th>Why we need it</th></tr></thead>
+      <tbody>
+        <tr><td>Identity &amp; contact</td><td>Name, email, phone number</td><td>To create your account, confirm orders, contact you about delivery and respond to support requests</td></tr>
+        <tr><td>Delivery details</td><td>Region, town, house/street description, landmark, receiver name</td><td>To get the parcel to the right person at the right place</td></tr>
+        <tr><td>Transaction data</td><td>Order number, items, amounts, payment method, gateway reference, last four digits of a card</td><td>To process payment, produce a receipt, handle refunds, and keep the records tax law requires</td></tr>
+        <tr><td>Account activity</td><td>Wishlist, saved addresses, reviews you write, order history</td><td>To personalise your experience and let you manage your own data</td></tr>
+        <tr><td>Technical data</td><td>IP address, browser and device type, pages viewed, referring site, session identifiers</td><td>To keep the site secure, prevent fraud, fix errors and understand what shoppers actually use</td></tr>
+        <tr><td>Marketing preferences</td><td>Newsletter sign-ups, opt-ins</td><td>To send deals only to people who asked for them</td></tr>
+      </tbody>
+    </table>
+    <p>We do <b>not</b> collect card numbers, PINs, CVVs or Mobile Money PINs. Full payment details live only with our PCI-DSS compliant payment gateway.</p>
+
+    <h2>3. Lawful basis for processing</h2>
+    <ul>
+      <li><b>Contract</b> — to take your order, deliver it, take payment and handle returns and warranty claims.</li>
+      <li><b>Legal obligation</b> — to keep accounting and tax records for the period Ghanaian law requires, and to comply with lawful requests from regulators or courts.</li>
+      <li><b>Legitimate interests</b> — to secure the site, detect fraud, improve the shopping experience and answer enquiries. We balance these interests against your rights and do not use them to justify selling your data.</li>
+      <li><b>Consent</b> — for marketing emails and non-essential cookies. You can withdraw consent at any time without affecting anything else.</li>
+    </ul>
+
+    <h2>4. Cookies</h2>
+    <p>We use a small number of cookies and similar technologies:</p>
+    <table class="table">
+      <thead><tr><th>Cookie</th><th>Purpose</th><th>Duration</th></tr></thead>
+      <tbody>
+        <tr><td><code>biahens.sid</code></td><td>Keeps you signed in and holds your cart between pages</td><td>Session, or up to 30 days if you choose “keep me signed in”</td></tr>
+        <tr><td><code>biahens.view</code></td><td>Remembers whether you prefer the grid or list layout</td><td>1 year</td></tr>
+        <tr><td><code>biahens.ship</code></td><td>Remembers your region so delivery estimates are accurate</td><td>Session</td></tr>
+        <tr><td>Recently viewed</td><td>Powers the “recently viewed” rail on product pages</td><td>30 days</td></tr>
+      </tbody>
+    </table>
+    <p>Strictly necessary cookies cannot be switched off because the store does not work without them. You can block all cookies in your browser settings, but you will then be unable to keep items in a cart or stay signed in.</p>
+
+    <h2>5. Who we share data with</h2>
+    <p>We share the minimum necessary, only with parties who need it to complete your order or run the business:</p>
+    <ul>
+      <li><b>Payment gateway</b> — to authorise and settle payments, and to process refunds.</li>
+      <li><b>Delivery riders and logistics partners</b> — name, phone number, address and order contents, for the deliveries they are assigned.</li>
+      <li><b>SMS and email providers</b> — to send order confirmations, dispatch notices and, if you opted in, marketing messages.</li>
+      <li><b>Our hosting provider</b> — which stores the servers this site runs on under contract.</li>
+      <li><b>Law enforcement and regulators</b> — only where we are legally required to, and we tell you unless the law forbids it.</li>
+    </ul>
+    <p>We do not sell, rent or trade your personal data to advertisers, data brokers or anyone else. Where a partner processes data for us, it does so under a written contract that limits its use to the task we hired it for.</p>
+
+    <h2>6. How long we keep it</h2>
+    <p>Account data is kept while your account is open. Order and transaction records are retained for the period required by Ghanaian tax and commercial law — currently six years — even after an account is closed, because they are financial records rather than marketing data. Support correspondence is kept for 24 months. Website analytics data is aggregated and kept for 24 months. When data is no longer needed it is deleted or anonymised beyond recovery.</p>
+
+    <h2>7. How we protect it</h2>
+    <ul>
+      <li>All traffic is served over HTTPS with modern TLS.</li>
+      <li>Passwords are hashed with bcrypt — we cannot read your password and no member of staff ever sees it.</li>
+      <li>Sessions are stored server-side with randomised identifiers, secure and httpOnly cookie flags.</li>
+      <li>Login, registration and password-reset endpoints are rate limited to slow down credential stuffing.</li>
+      <li>Admin and owner areas are role-restricted; product uploads are limited to the business owner, and every administrative action is written to an audit log with the actor and timestamp.</li>
+      <li>Access to production data is limited to named staff who need it, and backups are encrypted.</li>
+    </ul>
+    <p>No system is perfectly secure. If a breach ever puts your personal data at risk, we will notify the Data Protection Commission and the affected customers without undue delay, and tell you what happened and what to do.</p>
+
+    <h2>8. Your rights</h2>
+    <p>Under Act 843 you may ask us to:</p>
+    <ul>
+      <li><b>Access</b> — give you a copy of the personal data we hold about you, free of charge.</li>
+      <li><b>Correct</b> — fix anything inaccurate or incomplete. You can update your name, email and phone yourself in <a href="/account/profile">My profile</a>.</li>
+      <li><b>Delete</b> — erase your account and personal data, subject to the financial records we must keep by law.</li>
+      <li><b>Restrict or object</b> — stop particular processing, including all marketing, at any time.</li>
+      <li><b>Withdraw consent</b> — for anything we process on a consent basis, without affecting earlier lawful processing.</li>
+      <li><b>Complain</b> — to the Data Protection Commission of Ghana if you think we have mishandled your data. We would rather hear from you first and put it right.</li>
+    </ul>
+    <p>To exercise any right, email <%= settings.support_email %> from the address on your account, or write to us at the address below. We may ask you to confirm your identity — for example by quoting a recent order number — before releasing data.</p>
+
+    <h2>9. Children</h2>
+    <p>This site is not aimed at children under 13 and we do not knowingly collect their data. If you believe a child under 13 has given us personal information, contact us and we will delete it.</p>
+
+    <h2>10. Third-party links</h2>
+    <p>Our pages link to other sites — manufacturers, payment gateways, social media. This policy covers only this website. Please read the privacy policy of any site you leave us to visit.</p>
+
+    <h2>11. Changes to this policy</h2>
+    <p>We may update this policy as the business and the law change. The “last updated” date at the top always tells you how current it is, and material changes are announced on the site and by email to customers we can reach.</p>
+
+    <h2>12. Contact</h2>
+    <p>
+      <%= settings.store_name %> — Data Protection enquiries<br>
+      <%= settings.address_line %>, <%= settings.address_city %>, <%= settings.address_region || 'Greater Accra' %>, Ghana<br>
+      Email: <%= settings.support_email %><br>
+      Phone / WhatsApp: <%= settings.support_phone %><br>
+      Hours: <%= settings.support_hours || 'Mon–Fri 8:00am – 6:00pm, Sat 9:00am – 4:00pm' %>
+    </p>
+  </div>
+</main>
+<%- include('../partials/footer') %>

@@ -1,0 +1,128 @@
+<%
+  const nav = typeof adminNav !== 'undefined' ? adminNav : '';
+  const lock = isOwner ? '' : '<span class="sb-lock" title="Owner only">&#128274;</span>';
+%>
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <span class="sb-logo">B</span>
+    <span>
+      <b><%= settings.store_name %></b>
+      <span>Control panel</span>
+    </span>
+  </div>
+
+  <nav class="sb-nav">
+    <div class="sb-group">
+      <div class="sb-title">Overview</div>
+      <a class="sb-link <%= nav === 'dashboard' ? 'active' : '' %>" href="/admin">
+        <span class="ico"><%- icon('grid') %></span> Dashboard
+      </a>
+      <a class="sb-link <%= nav === 'analytics' ? 'active' : '' %>" href="/admin/analytics">
+        <span class="ico"><%- icon('chart') %></span> Analytics &amp; reports
+      </a>
+      <a class="sb-link <%= nav === 'notifications' ? 'active' : '' %>" href="/admin/notifications">
+        <span class="ico"><%- icon('bell') %></span> Notifications
+        <% if (unreadNotifications) { %><span class="chip danger"><%= unreadNotifications %></span><% } %>
+      </a>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-title">Sales</div>
+      <a class="sb-link <%= nav === 'orders' ? 'active' : '' %>" href="/admin/orders">
+        <span class="ico"><%- icon('box') %></span> Orders
+        <% if (pendingCount) { %><span class="chip warn"><%= pendingCount %></span><% } %>
+      </a>
+      <a class="sb-link <%= nav === 'payments' ? 'active' : '' %>" href="/admin/system/payments">
+        <span class="ico"><%- icon('wallet') %></span> Payments
+      </a>
+      <a class="sb-link <%= nav === 'customers' ? 'active' : '' %>" href="/admin/customers">
+        <span class="ico"><%- icon('users') %></span> Customers
+      </a>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-title">Catalogue <span style="opacity:.6;text-transform:none;letter-spacing:0">· owner</span></div>
+      <a class="sb-link <%= nav === 'products' ? 'active' : '' %>" href="/admin/products" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('tag') %></span> Products <%- lock %>
+        <% if (lowStockCount) { %><span class="chip danger"><%= lowStockCount %></span><% } %>
+      </a>
+      <a class="sb-link <%= nav === 'inventory' ? 'active' : '' %>" href="/admin/products/inventory/overview" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('layers') %></span> Inventory <%- lock %>
+      </a>
+      <a class="sb-link <%= nav === 'categories' ? 'active' : '' %>" href="/admin/categories" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('folder') %></span> Categories <%- lock %>
+      </a>
+      <a class="sb-link <%= nav === 'brands' ? 'active' : '' %>" href="/admin/brands" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('award') %></span> Brands <%- lock %>
+      </a>
+      <a class="sb-link <%= nav === 'slides' ? 'active' : '' %>" href="/admin/slides" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('image') %></span> Homepage banners <%- lock %>
+      </a>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-title">Marketing</div>
+      <a class="sb-link <%= nav === 'coupons' ? 'active' : '' %>" href="/admin/marketing/coupons">
+        <span class="ico"><%- icon('percent') %></span> Coupons
+      </a>
+      <a class="sb-link <%= nav === 'promotions' ? 'active' : '' %>" href="/admin/marketing/promotions">
+        <span class="ico"><%- icon('fire') %></span> Promotions
+      </a>
+      <a class="sb-link <%= nav === 'reviews' ? 'active' : '' %>" href="/admin/marketing/reviews">
+        <span class="ico"><%- icon('star') %></span> Reviews
+        <% if (pendingReviews) { %><span class="chip warn"><%= pendingReviews %></span><% } %>
+      </a>
+      <a class="sb-link <%= nav === 'newsletter' ? 'active' : '' %>" href="/admin/marketing/newsletter">
+        <span class="ico"><%- icon('mail') %></span> Newsletter
+      </a>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-title">System</div>
+      <a class="sb-link <%= nav === 'settings' ? 'active' : '' %>" href="/admin/settings" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('settings') %></span> Store settings <%- lock %>
+      </a>
+      <a class="sb-link <%= nav === 'audit' ? 'active' : '' %>" href="/admin/system/audit" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('shield') %></span> Audit log <%- lock %>
+      </a>
+      <a class="sb-link <%= nav === 'mail' ? 'active' : '' %>" href="/admin/system/mail">
+        <span class="ico"><%- icon('send') %></span> Email outbox
+      </a>
+      <a class="sb-link <%= nav === 'health' ? 'active' : '' %>" href="/admin/system/health">
+        <span class="ico"><%- icon('activity') %></span> Health &amp; backups
+      </a>
+    </div>
+  </nav>
+
+  <div class="sb-foot">
+    <% if (isOwner) { %>
+      <div class="owner-badge">
+        <span class="avatar"><%= initials(user.name) %></span>
+        <span style="flex:1">
+          <b><%= user.name %></b>
+          <span style="color:var(--gold);font-weight:800">Store owner · full access</span>
+        </span>
+      </div>
+      <div style="font-size:.68rem;line-height:1.5;color:#7E96AB">
+        You are the only account that can upload products, change prices and edit store settings.
+      </div>
+    <% } else { %>
+      <div class="owner-badge">
+        <span class="avatar" style="background:rgba(255,255,255,.2);color:#fff"><%= initials(user.name) %></span>
+        <span style="flex:1">
+          <b><%= user.name %></b>
+          <span>Staff · orders &amp; customers</span>
+        </span>
+      </div>
+      <div style="font-size:.68rem;line-height:1.5;color:#7E96AB">
+        Locked sections are owner-only. You can manage orders, customers, marketing and support.
+      </div>
+    <% } %>
+    <div class="row" style="gap:.4rem;margin-top:.7rem">
+      <a class="btn ghost sm" href="/" target="_blank" style="flex:1;justify-content:center;color:#C7D6E2;border-color:rgba(255,255,255,.2)"><%- icon('external') %> View store</a>
+      <form action="/admin/logout" method="post" style="flex:1">
+        <button class="btn ghost sm" type="submit" style="width:100%;justify-content:center;color:#C7D6E2;border-color:rgba(255,255,255,.2)"><%- icon('logout') %> Sign out</button>
+      </form>
+    </div>
+  </div>
+</aside>

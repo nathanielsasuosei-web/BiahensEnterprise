@@ -1,0 +1,35 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1rem 0 2.4rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur">Brands</span></nav>
+  <div class="page-head" style="background:none;color:inherit;padding:0 0 1rem;margin-bottom:.6rem">
+    <div>
+      <h1>Shop by brand</h1>
+      <p class="muted" style="margin:.2rem 0 0">Every brand below is stocked directly by <%= settings.store_name %>. We buy from authorised distributors, verify serial numbers on arrival and back everything with our own warranty — there are no third-party sellers on this site.</p>
+    </div>
+  </div>
+
+  <div class="row wrap" style="gap:.35rem;margin-bottom:1.4rem">
+    <span class="tiny" style="margin-right:.3rem">Jump to:</span>
+    <% letters.forEach(function (l) { %>
+      <a class="sub-cat" href="#<%= l %>" style="padding:.25rem .6rem"><%= l %></a>
+    <% }); %>
+  </div>
+
+  <% letters.forEach(function (l) { %>
+    <section id="<%= l %>" style="margin-bottom:1.8rem">
+      <h2 style="font-size:1rem;margin-bottom:.7rem"><span class="badge brand"><%= l %></span> <span class="muted small"><%= grouped[l].length %> brand<%= grouped[l].length === 1 ? '' : 's' %></span></h2>
+      <div class="p-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+        <% grouped[l].forEach(function (b) { %>
+          <a class="cat-tile" href="/b/<%= b.slug %>" style="--accent:#0F2A43">
+            <span class="ico" style="font-size:1.2rem;font-weight:900"><%= b.name.slice(0, 2).toUpperCase() %></span>
+            <b><%= b.name %></b>
+            <span><%= b.product_count %> product<%= b.product_count === 1 ? '' : 's' %></span>
+            <% if (b.tagline) { %><span class="small muted clamp-2" style="margin-top:.3rem"><%= b.tagline %></span><% } %>
+          </a>
+        <% }); %>
+      </div>
+    </section>
+  <% }); %>
+</main>
+<%- include('../partials/footer') %>

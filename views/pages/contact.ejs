@@ -1,0 +1,106 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+  <h1>Contact <%= settings.store_name %></h1>
+  <p class="muted" style="max-width:78ch;margin:0 0 1.4rem">Questions about a product, an order that has not arrived, a warranty claim or a wholesale enquiry — reach us on any of the channels below. We answer every message.</p>
+
+  <div class="grid" style="grid-template-columns:1.15fr .85fr;gap:1.2rem;align-items:start">
+    <form action="/contact" method="post" class="card">
+      <div class="summary-head"><span><%- icon('mail') %> Send us a message</span></div>
+      <div class="summary-body">
+        <div class="form-grid">
+          <div class="field">
+            <label class="label" for="cName">Your name <span style="color:#D64545">*</span></label>
+            <input class="input" id="cName" name="name" value="<%= user ? user.name : '' %>" required placeholder="e.g. Yaw Owusu">
+          </div>
+          <div class="field">
+            <label class="label" for="cEmail">Email address <span style="color:#D64545">*</span></label>
+            <input class="input" id="cEmail" name="email" type="email" value="<%= user ? user.email : '' %>" required placeholder="you@example.com">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label class="label" for="cPhone">Phone number <span class="muted">(optional)</span></label>
+            <input class="input" id="cPhone" name="phone" value="<%= user && user.phone ? user.phone : '' %>" placeholder="0241234567" inputmode="tel">
+          </div>
+          <div class="field">
+            <label class="label" for="cOrder">Order number <span class="muted">(if this is about an order)</span></label>
+            <input class="input" id="cOrder" name="order_number" placeholder="BIA-000123">
+          </div>
+        </div>
+        <div class="field">
+          <label class="label" for="cSubject">What is this about?</label>
+          <select class="select" id="cSubject" name="subject">
+            <% ['Order enquiry', 'Delivery problem', 'Returns & refund', 'Warranty claim', 'Product question', 'Wholesale / bulk purchase', 'Something else'].forEach(function (s) { %>
+              <option><%= s %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="cMessage">Your message <span style="color:#D64545">*</span></label>
+          <textarea class="textarea" id="cMessage" name="message" rows="6" required placeholder="Tell us what happened, when it happened and what you would like us to do about it."></textarea>
+        </div>
+        <button class="btn primary lg block" type="submit"><%- icon('send') %> Send message</button>
+        <p class="tiny muted center" style="margin-top:.7rem">We reply within one business day. Urgent delivery issues are fastest on WhatsApp.</p>
+      </div>
+    </form>
+
+    <div class="stack" style="gap:1rem">
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.7rem"><%- icon('phone') %> Talk to a human</h3>
+        <div class="stack" style="gap:.6rem">
+          <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" class="row" style="gap:.6rem">
+            <span class="ico" style="width:38px;height:38px;border-radius:10px;background:#FFF3EA;display:grid;place-items:center;color:#F26B21"><%- icon('phone') %></span>
+            <span><b style="display:block;font-size:.9rem">Call us</b><span class="small muted"><%= settings.support_phone %></span></span>
+          </a>
+          <a href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>" target="_blank" rel="noopener" class="row" style="gap:.6rem">
+            <span class="ico" style="width:38px;height:38px;border-radius:10px;background:#E6F5EF;display:grid;place-items:center;color:#12805C"><%- icon('whatsapp') %></span>
+            <span><b style="display:block;font-size:.9rem">WhatsApp</b><span class="small muted"><%= settings.support_whatsapp || settings.support_phone %> · fastest response</span></span>
+          </a>
+          <a href="mailto:<%= settings.support_email %>" class="row" style="gap:.6rem">
+            <span class="ico" style="width:38px;height:38px;border-radius:10px;background:#EEF3F8;display:grid;place-items:center;color:#0F2A43"><%- icon('mail') %></span>
+            <span><b style="display:block;font-size:.9rem">Email</b><span class="small muted"><%= settings.support_email %></span></span>
+          </a>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('clock') %> Opening hours</h3>
+        <div class="table-wrap" style="border:0">
+          <table class="table compact" style="min-width:0">
+            <tbody>
+              <tr><td>Monday – Friday</td><td class="num"><b>8:00am – 6:00pm</b></td></tr>
+              <tr><td>Saturday</td><td class="num"><b>9:00am – 4:00pm</b></td></tr>
+              <tr><td>Sunday &amp; public holidays</td><td class="num"><b>Online orders only</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="tiny" style="margin:.6rem 0 0">Orders placed after 5pm are dispatched the next working morning. Riders deliver until 8pm in Greater Accra.</p>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('pin') %> Warehouse &amp; pickup point</h3>
+        <p class="small muted" style="margin:0 0 .7rem">
+          <%= settings.address_line %><br>
+          <%= settings.address_city %>, <%= settings.address_region || 'Greater Accra' %>, Ghana
+        </p>
+        <p class="tiny" style="margin:0 0 .7rem">Choose <b>“Pickup at our warehouse”</b> at checkout and collect for free — ready in 2–6 hours. Bring your order number and a photo ID.</p>
+        <div class="map-placeholder" role="img" aria-label="Map showing the Biahens Enterprise warehouse in Accra">
+          <span><%- icon('pin') %> <%= settings.address_city || 'Accra' %>, Ghana</span>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('info') %> Before you write</h3>
+        <div class="stack small" style="gap:.4rem">
+          <a href="/faq" class="row" style="gap:.4rem"><%- icon('help') %> Frequently asked questions</a>
+          <a href="/track-order" class="row" style="gap:.4rem"><%- icon('truck') %> Track an order</a>
+          <a href="/shipping-delivery" class="row" style="gap:.4rem"><%- icon('box') %> Delivery times &amp; fees</a>
+          <a href="/returns-refunds" class="row" style="gap:.4rem"><%- icon('refresh') %> Returns &amp; refunds</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

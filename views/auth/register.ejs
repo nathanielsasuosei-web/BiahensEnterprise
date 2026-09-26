@@ -1,0 +1,85 @@
+<%- include('../partials/head') %>
+<div class="auth-wrap">
+  <aside class="auth-side">
+    <a href="/" class="row" style="gap:.6rem;margin-bottom:2rem;position:relative;z-index:1">
+      <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;font-size:1.2rem;color:#3A1A00">B</span>
+      <span><b style="color:#fff;font-size:1.05rem;display:block;line-height:1.2"><%= settings.store_name %></b>
+      <span style="font-size:.75rem;color:#9FB4C6"><%= settings.tagline || 'Ghana’s trusted online store' %></span></span>
+    </a>
+    <h2>Create your free account</h2>
+    <p>One account for orders, wishlist, saved addresses and faster checkout. It takes less than a minute and costs nothing.</p>
+    <div class="auth-perks">
+      <span class="row"><span class="ico"><%- icon('box') %></span> Track every order from payment to your doorstep</span>
+      <span class="row"><span class="ico"><%- icon('heart') %></span> Save items and see when prices drop</span>
+      <span class="row"><span class="ico"><%- icon('pin') %></span> Store home and work addresses for one-tap checkout</span>
+      <span class="row"><span class="ico"><%- icon('star') %></span> Review products and help other shoppers decide</span>
+    </div>
+    <div class="card" style="margin-top:2rem;background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.16);box-shadow:none;color:#DCE7F0">
+      <div style="padding:1rem">
+        <div class="row" style="gap:.5rem;margin-bottom:.4rem"><span style="color:#FFD66B"><%- icon('quote') %></span><b style="color:#fff;font-size:.9rem">“Ordered a blender on Monday, it reached Ho by Wednesday. The rider even called before arriving.”</b></div>
+        <span class="tiny" style="color:#B9CBDA">— Akosua M., verified customer</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="auth-main">
+    <div class="auth-card">
+      <h1>Sign up</h1>
+      <p class="sub">Already have an account? <a href="/login" style="color:#F26B21;font-weight:800">Sign in instead</a></p>
+
+      <form action="/register" method="post" novalidate>
+        <div class="field">
+          <label class="label" for="name">Full name <span style="color:#D64545">*</span></label>
+          <input class="input <%= errors.name ? 'err' : '' %>" id="name" name="name" value="<%= values.name || '' %>" required minlength="3" placeholder="e.g. Kwame Boateng" autofocus>
+          <% if (errors.name) { %><span class="error-text"><%= errors.name %></span><% } %>
+        </div>
+        <div class="field">
+          <label class="label" for="email">Email address <span style="color:#D64545">*</span></label>
+          <input class="input <%= errors.email ? 'err' : '' %>" id="email" name="email" type="email" value="<%= values.email || '' %>" required placeholder="you@example.com" autocomplete="email">
+          <% if (errors.email) { %><span class="error-text"><%= errors.email %></span><% } %>
+        </div>
+        <div class="field">
+          <label class="label" for="phone">Phone number <span class="muted">(optional but recommended)</span></label>
+          <input class="input <%= errors.phone ? 'err' : '' %>" id="phone" name="phone" value="<%= values.phone || '' %>" placeholder="0241234567" inputmode="tel">
+          <span class="hint">Our riders call before delivering, and Mobile Money receipts go here.</span>
+          <% if (errors.phone) { %><span class="error-text"><%= errors.phone %></span><% } %>
+        </div>
+        <div class="field">
+          <label class="label" for="password">Password <span style="color:#D64545">*</span></label>
+          <div class="pw-wrap">
+            <input class="input <%= errors.password ? 'err' : '' %>" id="password" name="password" type="password" required minlength="8" autocomplete="new-password">
+            <button type="button" class="pw-toggle" data-toggle-pw="password" aria-label="Show password"><%- icon('eye') %></button>
+          </div>
+          <div class="pw-meter" id="pwMeter"><i style="width:0"></i></div>
+          <span class="hint" id="pwLabel">At least 8 characters with one capital letter and one number.</span>
+          <% if (errors.password) { %><span class="error-text"><%= errors.password %></span><% } %>
+        </div>
+        <div class="field">
+          <label class="label" for="confirm_password">Confirm password <span style="color:#D64545">*</span></label>
+          <div class="pw-wrap">
+            <input class="input <%= errors.confirm ? 'err' : '' %>" id="confirm_password" name="confirm_password" type="password" required minlength="8" autocomplete="new-password">
+            <button type="button" class="pw-toggle" data-toggle-pw="confirm_password" aria-label="Show password"><%- icon('eye') %></button>
+          </div>
+          <% if (errors.confirm) { %><span class="error-text"><%= errors.confirm %></span><% } %>
+        </div>
+        <label class="checkbox" style="margin-bottom:1rem">
+          <input type="checkbox" name="marketing" value="1">
+          <span class="small">Send me deals, flash-sale alerts and new arrivals (unsubscribe any time)</span>
+        </label>
+        <label class="checkbox" style="margin-bottom:1.2rem">
+          <input type="checkbox" name="terms" value="1" required>
+          <span class="small">I agree to the <a href="/terms" target="_blank" style="color:#F26B21;font-weight:700">terms of service</a> and <a href="/privacy" target="_blank" style="color:#F26B21;font-weight:700">privacy policy</a> <span style="color:#D64545">*</span></span>
+        </label>
+        <button class="btn primary lg block" type="submit"><%- icon('user-plus') %> Create my account</button>
+      </form>
+
+      <div class="auth-alt">
+        <a href="/" class="btn ghost sm"><%- icon('arrow-left') %> Back to the store</a>
+        <p class="tiny muted" style="margin-top:.9rem">We only ask for what we need to deliver your order. Your details are never sold.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/site.js" defer></script>
+</body>
+</html>

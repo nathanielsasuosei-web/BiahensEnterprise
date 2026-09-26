@@ -1,0 +1,99 @@
+<%- include('../partials/head') %>
+<div class="admin-shell">
+  <%- include('../partials/sidebar') %>
+  <div class="main">
+    <%- include('../partials/topbar', { pageHeading: 'Customers' }) %>
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <h1>Customers</h1>
+          <p class="sub"><%= summary.total %> registered shopper<%= summary.total === 1 ? '' : 's' %> · <%= summary.new30 %> joined in the last 30 days · <%= summary.repeat %> have ordered more than once.</p>
+        </div>
+        <div class="actions">
+          <a class="btn ghost" href="/admin/customers/export.csv"><%- icon('download') %> Export CSV</a>
+          <a class="btn ghost" href="/admin/marketing/newsletter"><%- icon('mail') %> Newsletter list</a>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi" style="--accent:#0F2A43"><div class="k"><span class="ico"><%- icon('users') %></span> Total customers</div><div class="v"><%= summary.total %></div><div class="d"><%= summary.new30 %> new in 30 days</div></div>
+        <div class="kpi" style="--accent:#12805C"><div class="k"><span class="ico"><%- icon('cash') %></span> Revenue from accounts</div><div class="v"><%= settings.currency_symbol %> <%= moneyShort(summary.revenue) %></div><div class="d">Paid, non-cancelled orders</div></div>
+        <div class="kpi" style="--accent:#F26B21"><div class="k"><span class="ico"><%- icon('refresh') %></span> Repeat buyers</div><div class="v"><%= summary.repeat %></div><div class="d"><%= summary.total ? Math.round(summary.repeat / summary.total * 100) : 0 %>% of the customer base</div></div>
+        <div class="kpi" style="--accent:#D64545"><div class="k"><span class="ico"><%- icon('slash') %></span> Blocked accounts</div><div class="v"><%= summary.blocked || 0 %></div><div class="d">Cannot sign in or order</div></div>
+      </div>
+
+      <div class="tabs">
+        <% [['all', 'Everyone'], ['vip', 'VIP (spent ≥ GH₵5,000)'], ['repeat', 'Repeat buyers'], ['new', 'New (30 days)'], ['blocked', 'Blocked'], ['inactive', 'Inactive']].forEach(function (s) { %>
+          <a class="tab <%= filters.segment === s[0] || (s[0] === 'all' && !filters.segment) ? 'active' : '' %>"
+             href="/admin/customers?segment=<%= s[0] === 'all' ? '' : s[0] %><%= filters.q ? '&q=' + encodeURIComponent(filters.q) : '' %>"><%= s[1] %></a>
+        <% }); %>
+      </div>
+
+      <form class="toolbar" method="get" action="/admin/customers">
+        <input type="hidden" name="segment" value="<%= filters.segment === 'all' ? '' : filters.segment %>">
+        <div class="search" style="flex:1;min-width:220px">
+          <input class="input" type="search" name="q" value="<%= filters.q %>" placeholder="Search name, email or phone…">
+        </div>
+        <select class="select" name="sort" onchange="this.form.submit()">
+          <% [['recent', 'Newest first'], ['name', 'Name A–Z'], ['spent', 'Highest spend'], ['orders', 'Most orders'], ['last_login', 'Recently signed in']].forEach(function (s) { %>
+            <option value="<%= s[0] %>" <%= filters.sort === s[0] ? 'selected' : '' %>><%= s[1] %></option>
+          <% }); %>
+        </select>
+        <button class="btn ghost" type="submit"><%- icon('search') %> Search</button>
+        <a class="btn ghost" href="/admin/customers">Reset</a>
+      </form>
+
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <div class="table-wrap">
+            <table class="table" style="min-width:980px">
+              <thead><tr>
+                <th>Customer</th><th>Contact</th><th class="num">Orders</th><th class="num">Spent</th>
+                <th>Last order</th><th>Last login</th><th class="num">Reviews</th><th>Status</th><th style="text-align:right">Actions</th>
+              </tr></thead>
+              <tbody>
+                <% if (!customers.length) { %>
+                  <tr><td colspan="9"><div class="empty"><span class="ico">&#128101;</span><h3>No customers match</h3><p class="muted">Try clearing the search or segment filter.</p></div></td></tr>
+                <% } %>
+                <% customers.forEach(function (c) { %>
+                  <tr>
+                    <td>
+                      <div class="prod">
+                        <span class="avatar" style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#2E86AB);color:#fff;display:grid;place-items:center;font-weight:900;font-size:.76rem;flex:none"><%= initials(c.name) %></span>
+                        <span><b><a href="/admin/customers/<%= c.id %>"><%= c.name %></a></b>
+                          <span class="muted">Joined <%= dateFmt(c.created_at, 'D MMM YYYY') %><% if (c.spent >= 5000) { %> · <span class="badge gold" style="font-size:.62rem">VIP</span><% } %></span></span>
+                      </div>
+                    </td>
+                    <td class="small"><%= c.email %><br><span class="muted"><%= c.phone || '—' %></span></td>
+                    <td class="num strong"><%= c.orders %></td>
+                    <td class="num strong"><%= settings.currency_symbol %> <%= money(c.spent) %></td>
+                    <td class="small muted"><%= c.last_order_at ? timeAgo(c.last_order_at) : 'never' %></td>
+                    <td class="small muted"><%= c.last_login_at ? timeAgo(c.last_login_at) : 'never' %></td>
+                    <td class="num muted"><%= c.reviews %></td>
+                    <td><%= c.is_blocked ? '<span class="badge danger">Blocked</span>' : c.email_verified ? '<span class="badge success">Verified</span>' : '<span class="badge outline">Active</span>' %></td>
+                    <td>
+                      <div class="row-actions">
+                        <a class="btn ghost xs" href="/admin/customers/<%= c.id %>" title="Open file"><%- icon('eye') %></a>
+                        <a class="btn ghost xs" href="https://wa.me/<%= (c.phone || '').replace(/[^0-9]/g,'') %>" target="_blank" rel="noopener" title="WhatsApp"><%- icon('whatsapp') %></a>
+                        <form action="/admin/customers/<%= c.id %>/block" method="post" style="display:inline">
+                          <input type="hidden" name="block" value="<%= c.is_blocked ? '0' : '1' %>">
+                          <button class="btn ghost xs" type="submit" title="<%= c.is_blocked ? 'Unblock' : 'Block' %>"
+                                  onclick="return confirm('<%= c.is_blocked ? 'Unblock' : 'Block' %> <%= c.name.replace(/'/g, "\\'") %>?')"
+                                  style="<%= c.is_blocked ? 'color:var(--green)' : 'color:var(--red)' %>"><%- icon(c.is_blocked ? 'check-circle' : 'slash') %></button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }); %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <% if (pager.pages > 1) { %><div class="card-foot"><%- include('../partials/pager', { pager: pager, filters: filters }) %></div><% } %>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/admin.js" defer></script>
+</body>
+</html>

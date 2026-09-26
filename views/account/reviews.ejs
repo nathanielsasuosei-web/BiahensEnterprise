@@ -1,0 +1,59 @@
+<%- include('../partials/head') %>
+<%- include('../partials/header') %>
+<main class="container" id="main" style="padding:1.2rem 0 2.6rem">
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><a href="/account">Account</a><span class="sep">/</span><span class="cur">My reviews</span></nav>
+
+  <div class="account-layout">
+    <%- include('../partials/account-nav') %>
+    <div>
+      <div class="row between wrap" style="gap:.6rem;margin-bottom:1rem">
+        <div>
+          <h1 style="margin:0">My reviews</h1>
+          <p class="muted" style="margin:.2rem 0 0"><%= reviews.length %> review<%= reviews.length === 1 ? '' : 's' %> · <%= reviews.filter(function (r) { return r.is_approved; }).length %> published</p>
+        </div>
+      </div>
+
+      <% if (!reviews.length) { %>
+        <div class="empty-state card">
+          <div class="ico">&#11088;</div>
+          <h3>You have not reviewed anything yet</h3>
+          <p>Once an order is delivered, open the product page and tell other shoppers how it went. Reviews help everyone buy with confidence.</p>
+          <a class="btn primary" href="/account/orders"><%- icon('box') %> Look at my orders</a>
+        </div>
+      <% } else { %>
+        <div class="stack" style="gap:.9rem">
+          <% reviews.forEach(function (r) { %>
+            <div class="card pad">
+              <div class="row between wrap" style="gap:.6rem;margin-bottom:.5rem">
+                <div>
+                  <b style="font-size:.95rem"><a href="/p/<%= r.product_slug %>"><%= r.product_name %></a></b>
+                  <div class="row" style="gap:.4rem;margin-top:.25rem;align-items:center">
+                    <span class="stars" aria-label="<%= r.rating %> out of 5"><%- stars(r.rating) %></span>
+                    <span class="tiny"><%= dateFmt(r.created_at, 'D MMM YYYY') %></span>
+                  </div>
+                </div>
+                <div class="row" style="gap:.35rem">
+                  <span class="badge <%= r.is_approved ? 'success' : 'warn' %>"><%= r.is_approved ? 'Published' : 'Awaiting moderation' %></span>
+                  <% if (r.is_verified_purchase) { %><span class="badge outline">Verified purchase</span><% } %>
+                </div>
+              </div>
+              <% if (r.title) { %><b style="display:block;font-size:.88rem;margin-bottom:.2rem"><%= r.title %></b><% } %>
+              <p class="small" style="margin:0 0 .7rem"><%= r.body %></p>
+              <% if (r.reply) { %>
+                <div class="inline-alert" style="margin-bottom:.7rem"><b>Reply from <%= settings.store_name %>:</b> <%= r.reply %></div>
+              <% } %>
+              <div class="row" style="gap:.4rem">
+                <a class="btn ghost xs" href="/p/<%= r.product_slug %>#reviews"><%- icon('eye') %> View on product</a>
+                <form action="/account/reviews/<%= r.id %>/delete" method="post" onsubmit="return confirm('Delete this review permanently?')">
+                  <button class="btn ghost xs" type="submit" style="color:#D64545"><%- icon('trash') %> Delete</button>
+                </form>
+                <span class="tiny" style="margin-left:auto"><%= r.helpful_count || 0 %> found this helpful</span>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>
