@@ -6,7 +6,7 @@
           <span class="logo">B</span>
           <span class="names"><b><%= settings.store_name %></b><span>Ghana · Since 2019</span></span>
         </a>
-        <p><%= settings.tagline %> One warehouse, one owner, zero third-party sellers — every item we list is stock we actually hold.</p>
+        <p><%= settings.tagline %> A focused fashion edit selected by the owner, with one accountable team behind every order.</p>
         <div class="contact-line"><span class="ico"><%- icon('pin') %></span> <%= settings.address_line %>, <%= settings.address_city %>, <%= settings.address_region %></div>
         <div class="contact-line"><span class="ico"><%- icon('phone') %></span> <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>"><%= settings.support_phone %></a></div>
         <div class="contact-line"><span class="ico"><%- icon('mail') %></span> <a href="mailto:<%= settings.support_email %>"><%= settings.support_email %></a></div>
@@ -22,25 +22,26 @@
       </div>
 
       <div>
-        <h4>Shop</h4>
+        <h4>Shop the edit</h4>
         <ul>
-          <% menuCategories.slice(0, 8).forEach(function (c) { %>
-            <li><a href="/c/<%= c.slug %>"><%= c.name %></a></li>
-          <% }); %>
-          <li><a href="/categories">All categories</a></li>
-          <li><a href="/brands">All brands</a></li>
+          <li><a href="/new-arrivals">New in</a></li>
+          <li><a href="/c/womens-clothing">Women’s style</a></li>
+          <li><a href="/c/mens-clothing">Men’s style</a></li>
+          <li><a href="/c/traditional-wear">Ghanaian heritage</a></li>
+          <li><a href="/c/shoes-bags">Shoes &amp; bags</a></li>
+          <li><a href="/categories">All fashion</a></li>
         </ul>
       </div>
 
       <div>
-        <h4>Deals</h4>
+        <h4>Discover</h4>
         <ul>
-          <li><a href="/deals">Today’s deals</a></li>
-          <li><a href="/new-arrivals">New arrivals</a></li>
-          <li><a href="/best-sellers">Best sellers</a></li>
-          <li><a href="/search?q=&sale=1&sort=discount">Clearance</a></li>
-          <li><a href="/search?max=500">Under GH&#8373;500</a></li>
+          <li><a href="/deals">The Biahens edit</a></li>
+          <li><a href="/best-sellers">Most loved</a></li>
+          <li><a href="/brands">Brands in the edit</a></li>
+          <li><a href="/search?max=500">Style under GH&#8373;500</a></li>
           <li><a href="/track-order">Track an order</a></li>
+          <li><a href="/about">Our point of view</a></li>
         </ul>
       </div>
 

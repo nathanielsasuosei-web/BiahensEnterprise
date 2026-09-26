@@ -1,51 +1,47 @@
-<%# expects: p (decorated product), optional wished (Set of product ids) %>
+<%# expects: p (decorated product), optional wishSet (Set of product ids) %>
 <%
   const off = discountPercent(p.price, p.compare_at_price);
-  const img = imgSrc(p.image || (p.images_list && p.images_list[0]), { w: 480, h: 480, hint: p.category_name || p.name, name: p.name, palette: p.id % 8 });
+  const img = imgSrc(p.image || (p.images_list && p.images_list[0]), {
+    w: 640, h: 760, hint: p.category_name || p.name, name: p.name, palette: p.id % 8
+  });
   const wished = (typeof wishSet !== 'undefined' && wishSet) ? wishSet.has(p.id) : false;
 %>
 <article class="p-card" data-product-card="<%= p.id %>">
-  <a class="p-media" href="/p/<%= p.slug %>" aria-label="<%= p.name %>">
-    <img src="<%= img %>" alt="<%= p.name %>" loading="lazy" width="480" height="480">
-    <span class="p-flags">
-      <% if (off >= 5) { %><span class="badge orange">-<%= off %>%</span><% } %>
-      <% if (p.is_featured) { %><span class="badge brand">Featured</span><% } %>
-      <% if (!p.in_stock) { %><span class="badge danger">Sold out</span><% } else if (p.low_stock) { %><span class="badge warn">Only <%= p.stock %> left</span><% } %>
-    </span>
+  <div class="p-media">
+    <a class="p-image-link" href="/p/<%= p.slug %>" aria-label="View <%= p.name %>">
+      <img src="<%= img %>" alt="<%= p.name %>" loading="lazy" width="640" height="760">
+      <span class="p-flags">
+        <% if (off >= 5) { %><span class="badge orange">−<%= off %>%</span><% } %>
+        <% if (p.is_featured) { %><span class="badge brand">Owner’s pick</span><% } %>
+        <% if (!p.in_stock) { %><span class="badge danger">Sold out</span><% } %>
+      </span>
+    </a>
     <span class="p-tools">
-      <button class="p-tool <%= wished ? 'active' : '' %>" type="button" data-wish="<%= p.id %>"
-              aria-label="Add to wishlist" title="Wishlist"><%- icon('heart') %></button>
-      <button class="p-tool" type="button" data-quickview="<%= p.slug %>"
-              aria-label="Quick view" title="Quick view"><%- icon('eye') %></button>
+      <button class="p-tool <%= wished ? 'active' : '' %>" type="button" data-wish="<%= p.id %>" aria-label="Save <%= p.name %>" title="Save style"><%- icon('heart') %></button>
+      <button class="p-tool" type="button" data-quickview="<%= p.slug %>" aria-label="Quick view <%= p.name %>" title="Quick view"><%- icon('eye') %></button>
     </span>
-    <span class="p-quick">
-      <button class="btn primary sm block" type="button" data-add-cart="<%= p.id %>"
-              data-variants="<%= p.variants ? p.variants.length : 0 %>" data-slug="<%= p.slug %>"
-              <%= p.in_stock ? '' : 'disabled' %>>
-        <%- icon('cart') %> <%= p.in_stock ? 'Add to cart' : 'Out of stock' %>
-      </button>
-    </span>
-  </a>
+  </div>
   <div class="p-body">
     <% if (p.brand_name) { %><div class="p-brand"><a href="/b/<%= p.brand_slug %>"><%= p.brand_name %></a></div><% } %>
     <a class="p-name clamp-2" href="/p/<%= p.slug %>"><%= p.name %></a>
     <% if (p.rating_count) { %>
       <div class="p-rating"><%- stars(p.rating_avg) %> <b><%= Number(p.rating_avg).toFixed(1) %></b> <span>(<%= p.rating_count %>)</span></div>
     <% } else { %>
-      <div class="p-rating"><%- stars(0) %> <span class="muted">New</span></div>
+      <div class="p-rating"><%- stars(0) %> <span class="muted">New to the edit</span></div>
     <% } %>
     <div class="p-price-row">
       <span class="p-price"><%= settings.currency_symbol %> <%= Number(p.price).toFixed(2) %></span>
       <% if (off) { %>
         <span class="p-compare"><%= settings.currency_symbol %> <%= Number(p.compare_at_price).toFixed(2) %></span>
-        <span class="p-off">Save <%= settings.currency_symbol %> <%= (p.compare_at_price - p.price).toFixed(2) %></span>
+        <span class="p-off">−<%= off %>%</span>
       <% } %>
     </div>
-    <div class="row between">
-      <span class="p-stock <%= p.in_stock ? (p.low_stock ? 'low' : 'in') : 'out' %>">
-        <%= p.in_stock ? (p.low_stock ? 'Hurry — ' + p.stock + ' left' : 'In stock · ready to ship') : 'Out of stock' %>
-      </span>
-      <% if (p.sold_count > 0) { %><span class="small muted"><%= p.sold_count %> sold</span><% } %>
+    <div class="p-actions">
+      <button class="btn primary sm block" type="button" data-add-cart="<%= p.id %>"
+              data-variants="<%= p.variant_count || 0 %>" data-slug="<%= p.slug %>"
+              <%= p.in_stock ? '' : 'disabled' %>>
+        <%- icon('cart') %> <%= p.in_stock ? 'Add to bag' : 'Sold out' %>
+      </button>
     </div>
   </div>
 </article>

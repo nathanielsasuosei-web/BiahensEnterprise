@@ -1,87 +1,51 @@
 <%- include('../partials/head') %>
 <%- include('../partials/header') %>
 <main class="container" id="main" style="padding:1.2rem 0 2.6rem">
-  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur"><%= pageHeading %></span></nav>
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur">About Biahens</span></nav>
 
-  <div class="page-head" style="border-radius:var(--radius);padding:2.2rem">
-    <div>
-      <span class="badge gold">Est. <%= settings.founded_year || '2019' %> · Accra, Ghana</span>
-      <h1 style="color:#fff;margin:.5rem 0 .4rem">About <%= settings.store_name %></h1>
-      <p style="color:#C7D6E2;max-width:74ch;margin:0"><%= settings.about_short || 'A Ghanaian online store where every product is bought, checked, stocked and delivered by one accountable team — ours.' %></p>
-    </div>
-  </div>
+  <section class="page-head" style="border-radius:var(--radius);padding:clamp(1.6rem,4vw,3rem);margin-bottom:1.3rem">
+    <span class="badge gold">Accra, Ghana · Owner curated</span>
+    <h1 style="color:#fff;margin:.65rem 0 .5rem;font-family:'Playfair Display',Georgia,serif;font-weight:500">A little more meaning in what you wear.</h1>
+    <p class="sub" style="max-width:68ch"><%= settings.store_name %> is a fashion house for thoughtful everyday style, expressive African design and the details that make a look your own.</p>
+  </section>
 
-  <div class="grid g-4" style="gap:.9rem;margin:1.4rem 0">
-    <% [['box', String(settings.stat_products || '96'), 'Products in stock'], ['truck', '16', 'Regions delivered'], ['star', (settings.stat_rating || '4.7'), 'Average rating'], ['users', (settings.stat_customers || '2,400+'), 'Happy customers']].forEach(function (s) { %>
-      <div class="card pad stat" style="text-align:center">
-        <span style="font-size:1.5rem;color:#F26B21"><%- icon(s[0]) %></span>
-        <b style="font-size:1.5rem;display:block"><%= s[1] %></b>
-        <span class="small muted"><%= s[2] %></span>
-      </div>
-    <% }); %>
-  </div>
-
-  <div class="grid g-2" style="gap:1.4rem;align-items:start">
-    <div class="prose">
-      <h2>One seller. One standard. One number to call.</h2>
-      <p><%= settings.store_name %> is not a marketplace. Unlike platforms that simply connect thousands of unknown traders to buyers, <b>we are the seller of everything you see on this site</b>. Every phone, fridge, bag of rice and tyre is purchased by us, received into our Accra warehouse, inspected, photographed and dispatched by our own team.</p>
-      <p>That single decision changes everything about how the store behaves. When something is wrong you are not chasing a stranger who has deleted their SIM card — you are calling the company whose name is on the receipt, whose bank account received your money and whose reputation depends on you being satisfied.</p>
-
-      <h2>How we started</h2>
-      <p>We began in <%= settings.founded_year || '2019' %> selling refurbished laptops from a single room in <%= settings.address_city || 'Accra' %>. Customers kept asking the same question: <i>“if it goes wrong, who do I call?”</i> On the marketplaces they used, nobody had a good answer. We decided the answer should always be us.</p>
-      <p>Today we stock <%= settings.stat_products || '96' %> product lines across <%= 12 %> departments, from smartphones and solar equipment to groceries and car parts, and we deliver to every one of Ghana’s 16 regions.</p>
-
-      <h2>What we promise</h2>
+  <section class="grid g-2" style="gap:1rem;align-items:start">
+    <div class="card pad prose">
+      <span class="section-eyebrow">Our point of view</span>
+      <h2>One edit. One owner. A real person behind every piece.</h2>
+      <p>We believe shopping should feel personal, not overwhelming. Biahens Enterprise focuses on fashion: clothing, shoes, bags and accessories selected for quality, character and the way they fit into real life in Ghana.</p>
+      <p>Every product on this website is uploaded and managed by the owner. We do not operate an open marketplace or host third-party sellers. That means the person choosing the collection is also accountable for the description, the price and your order.</p>
+      <h2>What matters to us</h2>
       <ul>
-        <li><b>Genuine goods only.</b> We buy from authorised distributors and verify serial numbers on arrival. Counterfeit stock is destroyed, not discounted.</li>
-        <li><b>Honest stock counts.</b> The number you see on the product page is the number physically on our shelf. When it hits zero, the page says sold out.</li>
-        <li><b>Prices in cedis, charged in cedis.</b> No surprise FX adjustments at the door and no “the price changed since you ordered”.</li>
-        <li><b>A real warranty.</b> <%= settings.warranty_note || 'Electronics carry a minimum 6-month warranty' %>, handled by us — not by a manufacturer you have to hunt down.</li>
-        <li><b>Delivery you can track.</b> Every order gets a number, a timeline and a rider who calls before arriving.</li>
+        <li><b>Style with character.</b> Contemporary staples sit alongside Ankara, Kente and Ghanaian-inspired pieces.</li>
+        <li><b>Honest product details.</b> Clear descriptions, available sizes and stock shown as accurately as possible.</li>
+        <li><b>A considered collection.</b> We would rather offer a focused edit than fill the store with listings we cannot stand behind.</li>
+        <li><b>Helpful, human service.</b> Reach out for sizing, delivery or order support before or after you shop.</li>
+        <li><b>Fashion for Ghana.</b> Secure checkout and delivery options for customers across the country.</li>
       </ul>
-
-      <h2>Why prices are what they are</h2>
-      <p>We publish our cost structure honestly: the price you pay covers the product, import duty where applicable, our inspection and warehousing, the rider’s fuel and our <%= settings.return_days %>-day returns provision. We keep margins thin on high-volume items like phones and groceries, and we run flash sales every day at 8am so bargain hunters have a fixed place to look.</p>
+      <a class="btn primary" href="/new-arrivals">Explore the latest edit <span aria-hidden="true">→</span></a>
     </div>
 
     <aside class="stack" style="gap:1rem">
-      <div class="card pad">
-        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('store') %> Visit the warehouse</h3>
-        <p class="small muted" style="margin:0 0 .8rem">
-          <%= settings.address_line %><br>
-          <%= settings.address_city %>, <%= settings.address_region || 'Greater Accra' %><br>
-          Ghana
-        </p>
-        <div class="divider" style="margin:.8rem 0"></div>
-        <p class="small" style="margin:0">
-          <b>Opening hours</b><br>
-          <span class="muted"><%= settings.support_hours || 'Mon–Fri 8:00am – 6:00pm, Sat 9:00am – 4:00pm' %></span>
-        </p>
-        <div class="divider" style="margin:.8rem 0"></div>
-        <div class="stack small" style="gap:.4rem">
-          <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" class="row" style="gap:.45rem"><%- icon('phone') %> <%= settings.support_phone %></a>
-          <a href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>" class="row" style="gap:.45rem" target="_blank" rel="noopener"><%- icon('whatsapp') %> <%= settings.support_whatsapp || settings.support_phone %></a>
-          <a href="mailto:<%= settings.support_email %>" class="row" style="gap:.45rem"><%- icon('mail') %> <%= settings.support_email %></a>
+      <div class="card" style="overflow:hidden">
+        <img src="/img/fashion/kente-style.jpg" alt="Kente styling from the Biahens fashion edit" style="width:100%;aspect-ratio:1.25;object-fit:cover;object-position:center 30%">
+        <div class="pad" style="padding:1.1rem">
+          <span class="section-eyebrow">Rooted here. Ready everywhere.</span>
+          <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:1.45rem;font-weight:500">A Ghanaian eye for style.</h3>
+          <p class="small muted" style="margin:0">We make room for the prints, craft and ideas that tell our stories — styled in a way that feels current and completely your own.</p>
         </div>
-        <a class="btn primary block" style="margin-top:.9rem" href="/contact"><%- icon('mail') %> Send us a message</a>
       </div>
-
       <div class="card pad">
-        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('shield') %> Our standards</h3>
+        <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:1.35rem;font-weight:500">Talk to a person</h3>
+        <p class="small muted">Need help with a size, an order or delivery? We are happy to help.</p>
         <div class="stack small" style="gap:.55rem">
-          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Registered with the Ghana Revenue Authority — TIN on every receipt</span>
-          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Products tested against Ghana Standards Authority specifications</span>
-          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Payment processed by a PCI-DSS compliant gateway</span>
-          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check-circle') %></span> Data handled under Ghana’s Data Protection Act, 2012 (Act 843)</span>
+          <a class="row" href="tel:<%= settings.support_phone.replace(/\s/g,'') %>"><%- icon('phone') %> <%= settings.support_phone %></a>
+          <a class="row" href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g,'') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> WhatsApp Biahens</a>
+          <a class="row" href="mailto:<%= settings.support_email %>"><%- icon('mail') %> <%= settings.support_email %></a>
         </div>
-      </div>
-
-      <div class="card pad">
-        <h3 style="font-size:1rem;margin-bottom:.6rem"><%- icon('users') %> Work with us</h3>
-        <p class="small muted" style="margin:0 0 .7rem">We are not a marketplace and we do not onboard third-party sellers, but we do buy wholesale from distributors and hire riders, packers and support staff.</p>
-        <a class="btn ghost sm block" href="/sell-with-us"><%- icon('info') %> Read our single-seller promise</a>
+        <a class="btn ghost block" style="margin-top:1rem" href="/contact">Contact us</a>
       </div>
     </aside>
-  </div>
+  </section>
 </main>
 <%- include('../partials/footer') %>

@@ -1,9 +1,9 @@
 'use strict';
 /* eslint-disable no-console */
 /**
- * Seeds Biahens Enterprise with a realistic Ghanaian marketplace:
- * categories, brands, products, variants, customers, reviews, coupons,
- * shipping zones, homepage slides and ~70 orders across every status.
+ * Seeds Biahens Enterprise with a realistic Ghanaian fashion storefront:
+ * categories, owner-managed brands and products, variants, customers, reviews,
+ * coupons, shipping zones, homepage slides and sample orders across each status.
  *
  *   node src/db/seed.js           # seeds only if the database is empty
  *   node src/db/seed.js --fresh   # wipes and rebuilds everything
@@ -15,6 +15,50 @@ const { round2, slugify } = require('../utils/helpers');
 const config = require('../config');
 const bcrypt = require('bcryptjs');
 const DATA = require('./catalog-data');
+
+// The starter catalogue is intentionally fashion-only. Keep the product seed,
+// its brands and every sample listing inside the two fashion departments.
+const FASHION_PRODUCT_CATEGORIES = new Set([
+  'mens-clothing', 'womens-clothing', 'traditional-wear', 'kids-baby',
+  'watches-jewellery', 'sneakers', 'formal-shoes', 'sandals-slippers',
+  'handbags', 'backpacks-luggage',
+]);
+const FASHION_ROOTS = new Set(['fashion', 'shoes-bags']);
+const FASHION_PRODUCTS = DATA.PRODUCTS.filter((p) => FASHION_PRODUCT_CATEGORIES.has(p.cat));
+const FASHION_BRANDS = DATA.BRANDS.filter((b) => FASHION_PRODUCTS.some((p) => p.brand === b.name));
+const FASHION_SLIDES = [
+  {
+    title: 'Wear your story. Own every room.',
+    subtitle: 'Modern Ghanaian style, expressive prints and everyday pieces — selected with intention.',
+    badge: 'THE BIAHENS EDIT', link_text: 'Shop the edit', link_url: '/c/fashion',
+    bg: 'linear-gradient(115deg,#201315 0%,#6B343B 58%,#B76A55 100%)',
+  },
+  {
+    title: 'A little heritage. A lot of style.',
+    subtitle: 'Discover Kente, Ankara and contemporary African design made to be worn your way.',
+    badge: 'MADE TO BE REMEMBERED', link_text: 'Explore heritage', link_url: '/c/traditional-wear',
+    bg: 'linear-gradient(115deg,#27150F 0%,#75441E 58%,#D79A4A 100%)',
+  },
+  {
+    title: 'Good style starts with the details.',
+    subtitle: 'Shoes, bags and finishing touches that make the everyday feel considered.',
+    badge: 'OWNER-CURATED', link_text: 'Find your finish', link_url: '/c/shoes-bags',
+    bg: 'linear-gradient(115deg,#201315 0%,#513346 58%,#9C6B6A 100%)',
+  },
+];
+const FASHION_COUPONS = DATA.COUPONS.filter((c) => c.code !== 'PHONE25');
+const FASHION_IMAGE_BY_CATEGORY = {
+  'womens-clothing': '/img/fashion/womens-ankara.jpg',
+  'mens-clothing': '/img/fashion/mens-oxford.jpg',
+  'traditional-wear': '/img/fashion/kente-style.jpg',
+  'kids-baby': '/img/fashion/kidswear.jpg',
+  'watches-jewellery': '/img/fashion/jewellery.jpg',
+  sneakers: '/img/fashion/sneakers.jpg',
+  'formal-shoes': '/img/fashion/formal-shoes.jpg',
+  'sandals-slippers': '/img/fashion/sandals.jpg',
+  handbags: '/img/fashion/accessories.jpg',
+  'backpacks-luggage': '/img/fashion/accessories.jpg',
+};
 
 const argv = process.argv.slice(2);
 const FRESH = argv.includes('--fresh') || argv.includes('--force');
@@ -93,14 +137,14 @@ function main(opts = {}) {
      VALUES (?,?,?,?,?,?,?,1,1)`
   );
   const catTx = db.transaction(() => {
-    DATA.CATEGORIES.forEach((parent, i) => {
+    DATA.CATEGORIES.filter((parent) => FASHION_ROOTS.has(parent.slug)).forEach((parent, i) => {
       const info = insCat.run(parent.name, parent.slug, null,
         `Shop ${parent.name.toLowerCase()} on Biahens Enterprise with fast delivery across Ghana.`,
         parent.icon || '🛍', parent.accent || '#0F2A43', i + 1);
       ids.categories[parent.slug] = info.lastInsertRowid;
       (parent.children || []).forEach((child, j) => {
         const cinfo = insCat.run(child.name, child.slug, info.lastInsertRowid,
-          `Browse ${child.name} — quality checked, warrantied and delivered by Biahens Enterprise.`,
+          `Browse ${child.name}, selected by Biahens Enterprise and delivered across Ghana.`,
           null, parent.accent || '#0F2A43', j + 1);
         ids.categories[child.slug] = cinfo.lastInsertRowid;
       });
@@ -112,7 +156,7 @@ function main(opts = {}) {
   /* ---------------------------------------------------------------- brands */
   ids.brands = {};
   const insBrand = db.prepare('INSERT INTO brands (name, slug, tagline, sort_order) VALUES (?,?,?,?)');
-  DATA.BRANDS.forEach((b, i) => {
+  FASHION_BRANDS.forEach((b, i) => {
     ids.brands[b.name] = insBrand.run(b.name, slugify(b.name), b.tagline || null, i + 1).lastInsertRowid;
   });
   console.log(`✓  brands: ${Object.keys(ids.brands).length}`);
@@ -121,7 +165,7 @@ function main(opts = {}) {
   ids.products = [];
   const productByCat = {};
   const prodTx = db.transaction(() => {
-    DATA.PRODUCTS.forEach((p, i) => {
+    FASHION_PRODUCTS.forEach((p, i) => {
       const catId = ids.categories[p.cat];
       if (!catId) { console.warn(`  ! unknown category "${p.cat}" for ${p.name}`); return; }
       const brandId = ids.brands[p.brand] || null;
@@ -139,8 +183,8 @@ function main(opts = {}) {
         stock: p.stock,
         low_stock_at: Math.max(3, Math.round(p.stock * 0.2)),
         weight_kg: p.weight || 0.5,
-        image: null,
-        images: [],
+        image: FASHION_IMAGE_BY_CATEGORY[p.cat] || null,
+        images: FASHION_IMAGE_BY_CATEGORY[p.cat] ? [FASHION_IMAGE_BY_CATEGORY[p.cat]] : [],
         options: p.var ? p.var.map((v) => ({ name: v.title.split('/')[0].trim(), values: [v.title] })) : [],
         tags: p.tags || '',
         is_active: 1,
@@ -209,18 +253,18 @@ function main(opts = {}) {
 
   /* --------------------------------------------------------------- reviews */
   const REVIEW_TEXT = [
-    { r: 5, t: 'Exactly as described', b: 'Delivered to East Legon in less than 24 hours and the packaging was solid. Item works perfectly — I would order from Biahens again.' },
-    { r: 5, t: 'Great value for the price', b: 'I compared prices all over Accra and this was the best deal. Customer care even called to confirm my address before dispatch.' },
-    { r: 4, t: 'Good, minor delay', b: 'Quality is genuinely good. Delivery took two days instead of one because of rain, but the rider kept me updated the whole time.' },
-    { r: 5, t: 'Authentic product', b: 'Was worried about fakes but I verified the serial with the manufacturer. 100% original with the full warranty card.' },
-    { r: 4, t: 'Solid purchase', b: 'Does everything I need. Packaging could be neater but the product itself is fine and the price was fair.' },
-    { r: 3, t: 'It works but check the specs', b: 'Not bad for the price, though I expected slightly better build quality. Support offered a return but I decided to keep it.' },
-    { r: 5, t: 'MoMo payment was smooth', b: 'Paid with MTN MoMo, got the confirmation instantly and the order shipped the same afternoon. Very impressed.' },
-    { r: 2, t: 'Late delivery', b: 'The item is fine but delivery to Kumasi took five days instead of the promised two. Support did refund the shipping fee.' },
-    { r: 5, t: 'Bought a second one', b: 'My first one lasted over a year of daily use so I bought this as a gift for my sister. Highly recommended.' },
-    { r: 4, t: 'Nice finish', b: 'Looks more expensive than it is. Arrived well wrapped with no scratches at all.' },
-    { r: 5, t: 'Best online store in Ghana', b: 'Third order from Biahens Enterprise. Prices are honest, items are original and returns are straightforward.' },
-    { r: 3, t: 'Average', b: 'It does the job. Nothing special but nothing wrong either. Delivery was on time.' },
+    { r: 5, t: 'Beautiful in person', b: 'The colour and fabric are even better in person. It arrived neatly packed and the fit is lovely.' },
+    { r: 5, t: 'True to size', b: 'I followed the size guide and it fits perfectly. Easy to dress up for work or wear casually.' },
+    { r: 4, t: 'Lovely quality', b: 'The stitching feels well finished and the material is comfortable in the Accra heat. Would happily order again.' },
+    { r: 5, t: 'A piece with meaning', b: 'The details are gorgeous and the pattern feels special. I received compliments as soon as I wore it.' },
+    { r: 4, t: 'Great everyday find', b: 'Looks polished without feeling overdressed. The photos were accurate and delivery was right on time.' },
+    { r: 3, t: 'Nice, check the size chart', b: 'The piece is well made. I would recommend checking the measurements carefully before choosing your size.' },
+    { r: 5, t: 'Gift-ready packaging', b: 'Bought this as a present and it arrived beautifully wrapped. The recipient absolutely loved it.' },
+    { r: 2, t: 'Delivery took longer', b: 'The style is lovely and support kept me updated, though delivery to Kumasi took a little longer than expected.' },
+    { r: 5, t: 'My new favourite', b: 'Comfortable, flattering and easy to style. This has become one of the first things I reach for.' },
+    { r: 4, t: 'Thoughtful details', b: 'The finishing touches make this feel more premium than the price. Neatly packaged and just as pictured.' },
+    { r: 5, t: 'Excellent service', b: 'Helpful sizing advice on WhatsApp and a smooth delivery. You can tell the collection is carefully selected.' },
+    { r: 3, t: 'Good value', b: 'A lovely style for the price. The colour is slightly different in my room lighting but I am happy with it.' },
   ];
   let reviewCount = 0;
   const insReview = db.prepare(
@@ -250,7 +294,7 @@ function main(opts = {}) {
        used_count, expires_at, scope, scope_id, is_active)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
   );
-  DATA.COUPONS.forEach((c) => {
+  FASHION_COUPONS.forEach((c) => {
     let scopeId = null;
     if (c.scope !== 'all' && c.scope_slug) scopeId = ids.categories[c.scope_slug] || null;
     insCoupon.run(c.code, c.description, c.type, c.value, c.max_discount || null, c.min_subtotal || 0,
@@ -259,7 +303,7 @@ function main(opts = {}) {
         : new Date(Date.now() + between(45, 220) * 86400000).toISOString(),
       c.scope, scopeId, c.expires_in_days && c.expires_in_days < 0 ? 1 : 1);
   });
-  console.log(`✓  coupons: ${DATA.COUPONS.length}`);
+  console.log(`✓  coupons: ${FASHION_COUPONS.length}`);
 
   /* -------------------------------------------------------- shipping zones */
   const insZone = db.prepare(
@@ -273,8 +317,8 @@ function main(opts = {}) {
     `INSERT INTO slides (title, subtitle, badge, bg, link_text, link_url, sort_order, is_active)
      VALUES (?,?,?,?,?,?,?,1)`
   );
-  DATA.SLIDES.forEach((s, i) => insSlide.run(s.title, s.subtitle, s.badge, s.bg, s.link_text, s.link_url, i + 1));
-  console.log(`✓  homepage slides: ${DATA.SLIDES.length}`);
+  FASHION_SLIDES.forEach((s, i) => insSlide.run(s.title, s.subtitle, s.badge, s.bg, s.link_text, s.link_url, i + 1));
+  console.log(`✓  homepage slides: ${FASHION_SLIDES.length}`);
 
   /* ---------------------------------------------------------------- orders */
   const STATUSES = [

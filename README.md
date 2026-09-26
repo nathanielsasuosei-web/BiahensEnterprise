@@ -1,8 +1,8 @@
 # Biahens Enterprise
 
-A complete single-owner e-commerce platform for the Ghanaian market — built with **Node.js, Express, EJS and SQLite**. Think Jumia / Jiji / Temu in structure, but with one hard rule: **only the store owner can upload products, change prices or edit settings.** Staff accounts can run orders and support customers, nothing more.
+A fashion-only, single-owner e-commerce store for Ghana — built with **Node.js, Express, EJS and SQLite**. Inspired by the shopping convenience of Jumia, Jiji Ghana, Alibaba and Temu, with a more focused collection and one hard rule: **only the store owner can upload, price or edit products.** Staff accounts can support orders and customers, but cannot access the catalogue.
 
-- **Storefront:** heavy multi-level header (announcement bar, logo + search + account/cart, category mega-menu, mobile drawer), hero carousel, flash-deal countdown rails, category and brand pages, product pages with variants/reviews/related items, cart, wishlist, guest or account checkout, order tracking.
+- **Storefront:** layered fashion header (announcement, search, account/bag, category mega-menu and mobile drawer), editorial campaign homepage, clothing/shoes/bags/accessories catalogue, product pages with sizes, reviews and related styles, cart, wishlist, guest or account checkout and order tracking.
 - **Checkout:** Ghana regions and cities, standard/express/pickup delivery, Mobile Money (MTN · Telecel · AT), card and cash on delivery, coupons, and a **Paystack-compatible stub gateway** with a real HMAC SHA-512 webhook handler — drop in live keys and it works unchanged.
 - **Admin panel:** dashboard with KPIs and charts, product CRUD + CSV import/export, inventory valuation, categories/brands/hero slides, order pipeline with timeline and invoices, customer files with notes and segmentation, coupons, review moderation, newsletter list, promotions, analytics reports, payment ledger, email outbox, audit log, system health and notifications.
 - **Currency:** Ghana cedi (GH₵), prices formatted `en-GH`.
@@ -15,7 +15,7 @@ A complete single-owner e-commerce platform for the Ghanaian market — built wi
 npm install
 cp .env.example .env        # optional — every value has a working default
 npm run db:init             # create the schema + owner account
-npm run db:seed             # optional: 96 products, 65 orders, 26 customers…
+npm run db:seed             # optional: fashion catalogue, sample orders and customers
 npm start                   # http://localhost:3000
 ```
 
@@ -117,7 +117,7 @@ public/                  css, js, images, uploads
 data/                    SQLite database (gitignored, created at build/init)
 ```
 
-**Owner-only enforcement** lives in `src/middleware/auth.js`: `requireAdmin` (owner + staff) guards the panel, `requireOwner` guards `products`, `catalog`, `settings` and `uploads`. Every mutating admin action is written to `audit_log` with actor, role, IP and a before/after payload.
+**Owner-only enforcement** lives in `src/middleware/auth.js`: the owner alone can access product management and media uploads; staff are limited to support and order workflows. Fashion-only category validation is enforced in the catalogue service and product create/import routes, so non-fashion inventory cannot appear on the public storefront. Every mutating admin action is written to `audit_log` with actor, role, IP and a before/after payload.
 
 ## Scripts
 

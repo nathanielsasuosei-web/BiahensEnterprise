@@ -105,7 +105,10 @@ function validate(data) {
   if (data.compare_at_price && data.compare_at_price <= data.price) {
     errors.compare_at_price = 'The “was” price must be higher than the selling price.';
   }
-  if (!data.category_id) errors.category_id = 'Choose a category so shoppers can find this product.';
+  if (!data.category_id) errors.category_id = 'Choose a fashion category so shoppers can find this product.';
+  else if (!catalog.isFashionCategory(data.category_id)) {
+    errors.category_id = 'Biahens Enterprise is a fashion-only store. Choose clothing, shoes, bags or accessories.';
+  }
   if (data.stock < 0) errors.stock = 'Stock cannot be negative.';
   if (data.short_description.length > 240) errors.short_description = 'Keep the short description under 240 characters.';
   if (data.cost_price && data.cost_price > data.price) errors.cost_price = 'Cost price is higher than the selling price — check this.';
@@ -418,6 +421,11 @@ router.post('/import', (req, res) => {
     if (price <= 0) { row.error = 'Invalid price'; result.skipped += 1; return; }
     const cat = db.prepare('SELECT id FROM categories WHERE slug = ? OR LOWER(name) = LOWER(?)').get(slugify(row.category), row.category);
     if (!cat) { row.error = `Unknown category “${row.category}”`; result.skipped += 1; return; }
+    if (!catalog.isFashionCategory(cat.id)) {
+      row.error = 'Biahens Enterprise is a fashion-only store. Only fashion categories can be imported.';
+      result.skipped += 1;
+      return;
+    }
     const brand = get('brand') ? db.prepare('SELECT id FROM brands WHERE slug = ? OR LOWER(name) = LOWER(?)').get(slugify(get('brand')), get('brand')) : null;
     if (dryRun) { row.ok = true; result.created += 1; return; }
     const existing = get('sku') ? db.prepare('SELECT id FROM products WHERE sku = ?').get(get('sku')) : null;

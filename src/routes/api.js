@@ -30,24 +30,15 @@ router.get('/api/suggest', (req, res) => {
   const q = String(req.query.q || '').trim();
   if (q.length < 2) return res.json({ ok: true, q, products: [], categories: [], brands: [] });
 
-  const like = `%${q.toLowerCase()}%`;
-  const products = db.prepare(
-    `SELECT p.id, p.name, p.slug, p.price, p.compare_at_price, p.image, p.rating_avg, p.stock,
-            c.name AS category_name, c.slug AS category_slug
-     FROM products p LEFT JOIN categories c ON c.id = p.category_id
-     WHERE p.is_active = 1 AND p.status = 'active'
-       AND (LOWER(p.name) LIKE @like OR LOWER(COALESCE(p.tags,'')) LIKE @like OR LOWER(COALESCE(p.sku,'')) LIKE @like)
-     ORDER BY p.sold_count DESC, p.rating_avg DESC LIMIT 8`
-  ).all({ like });
-
-  const categories = db.prepare(
-    `SELECT name, slug FROM categories WHERE is_active = 1 AND (LOWER(name) LIKE @like OR LOWER(slug) LIKE @like)
-     ORDER BY (parent_id IS NULL) DESC, sort_order LIMIT 4`
-  ).all({ like });
-
-  const brands = db.prepare(
-    `SELECT name, slug FROM brands WHERE is_active = 1 AND LOWER(name) LIKE @like ORDER BY sort_order LIMIT 4`
-  ).all({ like });
+  const like = q.toLowerCase();
+  const products = catalog.queryProducts({ q, sort: 'popular', perPage: 8 }).items;
+  const categories = catalog.categoryTree({ withCounts: false })
+    .flatMap((c) => [c].concat(c.children || []))
+    .filter((c) => `${c.name} ${c.slug}`.toLowerCase().includes(like))
+    .slice(0, 4);
+  const brands = catalog.brandList()
+    .filter((b) => b.name.toLowerCase().includes(like))
+    .slice(0, 4);
 
   return res.json({
     ok: true,
@@ -137,7 +128,13 @@ router.post('/api/cart/remove', (req, res) => {
 
 router.get('/api/wishlist/ids', (req, res) => {
   if (!req.user) return res.json({ ok: true, ids: [] });
-  const rows = db.prepare('SELECT product_id FROM wishlists WHERE user_id = ?').all(req.user.id);
+  const categoryIds = catalog.fashionCategoryIds();
+  if (!categoryIds.length) return res.json({ ok: true, ids: [] });
+  const marks = categoryIds.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT w.product_id FROM wishlists w JOIN products p ON p.id = w.product_id
+     WHERE w.user_id = ? AND p.category_id IN (${marks}) AND p.is_active = 1 AND p.status = 'active'`
+  ).all(req.user.id, ...categoryIds);
   return res.json({ ok: true, ids: rows.map((r) => r.product_id) });
 });
 

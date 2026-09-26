@@ -2,7 +2,7 @@
   "name": "biahens-enterprise",
   "version": "1.0.0",
   "private": true,
-  "description": "Biahens Enterprise - single-owner multi-category e-commerce marketplace (Ghana)",
+  "description": "Biahens Enterprise - owner-curated fashion e-commerce for Ghana",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
