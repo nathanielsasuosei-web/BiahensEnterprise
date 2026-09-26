@@ -1,201 +1,144 @@
-<%#
-  The "heavy" header — five stacked tiers:
-    1. announcement ticker      2. utility bar (contact / help / track / admin)
-    3. main bar (brand, mega search + live autocomplete, account, wishlist, cart)
-    4. category nav with mega-menu   5. mobile search + bottom tab bar
-%>
 <%
   const q = typeof query !== 'undefined' ? (query.q || '') : '';
-  const searchCats = (typeof menuCategories !== 'undefined' ? menuCategories : []).slice(0, 8);
-  const cartData = typeof cart !== 'undefined' ? cart : { items: [], count: 0, total: 0, isEmpty: true };
-  const threshold = Number(settings.free_shipping_threshold) || 0;
-  const pct = threshold && cartData.subtotal ? Math.min(100, Math.round(cartData.subtotal / threshold * 100)) : 0;
+  const categoryChoice = typeof query !== 'undefined' ? (query.category || '') : '';
+  const roots = typeof menuCategories !== 'undefined' ? menuCategories : [];
+  const flatCategories = [];
+  roots.forEach(function (root) {
+    (root.children || []).forEach(function (child) { flatCategories.push(child); });
+  });
+  const navOrder = ['womens-clothing', 'mens-clothing', 'traditional-wear', 'sneakers', 'handbags', 'watches-jewellery'];
+  const navCategories = navOrder.map(function (slug) {
+    return flatCategories.find(function (cat) { return cat.slug === slug; });
+  }).filter(Boolean);
+  const cartData = typeof cart !== 'undefined' ? cart : { items: [], count: 0, total: 0, subtotal: 0, isEmpty: true };
 %>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header" id="siteHeader">
-
-  <%# ── tier 1: announcement ticker ─────────────────────────────────────── %>
   <% if (settings.announcement_on === 'true' || settings.announcement_on === true) { %>
-  <div class="announce">
-    <div class="track">
-      <% for (let i = 0; i < 2; i++) { %>
-        <span>&#128666;&nbsp; <%= settings.announcement %></span>
-        <span>&#9889;&nbsp; Same-day dispatch on orders placed before 2:00pm in Accra &amp; Tema</span>
-        <span>&#128274;&nbsp; Secure checkout — Visa, Mastercard, MTN MoMo, Telecel Cash &amp; AT Money</span>
-        <span>&#8635;&nbsp; <%= settings.return_days %>-day easy returns on eligible items</span>
-        <span>&#9742;&nbsp; Talk to a human: <%= settings.support_phone %></span>
-      <% } %>
+    <div class="announce">
+      <div class="announce-inner container">
+        <span><span class="announce-star">✳</span> <%= settings.announcement %></span>
+        <span class="announce-sep">—</span>
+        <span>Owner-curated style · One store, one standard</span>
+        <span class="announce-sep">—</span>
+          <a href="/shipping-delivery">Complimentary delivery nationwide over <%= settings.currency_symbol %><%= Number(settings.free_shipping_threshold).toFixed(0) %> <span aria-hidden="true">↗</span></a>
+      </div>
     </div>
-  </div>
   <% } %>
 
-  <%# ── tier 2: utility bar ─────────────────────────────────────────────── %>
   <div class="hdr-utility">
     <div class="container">
-      <span class="u-item u-flag">&#127468;&#127469; Ghana &nbsp;·&nbsp; <%= settings.currency %> (<%= settings.currency_symbol %>)</span>
+      <span class="u-item u-flag">GHANA <span aria-hidden="true">·</span> <%= settings.currency %> (<%= settings.currency_symbol %>)</span>
       <span class="u-sep"></span>
-      <span class="u-item"><%- icon('pin') %> Deliver to <b style="color:#fff">Accra</b></span>
-      <span class="u-sep"></span>
-      <a class="u-item" href="/shipping-delivery"><%- icon('truck') %> <%= settings.hero_note %></a>
+      <span class="u-item"><%- icon('pin') %> Thoughtfully selected in Accra</span>
       <span class="spacer"></span>
-      <a class="u-item" href="tel:<%= settings.support_phone.replace(/\s/g,'') %>"><%- icon('phone') %> <%= settings.support_phone %></a>
+      <a class="u-item" href="/track-order"><%- icon('package') %> Track an order</a>
       <span class="u-sep"></span>
-      <a class="u-item" href="/track-order"><%- icon('package') %> Track order</a>
+      <a class="u-item" href="/faq"><%- icon('support') %> Help &amp; fit guide</a>
       <span class="u-sep"></span>
-      <a class="u-item" href="/faq"><%- icon('support') %> Help centre</a>
-      <span class="u-sep"></span>
-      <a class="u-item" href="/sell-with-us"><%- icon('store') %> Our single-seller promise</a>
-      <% if (!user) { %>
+      <a class="u-item" href="tel:<%= settings.support_phone.replace(/\s/g, '') %>"><%- icon('phone') %> <%= settings.support_phone %></a>
+      <% if (user && user.role !== 'customer') { %>
         <span class="u-sep"></span>
-        <a class="u-item" href="/admin/login"><%- icon('lock') %> Owner login</a>
-      <% } else if (user.role !== 'customer') { %>
+        <a class="u-item owner-shortcut" href="/admin"><%- icon('settings') %> Owner studio</a>
+      <% } else if (!user) { %>
         <span class="u-sep"></span>
-        <a class="u-item" href="/admin" style="color:#FFD66B"><%- icon('settings') %> Control panel</a>
+        <a class="u-item owner-shortcut" href="/admin/login"><%- icon('lock') %> Owner sign in</a>
       <% } %>
     </div>
   </div>
 
-  <%# ── tier 3: main bar ────────────────────────────────────────────────── %>
   <div class="hdr-main">
-    <div class="container">
+    <div class="container hdr-main-grid">
       <button class="hdr-burger" type="button" id="burgerBtn" aria-label="Open menu" aria-expanded="false"><%- icon('menu') %></button>
 
       <a class="brandmark" href="/" aria-label="<%= settings.store_name %> home">
         <span class="logo">B</span>
-        <span class="names">
-          <b><%= settings.store_name %></b>
-          <span><%= settings.store_short %> · Ghana</span>
-        </span>
+        <span class="names"><b><%= settings.store_name %></b><span>STYLE, WITH INTENTION</span></span>
       </a>
 
       <div class="hdr-search">
         <form class="search-form" action="/search" method="get" role="search" id="searchForm" autocomplete="off">
           <select class="search-cat hide-mobile" name="category" aria-label="Search within a category">
-            <option value="">All categories</option>
-            <% searchCats.forEach(function (c) { %>
-              <option value="<%= c.slug %>"><%= c.name %></option>
-              <% (c.children || []).forEach(function (sc) { %>
-                <option value="<%= sc.slug %>">&nbsp;&nbsp;└ <%= sc.name %></option>
+            <option value="" <%= !categoryChoice ? 'selected' : '' %>>All fashion</option>
+            <% roots.forEach(function (root) { %>
+              <option value="<%= root.slug %>" <%= categoryChoice === root.slug ? 'selected' : '' %>><%= root.name %></option>
+              <% (root.children || []).forEach(function (child) { %>
+                <option value="<%= child.slug %>" <%= categoryChoice === child.slug ? 'selected' : '' %>>&nbsp;&nbsp;· <%= child.name %></option>
               <% }); %>
             <% }); %>
           </select>
           <input class="search-input" type="search" name="q" id="searchInput" value="<%= q %>"
-                 placeholder="Search 10,000+ products, brands and categories…"
-                 aria-label="Search products" aria-describedby="trending">
+                 placeholder="Search clothing, Ankara, shoes &amp; more…" aria-label="Search fashion" aria-describedby="trending">
           <button class="search-btn" type="submit"><%- icon('search') %><span class="hide-mobile">Search</span></button>
           <div class="suggest" id="suggestBox" role="listbox" aria-label="Search suggestions"></div>
         </form>
         <div class="search-trending" id="trending">
           <span>Trending:</span>
-          <a href="/search?q=galaxy">Galaxy A55</a>
-          <a href="/search?q=air+fryer">Air fryer</a>
-          <a href="/search?q=ankara">Ankara dress</a>
-          <a href="/search?q=fridge">Fridge</a>
-          <a href="/search?q=ps5">PS5</a>
+          <a href="/search?q=ankara">Ankara</a>
           <a href="/search?q=kente">Kente</a>
+          <a href="/search?q=sneakers">Sneakers</a>
+          <a href="/search?q=dress">Dresses</a>
         </div>
       </div>
 
       <div class="hdr-actions">
-        <%# account %>
         <div class="dd" id="accountDD">
-          <button class="hdr-btn" type="button" aria-haspopup="true" aria-expanded="false">
+          <button class="hdr-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
             <%- icon('user') %>
-            <span class="lbl"><small><%= user ? 'Hello, ' + user.name.split(' ')[0] : 'Account' %></small><b><%= user ? 'My account' : 'Sign in' %></b></span>
+            <span class="lbl"><small><%= user ? 'Welcome back' : 'Your account' %></small><b><%= user ? user.name.split(' ')[0] : 'Sign in' %></b></span>
           </button>
-          <div class="dd-panel">
+          <div class="dd-panel account-panel">
             <% if (user) { %>
-              <div class="dd-head">
-                <b><%= user.name %></b>
-                <span><%= user.email %></span>
-              </div>
+              <div class="dd-head"><b><%= user.name %></b><span><%= user.email %></span></div>
               <div class="dd-list">
-                <% if (user.role !== 'customer') { %>
-                  <a href="/admin"><%- icon('settings') %> Control panel</a>
-                <% } %>
-                <a href="/account"><%- icon('grid') %> Dashboard</a>
+                <% if (user.role !== 'customer') { %><a href="/admin"><%- icon('settings') %> Owner studio</a><% } %>
+                <a href="/account"><%- icon('grid') %> My account</a>
                 <a href="/account/orders"><%- icon('package') %> My orders</a>
-                <a href="/account/wishlist"><%- icon('heart') %> Wishlist</a>
+                <a href="/account/wishlist"><%- icon('heart') %> Saved styles</a>
                 <a href="/account/addresses"><%- icon('pin') %> Addresses</a>
-                <a href="/account/profile"><%- icon('user') %> Profile</a>
-                <a href="/account/security"><%- icon('lock') %> Password &amp; security</a>
               </div>
-              <div class="dd-foot">
-                <form action="/logout" method="post" style="margin:0">
-                  <button class="btn ghost sm block" type="submit"><%- icon('logout') %> Sign out</button>
-                </form>
-              </div>
+              <div class="dd-foot"><form action="/logout" method="post" style="margin:0"><button class="btn ghost sm block" type="submit">Sign out</button></form></div>
             <% } else { %>
-              <div class="dd-head"><b>Welcome to <%= settings.store_short %></b><span>Sign in for faster checkout</span></div>
-              <div class="dd-list">
-                <a href="/login"><%- icon('user') %> Sign in</a>
-                <a href="/register"><%- icon('plus') %> Create an account</a>
-                <a href="/track-order"><%- icon('package') %> Track an order</a>
-                <a href="/faq"><%- icon('support') %> Help centre</a>
-              </div>
-              <div class="dd-foot">
-                <a class="btn primary sm block" href="/register">Join — it takes 30 seconds</a>
-              </div>
+              <div class="dd-head"><b>Welcome to Biahens</b><span>Discover your next favourite look.</span></div>
+              <div class="dd-list"><a href="/login"><%- icon('user') %> Sign in</a><a href="/register"><%- icon('plus') %> Create an account</a><a href="/track-order"><%- icon('package') %> Track an order</a></div>
+              <div class="dd-foot"><a class="btn primary sm block" href="/register">Join Biahens</a></div>
             <% } %>
           </div>
         </div>
 
-        <%# wishlist %>
-        <a class="hdr-btn" href="<%= user ? '/account/wishlist' : '/login' %>" aria-label="Wishlist">
-          <%- icon('heart') %>
-          <span class="lbl"><small>Your</small><b>Wishlist</b></span>
+        <a class="hdr-btn wishlist-link" href="<%= user ? '/account/wishlist' : '/login' %>" aria-label="Saved styles">
+          <%- icon('heart') %><span class="lbl"><small>Your edit</small><b>Saved</b></span>
           <% if (wishlistCount) { %><span class="count-chip" data-wish-count><%= wishlistCount %></span><% } %>
         </a>
 
-        <%# cart %>
         <div class="dd" id="cartDD">
-          <button class="hdr-btn cart" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Cart">
+          <button class="hdr-btn cart" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Shopping bag">
             <%- icon('cart') %>
-            <span class="lbl"><small><%= settings.currency_symbol %> <%= (cartData.total || 0).toFixed(2) %></small><b>Cart</b></span>
+            <span class="lbl"><small><%= settings.currency_symbol %> <%= Number(cartData.total || 0).toFixed(2) %></small><b>Bag</b></span>
             <span class="count-chip" data-cart-count><%= cartData.count || 0 %></span>
           </button>
           <div class="dd-panel minicart" id="miniCart">
-            <div class="dd-head row between">
-              <div><b>Your cart</b><span><span data-cart-count><%= cartData.count || 0 %></span> item(s)</span></div>
-              <a href="/cart" class="btn light sm">View cart</a>
-            </div>
+            <div class="dd-head row between"><div><b>Your bag</b><span><span data-cart-count><%= cartData.count || 0 %></span> item(s)</span></div><a href="/cart" class="btn light sm">View bag</a></div>
             <div class="minicart-items" data-minicart-items>
               <% if (cartData.isEmpty) { %>
-                <div class="mc-empty">
-                  <div style="font-size:2rem;margin-bottom:.4rem">&#128722;</div>
-                  <b>Your cart is empty</b>
-                  <p class="small muted" style="margin:.3rem 0 .8rem">Browse our deals and add something you love.</p>
-                  <a class="btn primary sm" href="/deals">See today’s deals</a>
-                </div>
+                <div class="mc-empty"><div style="font-size:2rem;margin-bottom:.4rem">✳</div><b>Your bag is waiting</b><p class="small muted" style="margin:.3rem 0 .8rem">A few considered pieces can change the feel of a day.</p><a class="btn primary sm" href="/new-arrivals">Explore new arrivals</a></div>
               <% } else { %>
-                <% cartData.items.slice(0, 4).forEach(function (i) { %>
+                <% cartData.items.slice(0, 4).forEach(function (item) { %>
                   <div class="mc-item">
-                    <img src="<%= imgSrc(i.image, { w: 120, h: 120, hint: i.product.category_name, name: i.product.name }) %>" alt="<%= i.product.name %>" loading="lazy">
-                    <div class="grow">
-                      <div class="n clamp-2"><a href="/p/<%= i.product.slug %>"><%= i.product.name %></a></div>
-                      <% if (i.variant) { %><div class="v"><%= i.variant.title %></div><% } %>
-                      <div class="p"><%= settings.currency_symbol %> <%= (i.unit_price).toFixed(2) %> <span class="muted small">× <%= i.qty %></span></div>
+                    <img src="<%= imgSrc(item.image, { w: 120, h: 120, hint: item.product.category_name, name: item.product.name }) %>" alt="<%= item.product.name %>" loading="lazy">
+                    <div class="grow"><div class="n clamp-2"><a href="/p/<%= item.product.slug %>"><%= item.product.name %></a></div>
+                      <% if (item.variant) { %><div class="v"><%= item.variant.title %></div><% } %>
+                      <div class="p"><%= settings.currency_symbol %> <%= Number(item.unit_price).toFixed(2) %> <span class="muted small">× <%= item.qty %></span></div>
                     </div>
-                    <button class="rm" type="button" data-remove-item="<%= i.id %>" aria-label="Remove">&times;</button>
+                    <button class="rm" type="button" data-remove-item="<%= item.id %>" aria-label="Remove item">&times;</button>
                   </div>
                 <% }); %>
               <% } %>
             </div>
             <% if (!cartData.isEmpty) { %>
-            <div class="mc-foot">
-              <% if (cartData.freeShippingGap > 0) { %>
-                <div class="mc-bar"><i style="width:<%= pct %>%"></i></div>
-                <div class="small" style="color:#8A3E10">Add <b><%= settings.currency_symbol %> <%= cartData.freeShippingGap.toFixed(2) %></b> more for FREE delivery</div>
-              <% } else { %>
-                <div class="small" style="color:#0E6B4D;font-weight:800">&#10003; You have unlocked FREE delivery</div>
-              <% } %>
-              <div class="mc-row"><span>Subtotal</span><b><%= settings.currency_symbol %> <%= cartData.subtotal.toFixed(2) %></b></div>
-              <% if (cartData.discount > 0) { %>
-                <div class="mc-row" style="color:#12805C"><span>Discount <%= cartData.coupon ? '(' + cartData.coupon.code + ')' : '' %></span><b>− <%= settings.currency_symbol %> <%= cartData.discount.toFixed(2) %></b></div>
-              <% } %>
-              <div class="mc-row"><span>Delivery</span><b><%= cartData.shipping > 0 ? settings.currency_symbol + ' ' + cartData.shipping.toFixed(2) : 'FREE' %></b></div>
-              <div class="mc-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= cartData.total.toFixed(2) %></b></div>
-              <a class="btn primary block" href="/checkout" style="margin-top:.6rem">Checkout securely <%- icon('arrow-right') %></a>
-            </div>
+              <div class="mc-foot"><div class="mc-row"><span>Subtotal</span><b><%= settings.currency_symbol %> <%= Number(cartData.subtotal || 0).toFixed(2) %></b></div>
+                <a class="btn primary block" href="/checkout" style="margin-top:.55rem">Continue to checkout <%- icon('arrow-right') %></a>
+              </div>
             <% } %>
           </div>
         </div>
@@ -203,128 +146,70 @@
     </div>
   </div>
 
-  <%# ── mobile search ───────────────────────────────────────────────────── %>
-  <div class="container mobile-search">
-    <form class="search-form" action="/search" method="get" role="search" autocomplete="off">
-      <input class="search-input" type="search" name="q" value="<%= q %>" placeholder="Search products…" aria-label="Search products">
-      <button class="search-btn" type="submit" aria-label="Search"><%- icon('search') %></button>
-    </form>
-  </div>
-
-  <%# ── tier 4: category navigation ─────────────────────────────────────── %>
-  <nav class="hdr-nav" aria-label="Product categories">
-    <div class="container">
+  <nav class="hdr-nav" aria-label="Fashion categories">
+    <div class="container hdr-nav-row">
       <button class="cat-trigger" type="button" id="megaBtn" aria-expanded="false" aria-controls="megaMenu">
-        <%- icon('menu') %> All categories <%- icon('chevron-down') %>
+        <%- icon('menu') %> Shop fashion <%- icon('chevron-down') %>
       </button>
       <div class="nav-scroll">
-        <% menuCategories.slice(0, 7).forEach(function (c) { %>
-          <a class="nav-link <%= typeof activeCategory !== 'undefined' && activeCategory && activeCategory.slug === c.slug ? 'active' : '' %>"
-             href="/c/<%= c.slug %>"><%= c.icon ? c.icon + ' ' : '' %><%= c.name %></a>
+        <a class="nav-link" href="/new-arrivals">New in</a>
+        <% navCategories.forEach(function (cat) { %>
+          <a class="nav-link <%= typeof activeCategory !== 'undefined' && activeCategory && activeCategory.slug === cat.slug ? 'active' : '' %>" href="/c/<%= cat.slug %>"><%= cat.name %></a>
         <% }); %>
-        <a class="nav-link hot" href="/deals">Today’s deals</a>
-        <a class="nav-link" href="/new-arrivals">New arrivals</a>
-        <a class="nav-link" href="/best-sellers">Best sellers</a>
-        <a class="nav-link" href="/brands">Brands</a>
+        <a class="nav-link hot" href="/deals">The edit</a>
+        <a class="nav-link" href="/best-sellers">Most loved</a>
       </div>
-      <a class="nav-link hide-mobile" href="/contact" style="margin-left:auto"><%- icon('support') %> Support</a>
+      <a class="nav-link nav-support hide-mobile" href="/contact"><%- icon('support') %> Need a hand?</a>
     </div>
-
-    <%# mega menu %>
     <div class="mega" id="megaMenu">
-      <div class="container">
-        <div class="mega-grid">
-          <% menuCategories.forEach(function (c) { %>
-            <div class="mega-col" style="--accent:<%= c.accent || '#0F2A43' %>">
-              <a class="top" href="/c/<%= c.slug %>"><span class="ico"><%= c.icon || '&#128722;' %></span> <%= c.name %></a>
-              <ul>
-                <% (c.children || []).slice(0, 6).forEach(function (sc) { %>
-                  <li><a href="/c/<%= sc.slug %>"><%= sc.name %></a></li>
-                <% }); %>
-              </ul>
-              <a class="see-all" href="/c/<%= c.slug %>">Shop all <%= c.name %> &rsaquo;</a>
-            </div>
-          <% }); %>
-          <div class="mega-promo">
-            <div>
-              <span class="badge">Owner-curated</span>
-              <b>Every product on this store is sourced, checked and warrantied by us.</b>
-              <p>No third-party sellers, no mystery listings — just stock we actually have in our Spintex warehouse.</p>
-            </div>
-            <a class="btn gold" href="/sell-with-us">How we stock <%- icon('arrow-right') %></a>
+      <div class="container mega-grid">
+        <% roots.forEach(function (root) { %>
+          <div class="mega-col">
+            <a class="mega-title" href="/c/<%= root.slug %>"><%= root.name %><span aria-hidden="true">↗</span></a>
+            <% (root.children || []).forEach(function (child) { %><a href="/c/<%= child.slug %>"><%= child.name %></a><% }); %>
           </div>
+        <% }); %>
+        <div class="mega-promo">
+          <span class="mega-kicker">THE BIAHENS STANDARD</span>
+          <b>Only considered pieces make the cut.</b>
+          <p>One owner. Every item personally selected, quality-checked and ready to wear.</p>
+          <a class="text-link" href="/about">Our point of view <span aria-hidden="true">→</span></a>
         </div>
       </div>
     </div>
   </nav>
 </header>
 
-<%# ── mobile drawer ─────────────────────────────────────────────────────── %>
 <div class="drawer" id="drawer" aria-hidden="true">
   <div class="drawer-backdrop" data-drawer-close></div>
-  <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Menu">
+  <div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Shop navigation">
     <div class="drawer-head">
-      <div class="row" style="gap:.55rem">
-        <span class="logo" style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;color:#3A1A00">B</span>
-        <div><b style="display:block;font-size:.95rem"><%= settings.store_name %></b><span style="font-size:.7rem;color:#B9CBDA">Shop everything, delivered in Ghana</span></div>
-      </div>
+      <div class="row" style="gap:.55rem"><span class="logo drawer-logo">B</span><div><b style="display:block"><%= settings.store_name %></b><span>STYLE, WITH INTENTION</span></div></div>
       <button class="drawer-close" type="button" data-drawer-close aria-label="Close menu">&times;</button>
     </div>
     <div class="drawer-body">
       <nav class="drawer-nav">
-        <% if (user) { %>
-          <a href="/account"><%- icon('user') %> My account</a>
-          <a href="/account/orders"><%- icon('package') %> My orders</a>
-          <a href="/account/wishlist"><%- icon('heart') %> Wishlist <span class="badge" style="margin-left:auto"><%= wishlistCount %></span></a>
-        <% } else { %>
-          <a href="/login"><%- icon('user') %> Sign in</a>
-          <a href="/register"><%- icon('plus') %> Create account</a>
-        <% } %>
-        <a href="/deals" style="color:#F26B21"><%- icon('fire') %> Today’s deals</a>
-        <a href="/new-arrivals"><%- icon('spark') %> New arrivals</a>
-        <a href="/best-sellers"><%- icon('medal') %> Best sellers</a>
-        <a href="/brands"><%- icon('tag') %> Brands</a>
-        <a href="/categories"><%- icon('layers') %> All categories</a>
-
-        <div class="group-title">Shop by category</div>
-        <% menuCategories.forEach(function (c) { %>
-          <a href="/c/<%= c.slug %>"><span><%= c.icon || '&#128722;' %></span> <%= c.name %></a>
-          <% (c.children || []).slice(0, 4).forEach(function (sc) { %>
-            <a class="sub" href="/c/<%= sc.slug %>"><%= sc.name %></a>
-          <% }); %>
+        <a href="/new-arrivals">New in</a><a href="/deals">The Biahens edit</a><a href="/best-sellers">Most loved</a>
+        <div class="group-title">Shop fashion</div>
+        <% roots.forEach(function (root) { %>
+          <a href="/c/<%= root.slug %>"><%= root.name %></a>
+          <% (root.children || []).forEach(function (child) { %><a class="sub" href="/c/<%= child.slug %>"><%= child.name %></a><% }); %>
         <% }); %>
-
-        <div class="group-title">Help &amp; policies</div>
-        <a href="/track-order"><%- icon('package') %> Track my order</a>
-        <a href="/shipping-delivery"><%- icon('truck') %> Shipping &amp; delivery</a>
-        <a href="/returns-refunds"><%- icon('refresh') %> Returns &amp; refunds</a>
-        <a href="/faq"><%- icon('support') %> FAQ</a>
-        <a href="/contact"><%- icon('mail') %> Contact us</a>
-        <a href="/about"><%- icon('info') %> About us</a>
-        <% if (user && user.role !== 'customer') { %>
-          <a href="/admin" style="color:#F26B21"><%- icon('settings') %> Control panel</a>
-        <% } else if (!user) { %>
-          <a href="/admin/login"><%- icon('lock') %> Owner login</a>
-        <% } %>
+        <div class="group-title">Your Biahens</div>
+        <a href="<%= user ? '/account' : '/login' %>">My account</a><a href="<%= user ? '/account/wishlist' : '/login' %>">Saved styles</a><a href="/account/orders">Order history</a>
+        <% if (!user) { %><a href="/admin/login">Owner sign in</a><% } else if (user.role !== 'customer') { %><a href="/admin">Owner studio</a><% } %>
+        <div class="group-title">Help</div>
+        <a href="/track-order">Track an order</a><a href="/shipping-delivery">Delivery information</a><a href="/returns-refunds">Returns &amp; exchanges</a><a href="/contact">Contact us</a>
       </nav>
     </div>
-    <div class="drawer-foot">
-      <a class="btn primary block" href="tel:<%= settings.support_phone.replace(/\s/g,'') %>"><%- icon('phone') %> <%= settings.support_phone %></a>
-      <div class="center small muted" style="margin-top:.5rem"><%= settings.support_hours %></div>
-    </div>
+    <div class="drawer-foot"><a class="btn primary block" href="https://wa.me/<%= (settings.support_whatsapp || '').replace(/[^0-9]/g, '') %>" target="_blank" rel="noopener">Chat with our team</a><div class="center small muted" style="margin-top:.5rem"><%= settings.support_hours %></div></div>
   </div>
 </div>
 
-<%# ── mobile bottom tab bar ─────────────────────────────────────────────── %>
-<nav class="m-bottom" aria-label="Quick navigation">
-  <div class="container">
-    <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>"><%- icon('home') %><span>Home</span></a>
-    <a href="/categories" class="<%= currentPath.indexOf('/c/') === 0 ? 'active' : '' %>"><%- icon('layers') %><span>Categories</span></a>
-    <a href="/deals" class="<%= currentPath === '/deals' ? 'active' : '' %>"><%- icon('fire') %><span>Deals</span></a>
-    <a href="<%= user ? '/account/wishlist' : '/login' %>"><%- icon('heart') %><span>Wishlist</span></a>
-    <a href="/cart" class="<%= currentPath.indexOf('/cart') === 0 ? 'active' : '' %>">
-      <%- icon('cart') %><span>Cart</span>
-      <% if (cartCount) { %><span class="count-chip"><%= cartCount %></span><% } %>
-    </a>
-  </div>
-</nav>
+<nav class="m-bottom" aria-label="Quick navigation"><div class="container">
+  <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>"><%- icon('home') %><span>Home</span></a>
+  <a href="/categories" class="<%= currentPath.indexOf('/c/') === 0 ? 'active' : '' %>"><%- icon('layers') %><span>Shop</span></a>
+  <a href="/new-arrivals" class="<%= currentPath === '/new-arrivals' ? 'active' : '' %>"><%- icon('spark') %><span>New in</span></a>
+  <a href="<%= user ? '/account/wishlist' : '/login' %>"><%- icon('heart') %><span>Saved</span></a>
+  <a href="/cart" class="<%= currentPath.indexOf('/cart') === 0 ? 'active' : '' %>"><%- icon('cart') %><span>Bag</span><% if (cartCount) { %><span class="count-chip"><%= cartCount %></span><% } %></a>
+</div></nav>

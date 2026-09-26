@@ -80,8 +80,14 @@ function evaluateCoupon(code, { subtotal, items, userId }) {
   if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) return { ok: false, message: 'This coupon has reached its usage limit.' };
 
   if (coupon.scope !== 'all') {
-    const field = coupon.scope === 'category' ? 'category_id' : coupon.scope === 'brand' ? 'brand_id' : 'id';
-    const match = items.some((i) => i.product[field] === coupon.scope_id);
+    let match = false;
+    if (coupon.scope === 'category') {
+      const eligibleCategories = new Set(catalog.categoryIdsIncludingChildren(coupon.scope_id));
+      match = items.some((i) => eligibleCategories.has(Number(i.product.category_id)));
+    } else {
+      const field = coupon.scope === 'brand' ? 'brand_id' : 'id';
+      match = items.some((i) => Number(i.product[field]) === Number(coupon.scope_id));
+    }
     if (!match) return { ok: false, message: `This coupon only applies to selected ${coupon.scope} items.` };
   }
   if (coupon.min_subtotal && subtotal < coupon.min_subtotal) {
@@ -258,11 +264,16 @@ function cartCount(req) {
 
 function wishlistItems(userId) {
   if (!userId) return [];
+  const categoryIds = catalog.fashionCategoryIds();
+  if (!categoryIds.length) return [];
+  const marks = categoryIds.map(() => '?').join(',');
   return db.prepare(
     `SELECT w.id AS wish_id, w.created_at AS wished_at, p.* FROM wishlists w
      JOIN products p ON p.id = w.product_id
-     WHERE w.user_id = ? ORDER BY w.created_at DESC`
-  ).all(userId).map((r) => catalog.decorate({
+     WHERE w.user_id = ? AND p.category_id IN (${marks})
+       AND p.is_active = 1 AND p.status = 'active'
+     ORDER BY w.created_at DESC`
+  ).all(userId, ...categoryIds).map((r) => catalog.decorate({
     ...r,
     category_name: undefined,
   }));
@@ -287,7 +298,15 @@ function inWishlist(userId, productIds) {
 
 function wishlistCount(userId) {
   if (!userId) return 0;
-  return db.prepare('SELECT COUNT(*) AS n FROM wishlists WHERE user_id = ?').get(userId).n;
+  const categoryIds = catalog.fashionCategoryIds();
+  if (!categoryIds.length) return 0;
+  const marks = categoryIds.map(() => '?').join(',');
+  return db.prepare(
+    `SELECT COUNT(*) AS n FROM wishlists w
+     JOIN products p ON p.id = w.product_id
+     WHERE w.user_id = ? AND p.category_id IN (${marks})
+       AND p.is_active = 1 AND p.status = 'active'`
+  ).get(userId, ...categoryIds).n;
 }
 
 module.exports = {

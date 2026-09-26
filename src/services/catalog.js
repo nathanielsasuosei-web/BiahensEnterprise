@@ -5,7 +5,22 @@ const { paginate, parseJson, slugify, round2, discountPercent } = require('../ut
 
 /* ------------------------------------------------------------- categories */
 
-function categoryTree({ activeOnly = true, withCounts = false } = {}) {
+// Biahens Enterprise is a fashion-only single-seller store. These are the
+// only public catalogue roots; descendants inherit the same restriction.
+const FASHION_ROOT_SLUGS = Object.freeze(['fashion', 'shoes-bags']);
+
+function fashionCategoryIds() {
+  const roots = db.prepare(
+    `SELECT id FROM categories WHERE slug IN (${FASHION_ROOT_SLUGS.map(() => '?').join(',')})`
+  ).all(...FASHION_ROOT_SLUGS);
+  return [...new Set(roots.flatMap((row) => categoryIdsIncludingChildren(row.id)))];
+}
+
+function isFashionCategory(categoryId) {
+  return fashionCategoryIds().includes(Number(categoryId));
+}
+
+function categoryTree({ activeOnly = true, withCounts = false, fashionOnly = true } = {}) {
   const where = activeOnly ? 'WHERE is_active = 1' : '';
   const rows = db.prepare(`SELECT * FROM categories ${where} ORDER BY sort_order, name`).all();
   const counts = {};
@@ -26,14 +41,16 @@ function categoryTree({ activeOnly = true, withCounts = false } = {}) {
     c.children = (byParent.get(c.id) || []).slice(0, 8);
     c.total_count = c.product_count + c.children.reduce((s, ch) => s + (ch.product_count || 0), 0);
   });
-  return byParent.get(0) || [];
+  const roots = byParent.get(0) || [];
+  return fashionOnly ? roots.filter((c) => FASHION_ROOT_SLUGS.includes(c.slug)) : roots;
 }
 
 function menuCategories(limit = 9) {
   return db.prepare(
     `SELECT * FROM categories WHERE is_active = 1 AND show_in_menu = 1 AND parent_id IS NULL
+       AND slug IN (${FASHION_ROOT_SLUGS.map(() => '?').join(',')})
      ORDER BY sort_order, name LIMIT ?`
-  ).all(limit).map((c) => {
+  ).all(...FASHION_ROOT_SLUGS, limit).map((c) => {
     c.children = db.prepare(
       `SELECT * FROM categories WHERE parent_id = ? AND is_active = 1 ORDER BY sort_order, name LIMIT 12`
     ).all(c.id);
@@ -78,10 +95,23 @@ function breadcrumbsForCategory(cat) {
 
 /* ----------------------------------------------------------------- brands */
 
-function brandList({ activeOnly = true, withCounts = false } = {}) {
+function brandList({ activeOnly = true, withCounts = false, fashionOnly = activeOnly } = {}) {
   const rows = db.prepare(
     `SELECT * FROM brands ${activeOnly ? 'WHERE is_active = 1' : ''} ORDER BY sort_order, name`
   ).all();
+  if (fashionOnly) {
+    const ids = fashionCategoryIds();
+    if (!ids.length) return [];
+    const marks = ids.map(() => '?').join(',');
+    const counts = {};
+    db.prepare(
+      `SELECT brand_id AS id, COUNT(*) AS n FROM products
+       WHERE is_active = 1 AND status = 'active' AND category_id IN (${marks})
+       GROUP BY brand_id`
+    ).all(...ids).forEach((r) => { counts[r.id] = r.n; });
+    rows.forEach((b) => { b.product_count = counts[b.id] || 0; });
+    return rows.filter((b) => b.product_count > 0);
+  }
   if (withCounts) {
     const counts = {};
     db.prepare(
@@ -100,6 +130,7 @@ const PUBLIC_COLS = `p.id, p.name, p.slug, p.sku, p.short_description, p.descrip
   p.compare_at_price, p.cost_price, p.stock, p.low_stock_at, p.weight_kg, p.rating_avg,
   p.rating_count, p.sold_count, p.views_count, p.image, p.images, p.options, p.tags,
   p.meta_title, p.meta_description,
+  (SELECT COUNT(*) FROM variants v WHERE v.product_id = p.id AND v.is_active = 1) AS variant_count,
   p.is_active, p.is_featured, p.status, p.published_at, p.created_at, p.updated_at,
   c.name AS category_name, c.slug AS category_slug, c.id AS category_id,
   b.name AS brand_name, b.slug AS brand_slug, b.id AS brand_id`;
@@ -120,13 +151,25 @@ function getVariants(productId) {
   return db.prepare('SELECT * FROM variants WHERE product_id = ? AND is_active = 1 ORDER BY sort_order, id').all(productId);
 }
 
+function publicFashionClause() {
+  const ids = fashionCategoryIds();
+  if (!ids.length) return { sql: 'AND 1 = 0', params: {} };
+  const params = {};
+  const marks = ids.map((id, i) => {
+    params[`fashionCat${i}`] = id;
+    return `@fashionCat${i}`;
+  });
+  return { sql: `AND p.category_id IN (${marks.join(',')})`, params };
+}
+
 function getProductBySlug(slug, { admin = false } = {}) {
+  const fashion = admin ? { sql: '', params: {} } : publicFashionClause();
   const p = db.prepare(
     `SELECT ${PUBLIC_COLS} FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN brands b ON b.id = p.brand_id
-     WHERE p.slug = ? ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"}`
-  ).get(slug);
+     WHERE p.slug = @slug ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"} ${fashion.sql}`
+  ).get(Object.assign({ slug }, fashion.params));
   if (!p) return null;
   decorate(p);
   p.variants = getVariants(p.id);
@@ -134,12 +177,13 @@ function getProductBySlug(slug, { admin = false } = {}) {
 }
 
 function getProductById(id, { admin = false } = {}) {
+  const fashion = admin ? { sql: '', params: {} } : publicFashionClause();
   const p = db.prepare(
     `SELECT ${PUBLIC_COLS} FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN brands b ON b.id = p.brand_id
-     WHERE p.id = ? ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"}`
-  ).get(id);
+     WHERE p.id = @id ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"} ${fashion.sql}`
+  ).get(Object.assign({ id }, fashion.params));
   if (!p) return null;
   decorate(p);
   p.variants = getVariants(p.id);
@@ -181,6 +225,10 @@ function queryProducts(opts = {}) {
     if (status && status !== 'all') { where.push('p.status = @status'); params.status = status; }
   } else {
     where.push("p.is_active = 1", "p.status = 'active'");
+    const fashionIds = fashionCategoryIds();
+    if (!fashionIds.length) return { items: [], pager: paginate(0, page, perPage) };
+    where.push(`p.category_id IN (${fashionIds.map((_, i) => `@fashionCat${i}`).join(',')})`);
+    fashionIds.forEach((value, i) => { params[`fashionCat${i}`] = value; });
   }
   if (ids) {
     if (!ids.length) return { items: [], pager: paginate(0, page, perPage) };
@@ -248,12 +296,24 @@ function relatedProducts(product, limit = 8) {
 }
 
 function priceBounds() {
-  const r = db.prepare(`SELECT MIN(price) AS lo, MAX(price) AS hi FROM products WHERE is_active=1 AND status='active'`).get();
+  const ids = fashionCategoryIds();
+  if (!ids.length) return { min: 0, max: 1000 };
+  const marks = ids.map(() => '?').join(',');
+  const r = db.prepare(
+    `SELECT MIN(price) AS lo, MAX(price) AS hi FROM products
+     WHERE is_active = 1 AND status = 'active' AND category_id IN (${marks})`
+  ).get(...ids);
   return { min: Math.floor(r.lo || 0), max: Math.ceil(r.hi || 1000) };
 }
 
 function uniqueTags(limit = 30) {
-  const rows = db.prepare(`SELECT tags FROM products WHERE is_active=1 AND tags != '' LIMIT 500`).all();
+  const ids = fashionCategoryIds();
+  if (!ids.length) return [];
+  const marks = ids.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT tags FROM products WHERE is_active = 1 AND status = 'active'
+     AND category_id IN (${marks}) AND tags != '' LIMIT 500`
+  ).all(...ids);
   const set = new Map();
   rows.forEach((r) => String(r.tags).split(',').forEach((t) => {
     const tag = t.trim().toLowerCase();
@@ -263,7 +323,13 @@ function uniqueTags(limit = 30) {
 }
 
 function countActive() {
-  return db.prepare(`SELECT COUNT(*) AS n FROM products WHERE is_active=1 AND status='active'`).get().n;
+  const ids = fashionCategoryIds();
+  if (!ids.length) return 0;
+  const marks = ids.map(() => '?').join(',');
+  return db.prepare(
+    `SELECT COUNT(*) AS n FROM products WHERE is_active = 1 AND status = 'active'
+     AND category_id IN (${marks})`
+  ).get(...ids).n;
 }
 
 /* ---------------------------------------------------------------- reviews */
@@ -398,6 +464,7 @@ function lowStockProducts(limit = 25) {
 }
 
 module.exports = {
+  FASHION_ROOT_SLUGS, fashionCategoryIds, isFashionCategory,
   categoryTree, menuCategories, getCategoryBySlug, getCategory, categoryIdsIncludingChildren,
   breadcrumbsForCategory, brandList, getBrandBySlug, decorate, getVariants,
   getProductBySlug, getProductById, bumpViews, queryProducts, relatedProducts,

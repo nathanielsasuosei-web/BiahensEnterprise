@@ -72,8 +72,15 @@ function buildQuery(req, extra = {}) {
     onSale: req.query.sale === '1',
     sort: req.query.sort || 'relevance',
     page: Number(req.query.page) || 1,
-    perPage: req.query.per_page ? Math.min(60, Number(req.per_page)) : PAGE,
+    perPage: req.query.per_page ? Math.max(1, Math.min(60, Number(req.query.per_page) || PAGE)) : PAGE,
   };
+  const categorySlug = String(req.query.category || '').trim();
+  if (categorySlug) {
+    const category = catalog.getCategoryBySlug(categorySlug);
+    q.categoryIds = category && catalog.isFashionCategory(category.id)
+      ? catalog.categoryIdsIncludingChildren(category.id)
+      : [-1];
+  }
   const brandSlugs = [].concat(req.query.brand || []).filter(Boolean);
   if (brandSlugs.length) {
     const marks = brandSlugs.map(() => '?').join(',');
@@ -84,7 +91,7 @@ function buildQuery(req, extra = {}) {
 
 router.get('/c/:slug', (req, res, next) => {
   const cat = catalog.getCategoryBySlug(req.params.slug);
-  if (!cat) return next();
+  if (!cat || !catalog.isFashionCategory(cat.id)) return next();
   const ids = catalog.categoryIdsIncludingChildren(cat.id);
   const children = db.prepare('SELECT * FROM categories WHERE parent_id = ? AND is_active = 1 ORDER BY sort_order, name').all(cat.id);
   const parent = cat.parent_id ? catalog.getCategory(cat.parent_id) : null;
@@ -102,7 +109,7 @@ router.get('/c/:slug', (req, res, next) => {
     activeFilters: active,
     view: {
       pageTitle: `${cat.name} — Price in Ghana | ${settings.get('store_name')}`,
-      metaDescription: `Buy ${cat.name} online in Ghana at the best prices. Genuine products, MoMo & card payment, fast nationwide delivery from Biahens Enterprise.`,
+      metaDescription: `Shop ${cat.name} in Ghana, selected and sold directly by Biahens Enterprise. Secure checkout and delivery across all 16 regions.`,
       heading: cat.name,
       subheading: cat.description || `${catalog.queryProducts({ categoryIds: ids }).pager.total} products available with fast delivery across Ghana`,
       hero: { icon: cat.icon, accent: cat.accent, image: cat.image },
@@ -117,15 +124,15 @@ router.get('/c/:slug', (req, res, next) => {
 
 router.get('/b/:slug', (req, res, next) => {
   const brand = catalog.getBrandBySlug(req.params.slug);
-  if (!brand) return next();
+  if (!brand || !catalog.brandList().some((item) => item.id === brand.id)) return next();
   const query = buildQuery(req, { brandIds: [brand.id] });
   return listingView(req, res, {
     query,
     view: {
       pageTitle: `${brand.name} products in Ghana | ${settings.get('store_name')}`,
-      metaDescription: `Shop genuine ${brand.name} products in Ghana. ${brand.tagline || ''} Fast delivery, MoMo & card payment, Biahens warranty.`,
+      metaDescription: `Shop ${brand.name} fashion in Ghana, selected and sold directly by Biahens Enterprise. ${brand.tagline || 'Secure checkout and nationwide delivery.'}`,
       heading: brand.name,
-      subheading: brand.tagline || `${query.brandIds.length ? '' : ''}Official ${brand.name} products stocked and warrantied by Biahens Enterprise`,
+      subheading: brand.tagline || `${brand.name} pieces in the owner-curated fashion edit.`,
       hero: { icon: '🏷', accent: '#0F2A43', image: brand.logo },
       activeBrand: brand,
       breadcrumbs: [{ label: 'Brands', url: '/brands' }, { label: brand.name, url: `/b/${brand.slug}` }],
@@ -138,13 +145,17 @@ router.get('/search', (req, res) => {
   const query = buildQuery(req);
   const active = [];
   if (query.q) active.push({ label: `Search: “${query.q}”`, clear: 'q' });
+  if (req.query.category) {
+    const selectedCategory = catalog.getCategoryBySlug(String(req.query.category));
+    active.push({ label: `Category: ${selectedCategory ? selectedCategory.name : 'Unavailable'}`, clear: 'category' });
+  }
   return listingView(req, res, {
     query,
     activeFilters: active,
     view: {
       pageTitle: query.q ? `Results for “${query.q}” | ${settings.get('store_name')}` : `Search | ${settings.get('store_name')}`,
       heading: query.q ? `Results for “${query.q}”` : 'Search the store',
-      subheading: query.q ? `Showing products matching your search across every category` : 'Type a product, brand or category to begin.',
+      subheading: query.q ? `Showing fashion pieces matching your search across our collections.` : 'Type a fashion piece, brand or category to begin.',
       hero: { icon: '🔎', accent: '#0F2A43' },
       searchMode: true,
       breadcrumbs: [{ label: 'Search', url: '/search' }],
@@ -158,9 +169,9 @@ router.get('/deals', (req, res) => {
     query,
     view: {
       pageTitle: `Today's Deals & Offers in Ghana | ${settings.get('store_name')}`,
-      metaDescription: 'Ghana’s best online deals — phones, electronics, fashion, appliances and groceries discounted daily. Free Accra delivery above GH₵1,500.',
+      metaDescription: 'Discover considered fashion offers in Ghana — clothing, Ankara, Kente, shoes and accessories selected by the owner, with secure checkout and nationwide delivery.',
       heading: "Today's Deals",
-      subheading: 'Real discounts, checked daily by our buyers. Prices include all duties and VAT.',
+      subheading: 'A little something off the pieces we love. Every item is selected and sold directly by Biahens Enterprise.',
       hero: { icon: '🔥', accent: '#F26B21' },
       dealsPage: true,
       breadcrumbs: [{ label: 'Deals', url: '/deals' }],
@@ -173,7 +184,7 @@ router.get('/new-arrivals', (req, res) => listingView(req, res, {
   view: {
     pageTitle: `New Arrivals | ${settings.get('store_name')}`,
     heading: 'New Arrivals',
-    subheading: 'Fresh stock that landed in our Spintex warehouse this month.',
+    subheading: 'Fresh additions to the owner-curated fashion edit.',
     hero: { icon: '✨', accent: '#14624A' },
     breadcrumbs: [{ label: 'New arrivals', url: '/new-arrivals' }],
   },
@@ -208,7 +219,7 @@ router.get('/brands', (req, res) => {
 
 router.get('/categories', (req, res) => {
   res.render('catalog/categories', {
-    pageTitle: `All Categories | ${settings.get('store_name')}`,
+    pageTitle: `Fashion Categories | ${settings.get('store_name')}`,
     bodyClass: 'page-categories',
     cats: catalog.categoryTree({ withCounts: true }),
     total: catalog.countActive(),

@@ -32,7 +32,7 @@
       <ol>
         <li><b>Tell us within <%= settings.return_days %> days.</b> Open <a href="/account/orders">My orders</a>, choose the order, then WhatsApp or email us with the order number, what you are returning and why. Photos speed things up enormously.</li>
         <li><b>We confirm and book a pickup.</b> You get a return reference and a collection window. In Greater Accra we usually collect within 48 hours.</li>
-        <li><b>Pack it as it arrived.</b> Include every accessory, cable, manual, gift and the original box. Write the return reference on the outside.</li>
+        <li><b>Pack it as it arrived.</b> Include original tags, dust bags or accessories where supplied, and the original packaging. Write the return reference on the parcel.</li>
         <li><b>We inspect.</b> Items are checked against your order and tested where applicable — normally within one working day of arrival at our warehouse.</li>
         <li><b>You are refunded or sent a replacement.</b> Your choice, subject to stock. Refunds go back to the original payment method.</li>
       </ol>
@@ -44,12 +44,10 @@
           <tr><td>Item is faulty or does not work as described</td><td><span class="badge success">Yes</span></td><td>We pay, both ways</td></tr>
           <tr><td>Wrong item sent, or an item is missing from the box</td><td><span class="badge success">Yes</span></td><td>We pay, both ways</td></tr>
           <tr><td>Item damaged in transit</td><td><span class="badge success">Yes</span></td><td>We pay, both ways</td></tr>
-          <tr><td>You changed your mind (unused, sealed, complete)</td><td><span class="badge success">Yes</span></td><td>Original delivery fee is deducted from your refund</td></tr>
-          <tr><td>Used, opened or with missing accessories</td><td><span class="badge warn">Case by case</span></td><td>Assessed on inspection; partial refund possible</td></tr>
-          <tr><td>Perishable groceries, opened food or drinks</td><td><span class="badge danger">No</span></td><td>Unless faulty on arrival — then report within 24 hours</td></tr>
-          <tr><td>Underwear, swimwear, earrings and personal-care items once opened</td><td><span class="badge danger">No</span></td><td>Hygiene reasons</td></tr>
-          <tr><td>Software, game cards, SIM cards and airtime once activated</td><td><span class="badge danger">No</span></td><td>Licensing reasons</td></tr>
-          <tr><td>Items marked “final sale” or bought as clearance/open-box</td><td><span class="badge danger">No</span></td><td>Unless faulty</td></tr>
+          <tr><td>You changed your mind (unworn, unwashed, with tags)</td><td><span class="badge success">Yes</span></td><td>Original delivery fee is deducted from your refund</td></tr>
+          <tr><td>Worn, washed, altered or with tags removed</td><td><span class="badge warn">Case by case</span></td><td>Assessed on inspection; faulty items remain eligible</td></tr>
+          <tr><td>Intimate apparel or pierced jewellery once opened or worn</td><td><span class="badge danger">No</span></td><td>Hygiene reasons, unless faulty</td></tr>
+          <tr><td>Items marked “final sale” or bought as clearance</td><td><span class="badge danger">No</span></td><td>Unless faulty or not as described</td></tr>
         </tbody>
       </table>
 
@@ -68,8 +66,8 @@
       <h2>Exchanges</h2>
       <p>If you would rather swap for a different size, colour or model, tell us when you start the return. Where the replacement is in stock we dispatch it as soon as the original item is collected, so you are not left without it. If the replacement costs more, we send you a payment link for the difference; if it costs less, we refund the balance.</p>
 
-      <h2>Warranty claims after <%= settings.return_days %> days</h2>
-      <p>The returns window and the warranty are separate. <%= settings.warranty_note || 'Electronics and appliances carry a minimum 6-month warranty' %>, and phones and laptops typically 12 months. Warranty covers manufacturing defects — not physical damage, water ingress, unauthorised repairs or normal wear. Start a claim by contacting us with your order number and a short video of the fault; most in-house repairs are completed within 7 working days.</p>
+      <h2>Quality concerns after <%= settings.return_days %> days</h2>
+      <p>The standard return window and your statutory rights are separate. If a fashion item develops a fault or differs materially from its description, contact us with your order number and clear photos. We will review the issue and explain the available remedy. Normal wear, washing contrary to the care label, or unauthorised alterations are not product faults.</p>
 
       <h2>Items you should never send back without talking to us</h2>
       <p>Please do not post anything back unannounced — we cannot match an unlabelled parcel to an order and it will delay your refund. Always get a return reference first.</p>
@@ -89,7 +87,7 @@
         <div class="stack small" style="gap:.5rem">
           <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Within <%= settings.return_days %> days of delivery</span>
           <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Original box and packaging kept</span>
-          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> All accessories, cables and manuals included</span>
+          <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Original tags and supplied accessories included</span>
           <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Item unused and unmarked (unless faulty)</span>
           <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Return reference written on the parcel</span>
           <span class="row" style="gap:.45rem"><span style="color:#12805C"><%- icon('check') %></span> Receipt or order number to hand</span>

@@ -1,9 +1,10 @@
 <%- include('../partials/head') %>
 <%- include('../partials/header') %>
 <main class="container" id="main" style="padding:1rem 0 2.4rem">
-  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur">All categories</span></nav>
-  <h1>All departments</h1>
-  <p class="muted" style="margin:0 0 1.4rem;max-width:80ch"><%= total %> products across <%= cats.length %> departments. Everything is stocked, checked and shipped by us from our Accra warehouse — pick a department to start browsing.</p>
+  <nav class="breadcrumbs dark"><a href="/">Home</a><span class="sep">/</span><span class="cur">Fashion</span></nav>
+  <span class="section-eyebrow">The Biahens collection</span>
+  <h1>Explore fashion.</h1>
+  <p class="muted" style="margin:0 0 1.4rem;max-width:80ch"><%= total %> owner-curated pieces across clothing, Ghanaian heritage, shoes, bags and accessories. One seller, one point of view — choose a category and find your next favourite.</p>
 
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.1rem">
     <% cats.forEach(function (c) { %>

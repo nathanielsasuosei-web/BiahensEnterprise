@@ -6,10 +6,10 @@ const DEFAULTS = {
   // --- identity
   store_name: 'Biahens Enterprise',
   store_short: 'Biahens',
-  tagline: 'Everything you need. Delivered across Ghana.',
+  tagline: 'Fashion with a little more meaning.',
   logo: '',
   favicon: '',
-  hero_note: 'Accra same-day delivery · Nationwide 1–4 days',
+  hero_note: 'Owner-curated fashion · Delivered across Ghana',
 
   // --- contact
   support_phone: '+233 30 200 4455',
@@ -39,10 +39,10 @@ const DEFAULTS = {
   momo_enabled: 'true',
   card_enabled: 'true',
   return_days: '7',
-  warranty_note: 'All electronics carry a minimum 6-month Biahens warranty.',
+  warranty_note: 'Carefully checked fashion, with 7-day easy returns on eligible items.',
 
   // --- banners / homepage
-  announcement: '🚚 FREE delivery in Accra & Tema on orders above GH₵1,500 — pay with MoMo or card',
+  announcement: 'New-season fashion, chosen by the owner — explore the latest Biahens edit',
   announcement_on: 'true',
   rail_flash: 'true',
   rail_featured: 'true',
@@ -59,9 +59,9 @@ const DEFAULTS = {
   maintenance_message: 'We are upgrading our store. Please check back shortly.',
 
   // --- seo
-  meta_title: 'Biahens Enterprise — Online Shopping in Ghana for Phones, Fashion, Appliances & More',
-  meta_description: 'Shop thousands of products on Biahens Enterprise. Phones & tablets, electronics, fashion, home appliances, beauty and groceries with fast delivery across Ghana and secure Mobile Money or card payment.',
-  meta_keywords: 'online shopping ghana, biahens enterprise, buy phones ghana, accra delivery, mobile money shopping',
+  meta_title: 'Biahens Enterprise — Fashion, Style & Ghanaian Heritage',
+  meta_description: 'Discover owner-curated fashion in Ghana: contemporary clothing, Ankara, Kente, shoes and accessories, with secure checkout and nationwide delivery.',
+  meta_keywords: 'Biahens Enterprise, fashion Ghana, Ankara, Kente, clothing Accra, shoes, bags, Ghanaian fashion',
 
   // --- payments (stub gateway)
   gateway_mode: 'test',
