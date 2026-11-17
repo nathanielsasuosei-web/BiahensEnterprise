@@ -603,3 +603,12 @@ code.mono,.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-s
 .notif-body{flex:1;min-width:0}
 .notif-body b{font-weight:800;font-size:.9rem}
 .notif-body p{color:#3D4C5C}
+
+/* Owner dashboard: subtle V8-style live, staggered entrance */
+.admin .content>.page-head{animation:ownerRise .45s ease both}
+.admin .kpi-grid>.kpi{animation:ownerRise .55s cubic-bezier(.2,.8,.2,1) both;transition:transform .2s ease,box-shadow .2s ease}
+.admin .kpi-grid>.kpi:nth-child(2){animation-delay:.05s}.admin .kpi-grid>.kpi:nth-child(3){animation-delay:.1s}.admin .kpi-grid>.kpi:nth-child(4){animation-delay:.15s}.admin .kpi-grid>.kpi:nth-child(5){animation-delay:.2s}.admin .kpi-grid>.kpi:nth-child(6){animation-delay:.25s}
+.admin .kpi-grid>.kpi:hover{transform:translateY(-4px);box-shadow:0 14px 35px rgba(15,42,67,.12)}
+.admin .content>.grid{animation:ownerRise .65s .12s ease both}
+@keyframes ownerRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.admin .content>.page-head,.admin .kpi-grid>.kpi,.admin .content>.grid{animation:none!important;transition:none!important}}
