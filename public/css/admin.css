@@ -39,6 +39,7 @@ body.admin ul{margin:0;padding:0;list-style:none}
 .sb-logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--orange),var(--gold));
   display:grid;place-items:center;font-weight:900;color:#3A1A00;font-size:1rem;flex:none;position:relative;overflow:hidden}
 .sb-logo::after{content:"";position:absolute;inset:auto -40% -60% -40%;height:70%;background:rgba(255,255,255,.3);transform:rotate(-14deg)}
+.sb-logo img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;border-radius:inherit}
 .sb-brand b{display:block;color:#fff;font-size:.94rem;line-height:1.15}
 .sb-brand span{display:block;font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
 .sb-nav{padding:.7rem .6rem 1.4rem;flex:1}
