@@ -4,6 +4,12 @@
   "installCommand": "npm install",
   "buildCommand": "npm run vercel:build",
   "outputDirectory": "public",
+  "env": {
+    "STORE_MODE": "demo",
+    "PAYMENT_PROVIDER": "simulator",
+    "GATEWAY_MODE": "test",
+    "NOTIFICATIONS_ENABLED": "false"
+  },
   "regions": ["lhr1"],
   "functions": {
     "api/index.js": {

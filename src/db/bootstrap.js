@@ -45,6 +45,10 @@ function ensureWritableDb() {
       log(`could not copy baked database (${err.message}) — will seed instead`);
     }
   }
+  // copyFile preserves the baked artifact's permission bits. A deployment
+  // bundle may be read-only, but the restored database must allow sessions,
+  // carts and SQLite WAL writes in the writable runtime directory.
+  if (fs.existsSync(target)) fs.chmodSync(target, 0o600);
   return { restored, seeded: false };
 }
 

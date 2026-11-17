@@ -957,4 +957,5 @@ button{touch-action:manipulation}
   html{scroll-behavior:auto}
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+.preview-notice{padding:10px 20px;background:#fff0ca;color:#463712;text-align:center;font-size:12px;line-height:1.6}
 @media print{.newsletter-section{display:none}}

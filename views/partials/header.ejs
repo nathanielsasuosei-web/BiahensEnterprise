@@ -13,6 +13,9 @@
   const cartData = typeof cart !== 'undefined' ? cart : { items: [], count: 0, total: 0, subtotal: 0, isEmpty: true };
 %>
 <a class="skip-link" href="#main">Skip to content</a>
+<% if (cfg.ephemeralFs && cfg.storeMode === 'demo') { %>
+  <aside class="preview-notice" aria-label="Preview store notice"><b>Preview store</b> — payments are simulated and data may reset. Do not enter real payment details.</aside>
+<% } %>
 <header class="site-header" id="siteHeader">
   <% if (settings.announcement_on === 'true' || settings.announcement_on === true) { %>
     <div class="announce">

@@ -43,6 +43,12 @@ Follow **[docs/production.md](docs/production.md)**. For your **existing server*
 
 Do not scale this SQLite deployment to multiple app instances. Vercel's `/tmp` SQLite path remains **demo-only**, with `STORE_MODE=demo`; live startup refuses it. A live Vercel deployment would require a separate managed-database migration, not an environment-variable workaround.
 
+### Vercel preview / startup errors
+
+The checked-in `vercel.json` explicitly sets **runtime** `STORE_MODE=demo`, `PAYMENT_PROVIDER=simulator`, `GATEWAY_MODE=test`, and `NOTIFICATIONS_ENABLED=false`. A build script changing its own environment does not configure the deployed function; build and runtime must agree. The serverless storefront displays a preview warning and is not the live store.
+
+If a Vercel function cannot start, the entry point returns a non-cached **503** and a safe diagnostic code in private function logs rather than failing during module import. Check those logs for configuration/native-module errors. Do not bypass the persistent-storage guard, enable real sends, or add live payment keys to this preview. Remove conflicting project environment overrides and redeploy the updated branch; previously created deployments do not change automatically. Account-level deployment blocks must be resolved in the hosting account separately.
+
 ### Payment/refund boundaries
 
 - Customers pay on `checkout.paystack.com`, not a local live card form. Initialization errors keep the order and expose a safe retry/check path, never simulator fallback.
