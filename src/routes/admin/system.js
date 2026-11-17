@@ -7,7 +7,9 @@ const config = require('../../config');
 const settings = require('../../services/settings');
 const payments = require('../../services/payments');
 const { audit } = require('../../utils/log');
-const { outbox } = require('../../utils/log');
+const delivery = require('../../services/notifications');
+const auth = require('../../middleware/auth');
+const { whatsappNumber } = require('../../utils/phone');
 const { paginate, round2, dateFmt } = require('../../utils/helpers');
 
 const router = express.Router();
@@ -67,7 +69,8 @@ router.get('/payments', (req, res) => {
     })(),
     gateway: {
       mode: payments.mode(),
-      brand: settings.get('gateway_brand'),
+      brand: payments.brand(),
+      simulator: payments.isSimulator(),
       webhookUrl: `${config.publicUrl}/webhooks/paystack`,
       secretSet: !!payments.secret(),
     },
@@ -76,19 +79,68 @@ router.get('/payments', (req, res) => {
 });
 
 /* ---------------------------------------------------------- mail outbox */
-router.get('/mail', (req, res) => {
+router.get('/mail', auth.requireOwner, (req, res) => {
   res.render('admin/mail', {
-    layout: false,
-    pageTitle: 'Email outbox | Admin',
-    bodyClass: 'admin',
-    adminNav: 'mail',
-    messages: outbox,
-    dateFmt,
+    layout: false, pageTitle: 'Order alerts & delivery log | Admin', bodyClass: 'admin admin-mail', adminNav: 'mail',
+    messages: delivery.messages(), channels: delivery.configuration(),
+    preferences: {
+      email: settings.get('owner_notification_email'), whatsapp: settings.get('owner_notification_whatsapp'),
+      optedIn: settings.get('owner_whatsapp_opt_in'),
+    }, dateFmt,
   });
 });
 
+router.post('/mail/settings', auth.requireOwner, (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const whatsapp = String(req.body.whatsapp || '').trim();
+  if ((email && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(email)) || (whatsapp && !whatsappNumber(whatsapp))) {
+    req.flash('danger', 'Enter a valid email and a WhatsApp number with a country code, e.g. +233241234567.');
+    return res.redirect('/admin/system/mail');
+  }
+  settings.setMany({ owner_notification_email: email, owner_notification_whatsapp: whatsapp,
+    owner_whatsapp_opt_in: req.body.opt_in === '1' ? 'true' : 'false' });
+  audit(req, 'notifications.settings', 'settings', null, { email: !!email, whatsapp: !!whatsapp, optedIn: req.body.opt_in === '1' });
+  req.flash('success', 'Order alert preferences saved. Provider credentials must also be set on the server.');
+  return res.redirect('/admin/system/mail');
+});
+
+router.post('/mail/retry', auth.requireOwner, async (req, res, next) => {
+  try {
+    delivery.retryPending();
+    const results = await delivery.flush({ limit: 20 });
+    const sent = results.filter(item => item.status === 'sent').length;
+    audit(req, 'notifications.retry', 'system', null, { processed: results.length, accepted: sent });
+    req.flash('info', `${sent} message(s) accepted by the delivery provider. Check the log for any setup requirements or failures.`);
+    return res.redirect('/admin/system/mail');
+  } catch (error) { return next(error); }
+});
+
+// Explicit, owner-authorized verification only. No check or deployment silently
+// sends a test message or creates a customer order.
+router.post('/mail/verify', auth.requireOwner, async (req, res, next) => {
+  if (req.body.confirm !== 'SEND') return res.status(400).send('Confirm SEND to authorize delivery to your configured owner recipients.');
+  const channels = delivery.configuration();
+  if (!channels.email.ready || !channels.whatsapp.ready) {
+    req.flash('warn', 'Both providers and owner consent must be configured before verification. Nothing was sent.');
+    return res.redirect('/admin/system/mail');
+  }
+  try {
+    const key = `verification:${require('node:crypto').randomUUID()}`;
+    const text = `POINTGH delivery verification. This is a test of the configured owner alert channel, not a customer order. ${config.publicUrl}/admin`;
+    const email = delivery.queueEmail({ to: channels.email.recipient, subject: 'POINTGH owner alert verification', text, key: `${key}:email` });
+    const whatsapp = delivery.enqueue({ channel: 'whatsapp', key: `${key}:whatsapp`, to: channels.whatsapp.recipient,
+      subject: 'POINTGH owner alert verification', text,
+      payload: { parameters: ['POINTGH-VERIFY', 'Owner delivery verification', '0', 'GH₵0.00', 'Verification only — not an order', `${config.publicUrl}/admin`] } });
+    const results = await delivery.flush({ ids: [email.id, whatsapp.id], limit: 2 });
+    const accepted = results.filter(item => item.status === 'sent').length;
+    audit(req, 'notifications.verify', 'system', null, { accepted });
+    req.flash('info', `${accepted} of 2 verification messages accepted by providers. Check both recipient devices and the delivery log; acceptance is not proof of delivery.`);
+    return res.redirect('/admin/system/mail');
+  } catch (error) { return next(error); }
+});
+
 /* ------------------------------------------------------- health & backup */
-router.get('/health', (req, res) => {
+router.get('/health', auth.requireOwner, (req, res) => {
   const counts = {};
   ['users', 'products', 'categories', 'brands', 'orders', 'order_items', 'payments', 'reviews',
     'coupons', 'cart_items', 'wishlists', 'sessions', 'audit_log', 'notifications', 'newsletter', 'settings']
@@ -116,6 +168,8 @@ router.get('/health', (req, res) => {
     bodyClass: 'admin',
     adminNav: 'health',
     counts,
+    readiness: require('../../services/readiness').report(db, config),
+    storagePaths: { database: config.db.file, uploads: config.uploads.dir, backups: config.backups.dir },
     dbSize,
     uploadSize,
     node: process.version,
@@ -127,24 +181,15 @@ router.get('/health', (req, res) => {
   });
 });
 
-router.post('/backup', (req, res) => {
-  // Serverless filesystems are read-only outside /tmp.
-  const dir = config.ephemeralFs ? require('os').tmpdir() : path.join(config.root, 'data');
-  try { fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
-  const file = path.join(dir, `backup-${Date.now()}.sqlite`);
+router.post('/backup', auth.requireOwner, async (req, res, next) => {
   try {
-    db.prepare('VACUUM INTO ?').run(file);
-    audit(req, 'system.backup', 'system', null, { file: path.basename(file) });
-    const name = `biahens-backup-${new Date().toISOString().slice(0, 10)}.sqlite`;
-    res.download(file, name, () => { try { fs.unlinkSync(file); } catch (_) {} });
-    return undefined;
-  } catch (err) {
-    req.flash('danger', `Backup failed: ${err.message}`);
-    return res.redirect('/admin/system/health');
-  }
+    const result = await require('../../services/backups').create();
+    audit(req, 'system.backup', 'system', null, { file: result.name });
+    return res.download(result.file, result.name);
+  } catch (error) { return next(error); }
 });
 
-router.post('/vacuum', (req, res) => {
+router.post('/vacuum', auth.requireOwner, (req, res) => {
   try {
     db.pragma('wal_checkpoint(TRUNCATE)');
     db.prepare('VACUUM').run();
@@ -156,7 +201,7 @@ router.post('/vacuum', (req, res) => {
   return res.redirect('/admin/system/health');
 });
 
-router.post('/cache/clear', (req, res) => {
+router.post('/cache/clear', auth.requireOwner, (req, res) => {
   db.prepare(`DELETE FROM sessions WHERE expire < ?`).run(Date.now());
   db.prepare(`DELETE FROM cart_items WHERE session_id IS NOT NULL AND added_at < datetime('now','-30 days')`).run();
   require('../../middleware/context').invalidateMenu();

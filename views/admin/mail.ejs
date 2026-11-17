@@ -1,155 +1,30 @@
 <%- include('partials/head') %>
-<%
-  const KIND = function (subject) {
-    const s = String(subject || '').toLowerCase();
-    if (s.indexOf('welcome') >= 0) return ['Welcome', 'success', 'user-plus'];
-    if (s.indexOf('reset') >= 0 || s.indexOf('password') >= 0) return ['Password reset', 'warn', 'key'];
-    if (s.indexOf('receipt') >= 0 || s.indexOf('invoice') >= 0) return ['Receipt', 'info', 'receipt'];
-    if (s.indexOf('shipped') >= 0 || s.indexOf('dispatch') >= 0) return ['Shipping', 'brand', 'truck'];
-    if (s.indexOf('cancel') >= 0 || s.indexOf('refund') >= 0) return ['Cancellation', 'danger', 'refresh'];
-    if (s.indexOf('review') >= 0) return ['Review request', 'gold', 'star'];
-    if (s.indexOf('order') >= 0) return ['Order update', 'info', 'box'];
-    return ['Notification', 'muted', 'mail'];
-  };
-  const sentToday = messages.filter(function (m) { return String(m.at).slice(0, 10) === new Date().toISOString().slice(0, 10); }).length;
-%>
 <div class="admin-shell">
   <%- include('partials/sidebar') %>
   <div class="main">
-    <%- include('partials/topbar', { pageHeading: 'Email outbox' }) %>
+    <%- include('partials/topbar', { pageHeading: 'Order alerts & delivery' }) %>
     <div class="content">
-      <div class="page-head">
-        <div>
-          <h1>Email outbox</h1>
-          <p class="sub">
-            <% if (messages.length) { %>
-              <%= messages.length %> message<%= messages.length === 1 ? '' : 's' %> captured · <%= sentToday %> today. Every transactional email the app tries to send is recorded here.
-            <% } else { %>
-              No emails captured yet in this server session.
-            <% } %>
-          </p>
-        </div>
-        <div class="actions">
-          <button class="btn ghost" type="button" onclick="window.location.reload()"><%- icon('refresh') %> Refresh</button>
-          <a class="btn ghost" href="/admin/settings?tab=contact"><%- icon('mail') %> Sender details</a>
-        </div>
+      <div class="page-head"><div><h1>Never miss a new order.</h1><p class="sub">Owner email and WhatsApp alerts, with a saved delivery log. Only the owner can configure this page.</p></div><div class="actions"><button class="btn ghost" type="button" onclick="location.reload()"><%- icon('refresh') %> Refresh log</button><form action="/admin/system/mail/retry" method="post"><button class="btn primary" type="submit"><%- icon('send') %> Retry pending messages</button></form></div></div>
+      <% if (cfg.ephemeralFs) { %><div class="inline-alert danger"><b>Demo storage warning:</b> this deployment uses an ephemeral SQLite database. Accounts, orders and queued alerts can disappear on a cold start. Move to persistent storage before taking real orders.</div><% } %>
+      <div class="grid g-2" style="gap:1rem;margin-bottom:1rem">
+        <% [['email', 'Email · Resend', 'mail'], ['whatsapp', 'WhatsApp Business', 'whatsapp']].forEach(function (channel) { const state = channels[channel[0]]; %>
+          <section class="card"><div class="card-head"><h2><%- icon(channel[2]) %> <%= channel[1] %></h2><span class="badge <%= state.ready ? 'success' : 'warn' %>"><%= state.ready ? 'Configured' : 'Setup required' %></span></div><div class="card-body"><p class="small">Owner recipient: <b><%= state.recipient || 'Not set' %></b></p><% if (state.missing.length) { %><p class="small muted">Required: <%= state.missing.join(', ') %>.</p><% } else { %><p class="small muted">New orders will automatically queue an alert on this channel.</p><% } %></div></section>
+        <% }); %>
       </div>
-
-      <div class="inline-alert warn" style="margin-bottom:1rem">
-        <%- icon('alert') %>
-        <span><b>No SMTP transport is connected.</b> Emails are written to this in-memory outbox (and the server console) instead of being delivered, so no customer receives anything yet. Plug a provider into <code>sendMail()</code> in <code>src/utils/log.js</code> — Nodemailer with SMTP, Resend, SendGrid or Brevo all drop in at that one function. The outbox keeps the newest 100 messages and is cleared when the server restarts.</span>
-      </div>
-
+      <form class="card" action="/admin/system/mail/verify" method="post" style="margin-bottom:1rem"><div class="card-body"><h2>Verify your connected providers</h2><p class="small muted">This explicitly sends one verification email and one approved-template WhatsApp message to the configured owner recipients. It does not create an order or charge money. Provider acceptance is not delivery confirmation; check both devices.</p><label class="checkbox"><input type="checkbox" name="confirm" value="SEND" required><span>I authorize both verification messages to my configured recipients.</span></label><button class="btn primary" type="submit" style="margin-top:.7rem" <%= channels.email.ready && channels.whatsapp.ready ? '' : 'disabled' %>><%- icon('send') %> Send verification messages</button></div></form>
       <div class="grid g-2-1" style="gap:1rem;align-items:start">
-        <div class="card">
-          <div class="card-head">
-            <div><h2>Captured messages</h2><span class="sub">Newest first · click a row to read the full body</span></div>
-            <span class="badge outline"><%= messages.length %> / 100 kept</span>
-          </div>
-          <div class="card-body" style="padding:0">
-            <% if (!messages.length) { %>
-              <div class="empty" style="padding:3rem">
-                <span class="ico">&#9993;&#65039;</span>
-                <h3>The outbox is empty</h3>
-                <p class="muted">Place a test order, register an account or change an order status with “email the customer” ticked — the message lands here immediately.</p>
-                <div class="row wrap" style="gap:.4rem;justify-content:center;margin-top:.8rem">
-                  <a class="btn primary sm" href="/" target="_blank"><%- icon('store') %> Open the storefront</a>
-                  <a class="btn ghost sm" href="/admin/orders"><%- icon('box') %> Go to orders</a>
-                </div>
-              </div>
-            <% } else { %>
-              <div class="mail-list">
-                <% messages.forEach(function (m, i) { const k = KIND(m.subject); %>
-                  <div class="mail-item">
-                    <button class="mail-head" type="button" data-mail-toggle="mail-<%= i %>" aria-expanded="false">
-                      <span class="dot <%= k[1] %>"><%- icon(k[2]) %></span>
-                      <span class="mail-meta">
-                        <b><%= m.subject %></b>
-                        <span class="tiny muted">to <b><%= m.to %></b> · <%= dateFmt(m.at, 'D MMM YYYY, h:mm:ss a') %> · <%= timeAgo(m.at) %></span>
-                      </span>
-                      <span class="badge <%= k[1] %>"><%= k[0] %></span>
-                      <span class="chev"><%- icon('chevron-down') %></span>
-                    </button>
-                    <div class="mail-body" id="mail-<%= i %>" hidden>
-                      <pre class="mono"><%= m.text %></pre>
-                      <% if (m.html) { %>
-                        <details style="margin-top:.6rem">
-                          <summary class="tiny muted" style="cursor:pointer;font-weight:800">Show HTML source</summary>
-                          <pre class="mono" style="margin-top:.4rem;max-height:280px;overflow:auto"><%= m.html %></pre>
-                        </details>
-                      <% } %>
-                      <div class="row wrap" style="gap:.4rem;margin-top:.6rem">
-                        <a class="btn ghost xs" href="mailto:<%= m.to %>?subject=<%= encodeURIComponent('Re: ' + m.subject) %>"><%- icon('send') %> Reply</a>
-                        <button class="btn ghost xs" type="button" data-copy="<%= m.to %>"><%- icon('copy') %> Copy address</button>
-                        <% const match = String(m.text || '').match(/\/order\/([A-Z0-9-]+)/i); %>
-                        <% if (match) { %><a class="btn ghost xs" href="/admin/orders?q=<%= encodeURIComponent(match[1]) %>"><%- icon('box') %> Find order <%= match[1] %></a><% } %>
-                      </div>
-                    </div>
-                  </div>
-                <% }); %>
-              </div>
-            <% } %>
-          </div>
+        <div class="stack" style="gap:1rem">
+          <form class="card" action="/admin/system/mail/settings" method="post"><div class="card-head"><div><h2>Where should your alerts go?</h2><span class="sub">Leave a field blank to use the owner account’s email or phone. Environment overrides take precedence.</span></div></div><div class="card-body"><div class="form-grid"><div class="field"><label class="label" for="ownerAlertEmail">Owner email</label><input class="input" type="email" name="email" id="ownerAlertEmail" value="<%= preferences.email %>" placeholder="<%= channels.email.recipient %>" autocomplete="email"></div><div class="field"><label class="label" for="ownerAlertWhatsapp">Owner WhatsApp number</label><input class="input" type="tel" name="whatsapp" id="ownerAlertWhatsapp" value="<%= preferences.whatsapp %>" placeholder="+233241234567" autocomplete="tel"></div></div><label class="checkbox"><input type="checkbox" name="opt_in" value="1" <%= preferences.optedIn ? 'checked' : '' %>><span>I own this number and agree to receive automated order alerts through WhatsApp.</span></label></div><div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save alert preferences</button></div></form>
+          <section class="card"><div class="card-head"><div><h2>Delivery log</h2><span class="sub">Latest 100 messages · includes owner alerts and customer emails</span></div></div><div class="card-body">
+            <% if (!messages.length) { %><div class="empty"><h3>No messages yet</h3><p>After a customer places an order, an email and a WhatsApp alert will appear here automatically.</p></div><% } %>
+            <% messages.forEach(function (message) { const tone = message.status === 'sent' ? 'success' : message.status === 'failed' ? 'danger' : 'warn'; %><details class="card" style="padding:.8rem;margin-bottom:.65rem"><summary style="cursor:pointer"><span class="badge <%= tone %>"><%= message.status === 'sent' ? 'Provider accepted' : message.status.replace('_',' ') %></span> <b class="small"><%= message.subject %></b><span class="tiny muted" style="display:block;margin-top:.4rem"><%= message.channel === 'email' ? 'Email' : 'WhatsApp' %> → <%= message.to || 'Recipient not configured' %> · <%= dateFmt(message.at) %></span></summary><p class="tiny muted">Attempts: <%= message.attempts %><% if (message.provider_id) { %> · Provider ID: <%= message.provider_id %><% } %></p><% if (message.last_error) { %><p class="small" style="color:var(--red)"><%= message.last_error %></p><% } %><pre class="mono" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem;margin-top:.6rem"><%= message.text %></pre></details><% }); %>
+          </div></section>
         </div>
-
-        <aside class="stack" style="gap:1rem">
-          <div class="card">
-            <div class="card-head"><div><h2>Emails the app sends</h2><span class="sub">All wired up and waiting on a transport</span></div></div>
-            <div class="card-body" style="padding:.4rem 0">
-              <% [['Welcome', 'On successful registration', 'user-plus'],
-                 ['Password reset', 'Requested from /forgot-password', 'key'],
-                 ['Order receipt', 'Immediately after checkout', 'receipt'],
-                 ['Payment confirmation', 'When a gateway charge succeeds', 'check-circle'],
-                 ['Dispatch notice', 'When you mark an order shipped', 'truck'],
-                 ['Status updates', 'Any status change with “email customer” ticked', 'refresh'],
-                 ['Cancellation', 'When an order is cancelled', 'x-circle'],
-                 ['Review request', 'After an order is delivered', 'star'],
-                 ['Admin alerts', 'Low stock, big orders, failed webhooks', 'bell']].forEach(function (e) { %>
-                <div class="stat-line row between" style="padding:.42rem 1rem">
-                  <span class="row" style="gap:.45rem"><span class="ico" style="color:var(--navy-3)"><%- icon(e[2]) %></span><b class="small"><%= e[0] %></b></span>
-                  <span class="tiny muted"><%= e[1] %></span>
-                </div>
-              <% }); %>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-head"><div><h2>Connecting a real provider</h2></div></div>
-            <div class="card-body small">
-              <ol style="padding-left:1.1rem;list-style:decimal;margin:0" class="muted">
-                <li style="margin-bottom:.4rem"><code>npm i nodemailer</code> (or the SDK for Resend / SendGrid / Brevo).</li>
-                <li style="margin-bottom:.4rem">In <code>src/utils/log.js</code>, replace the body of <code>sendMail()</code> with a real transport call — the signature <code>{ to, subject, text, html }</code> already matches what every caller passes.</li>
-                <li style="margin-bottom:.4rem">Put credentials in <code>.env</code> (<code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>MAIL_FROM</code>) and read them through <code>src/config/index.js</code>.</li>
-                <li>Keep pushing to <code>outbox</code> so this page stays useful as a delivery log.</li>
-              </ol>
-              <div class="divider"></div>
-              <p class="tiny muted" style="margin:0">Sender identity comes from <a href="/admin/settings?tab=contact" style="font-weight:800">Settings → Contact</a>: <%= settings.support_email %>.</p>
-            </div>
-          </div>
-        </aside>
+        <aside class="stack" style="gap:1rem"><section class="card"><div class="card-head"><h2>Connect delivery services</h2></div><div class="card-body small"><p>Set <code>NOTIFICATIONS_ENABLED=true</code> and these private environment variables on the persistent server, then redeploy. Never put keys in a public form or repository.</p><h3 style="font-size:.9rem;margin-top:1rem">Email</h3><p class="muted"><code>RESEND_API_KEY</code><br><code>MAIL_FROM</code> — an address on a verified sending domain.</p><h3 style="font-size:.9rem;margin-top:1rem">WhatsApp</h3><p class="muted"><code>WHATSAPP_ACCESS_TOKEN</code><br><code>WHATSAPP_PHONE_NUMBER_ID</code><br><code>WHATSAPP_ORDER_TEMPLATE</code><br><code>WHATSAPP_TEMPLATE_LANGUAGE</code></p><p class="muted">Use an approved utility template with six body fields, in this order: order number, customer name, item count, total, payment status and admin order URL. The owner must opt in above. A normal WhatsApp chat link cannot send automatic alerts.</p><p class="tiny muted">The complete setup guide and sample template are in <code>docs/order-alerts.md</code>.</p></div></section><section class="card"><div class="card-head"><h2>What the statuses mean</h2></div><div class="card-body small"><p><b>Setup required:</b> saved, but not sent. Connect the services first.</p><p><b>Provider accepted:</b> the provider accepted the request; it does not confirm receipt or reading.</p><p><b>Failed:</b> the error is saved. Temporary failures retry with backoff; use the retry button after fixing configuration.</p><p class="muted">Alerts do not mark an order as paid. Always verify the order’s payment status in the dashboard.</p></div></section></aside>
       </div>
     </div>
   </div>
 </div>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('[data-mail-toggle]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var body = document.getElementById(b.getAttribute('data-mail-toggle'));
-        if (!body) return;
-        body.hidden = !body.hidden;
-        b.setAttribute('aria-expanded', body.hidden ? 'false' : 'true');
-        b.classList.toggle('open', !body.hidden);
-      });
-    });
-    document.querySelectorAll('[data-copy]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        if (navigator.clipboard) navigator.clipboard.writeText(b.getAttribute('data-copy'));
-        var old = b.innerHTML; b.innerHTML = '✓'; setTimeout(function () { b.innerHTML = old; }, 1200);
-      });
-    });
-  });
-</script>
 <script src="/js/admin.js" defer></script>
 </body>
 </html>

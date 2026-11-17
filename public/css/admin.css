@@ -1,3 +1,4 @@
+@font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:200 800;font-display:swap;src:url('/fonts/plus-jakarta-sans-latin.woff2') format('woff2')}
 /* ============================================================================
    pointGh — owner control panel
    ========================================================================== */
@@ -622,3 +623,12 @@ code.mono,.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-s
 .credential-list>div{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.35rem 0;border-bottom:1px solid var(--line-2);font-size:.82rem}
 .credential-list>div:last-child{border-bottom:0}
 .credential-list .badge{font-size:.62rem}
+
+/* Long page headings and alert credentials must fit small owner screens. */
+.topbar .crumbs{min-width:0;flex-shrink:1}
+.topbar .crumbs b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .tb-actions,.topbar .sb-toggle{flex-shrink:0}
+.admin-mail .content .grid>*{min-width:0}
+.admin-mail .card{min-width:0;overflow-wrap:anywhere}
+.admin-mail .card pre{max-width:100%}
+.admin-mail .form-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr))}

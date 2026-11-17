@@ -9,7 +9,8 @@
     <%- include('../partials/account-nav', { pendingCount: pendingCount, wishlistCount: wishlistCount }) %>
 
     <div>
-      <div class="grid g-4" style="gap:.8rem;margin-bottom:1.1rem">
+      <a class="account-tracking-prompt" href="/track-order"><span><%- icon('truck') %><b>Your orders, automatically tracked.</b></span><span>View delivery updates <%- icon('arrow-right') %></span></a>
+      <div class="grid account-stats" style="gap:.8rem;margin-bottom:1.1rem">
         <a class="card pad stat" href="/account/orders" style="text-align:left">
           <span class="tiny">Orders placed</span>
           <b class="big" style="font-size:1.7rem;display:block"><%= totals.orders %></b>

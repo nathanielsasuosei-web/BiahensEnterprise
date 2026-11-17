@@ -4,12 +4,12 @@ const { parseJson } = require('../utils/helpers');
 
 const DEFAULTS = {
   // --- identity
-  store_name: 'pointGh',
-  store_short: 'pointGh',
-  tagline: 'Fashion with a little more meaning.',
+  store_name: 'POINTGH',
+  store_short: 'POINTGH',
+  tagline: 'Good finds. Everyday essentials.',
   logo: '',
   favicon: '',
-  hero_note: 'Owner-curated fashion · Delivered across Ghana',
+  hero_note: 'Owner-selected products · Delivered across Ghana',
 
   // --- contact
   support_phone: '+233 30 200 4455',
@@ -26,10 +26,15 @@ const DEFAULTS = {
   tiktok: 'https://tiktok.com/',
   youtube: 'https://youtube.com/',
 
+  // --- owner order alerts (credentials stay in server environment variables)
+  owner_notification_email: '',
+  owner_notification_whatsapp: '',
+  owner_whatsapp_opt_in: 'false',
+
   // --- commerce
   currency: 'GHS',
   currency_symbol: 'GH₵',
-  tax_rate: '0',
+  tax_rate: '1',
   free_shipping_threshold: '1500',
   default_shipping_fee: '35',
   express_shipping_fee: '70',
@@ -39,10 +44,10 @@ const DEFAULTS = {
   momo_enabled: 'true',
   card_enabled: 'true',
   return_days: '7',
-  warranty_note: 'Carefully checked fashion, with 7-day easy returns on eligible items.',
+  warranty_note: 'Carefully checked products, with 7-day easy returns on eligible items.',
 
   // --- banners / homepage
-  announcement: 'New-season fashion, chosen by the owner — explore the latest pointGh edit',
+  announcement: 'New season. New favourites. Find a little more you.',
   announcement_on: 'true',
   rail_flash: 'true',
   rail_featured: 'true',
@@ -59,15 +64,15 @@ const DEFAULTS = {
   maintenance_message: 'We are upgrading our store. Please check back shortly.',
 
   // --- seo
-  meta_title: 'pointGh — Fashion, Style & Ghanaian Heritage',
-  meta_description: 'Discover owner-curated fashion in Ghana: contemporary clothing, Ankara, Kente, shoes and accessories, with secure checkout and nationwide delivery.',
-  meta_keywords: 'pointGh, fashion Ghana, Ankara, Kente, clothing Accra, shoes, bags, Ghanaian fashion',
+  meta_title: 'POINTGH — Your Everyday Online Store in Ghana',
+  meta_description: 'Discover electronics, fashion, home, beauty, groceries and more at POINTGH. Account checkout and private order tracking, with delivery across Ghana.',
+  meta_keywords: 'POINTGH, online shopping Ghana, Accra, fashion, electronics, home, beauty, groceries',
 
-  // --- payments (stub gateway)
+  // --- demo display defaults; production provider/mode/secrets come from environment
   gateway_mode: 'test',
   gateway_public_key: '',
-  gateway_webhook_secret: 'whsec_biahens_local_test_secret',
-  gateway_brand: 'pointGh Pay (Paystack-compatible test gateway)',
+  gateway_webhook_secret: '',
+  gateway_brand: 'POINTGH payment simulator',
 };
 
 const GROUPS = {
@@ -89,6 +94,7 @@ const GROUPS = {
   return_days: 'policy', warranty_note: 'policy', reviews_moderated: 'policy',
   reviews_require_purchase: 'policy', maintenance_mode: 'policy',
   maintenance_message: 'policy',
+  owner_notification_email: 'notifications', owner_notification_whatsapp: 'notifications', owner_whatsapp_opt_in: 'notifications',
   meta_title: 'seo', meta_description: 'seo', meta_keywords: 'seo',
 };
 

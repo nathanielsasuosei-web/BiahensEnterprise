@@ -48,7 +48,7 @@
     <div class="row wrap" style="gap:.6rem;margin-top:.8rem">
       <span class="badge gold"><%- icon('package') %> <%= totalFound %> product<%= totalFound === 1 ? '' : 's' %></span>
       <% if (typeof activeCategory !== 'undefined' && activeCategory) { %>
-        <span class="badge" style="background:rgba(255,255,255,.14);color:#fff"><%= activeCategory.icon || '' %> <%= activeCategory.name %></span>
+        <span class="badge" style="background:rgba(255,255,255,.14);color:#fff"><%- departmentIcon(activeCategory.slug) %> <%= activeCategory.name %></span>
       <% } %>
       <% if (typeof activeBrand !== 'undefined' && activeBrand) { %>
         <span class="badge" style="background:rgba(255,255,255,.14);color:#fff">Brand · <%= activeBrand.name %></span>
@@ -121,7 +121,7 @@
             <label class="label">Customer rating</label>
             <% [4,3,2,1].forEach(function (r) { %>
               <label class="checkbox"><input type="radio" name="rating" value="<%= r %>" <%= String(query.rating) === String(r) ? 'checked' : '' %>>
-                <span class="stars"><%= '&#9733;'.repeat(r) %><span style="opacity:.25"><%= '&#9733;'.repeat(5 - r) %></span></span>
+                <span class="stars" aria-hidden="true"><%- '&#9733;'.repeat(r) %><span style="opacity:.25"><%- '&#9733;'.repeat(5 - r) %></span></span><span class="sr-only"><%= r %> stars</span>
                 <span class="muted small">&amp; up</span></label>
             <% }); %>
             <label class="checkbox"><input type="radio" name="rating" value="" <%= !query.rating ? 'checked' : '' %>> <span class="small">Any rating</span></label>
@@ -160,7 +160,7 @@
         <div class="filter-list">
           <% cats.forEach(function (c) { %>
             <a href="/c/<%= c.slug %>" style="display:flex;gap:.4rem;font-size:.86rem;padding:.16rem 0;<%= typeof activeCategory !== 'undefined' && activeCategory && activeCategory.slug === c.slug ? 'color:#F26B21;font-weight:800' : '' %>">
-              <span><%= c.icon || '' %></span><span class="grow"><%= c.name %></span><span class="n muted small"><%= c.total_count || 0 %></span>
+              <span><%- departmentIcon(c.slug) %></span><span class="grow"><%= c.name %></span><span class="n muted small"><%= c.total_count || 0 %></span>
             </a>
           <% }); %>
         </div>

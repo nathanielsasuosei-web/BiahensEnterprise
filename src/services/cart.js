@@ -143,15 +143,17 @@ function getCart(req, { region = null, method = null, couponCode = null } = {}) 
     }
   }
 
-  const taxRate = toNumber(settings.get('tax_rate'), 0) / 100;
-  const tax = round2((subtotal - discount) * taxRate);
+  // VAT applies to merchandise after coupons, never to delivery. Keep rate
+  // and amount in the server snapshot so every checkout surface agrees.
+  const taxRate = Math.min(100, Math.max(0, toNumber(settings.get('tax_rate'), 1)));
+  const tax = round2(Math.max(0, subtotal - discount) * taxRate / 100);
   const shipping = valid.length ? ship.fee : 0;
   const total = round2(Math.max(0, subtotal - discount + shipping + tax));
   const count = valid.reduce((s, i) => s + i.qty, 0);
   const threshold = toNumber(settings.get('free_shipping_threshold'), 1500);
 
   return {
-    items: valid, count, subtotal, savings, discount, shipping, tax, total, weight,
+    items: valid, count, subtotal, savings, discount, shipping, taxRate, tax, total, weight,
     coupon, couponError, ship, dropped,
     freeShippingGap: ship.free || !valid.length ? 0 : round2(Math.max(0, threshold - subtotal)),
     threshold,
@@ -177,7 +179,8 @@ function addToCart(req, { productId, variantId = null, qty = 1 }) {
     ? db.prepare('SELECT * FROM cart_items WHERE user_id = ? AND product_id = ? AND variant_id IS ?').get(userId, product.id, variant ? variant.id : null)
     : db.prepare('SELECT * FROM cart_items WHERE session_id = ? AND user_id IS NULL AND product_id = ? AND variant_id IS ?').get(sessionId, product.id, variant ? variant.id : null);
 
-  const want = Math.max(1, Number(qty) || 1);
+  const want = Number(qty);
+  if (!Number.isSafeInteger(want) || want < 1) return { ok: false, message: 'Quantity must be a positive whole number.' };
   const available = variant ? variant.stock : product.stock;
   const nextQty = Math.min(available, (existing ? existing.qty : 0) + want);
 
@@ -203,7 +206,8 @@ function setQty(req, itemId, qty) {
     ? db.prepare('SELECT * FROM cart_items WHERE id = ? AND user_id = ?').get(itemId, userId)
     : db.prepare('SELECT * FROM cart_items WHERE id = ? AND session_id = ?').get(itemId, sessionId);
   if (!row) return { ok: false, message: 'Cart line not found.' };
-  const q = Math.max(0, Number(qty) || 0);
+  const q = Number(qty);
+  if (!Number.isSafeInteger(q) || q < 0) return { ok: false, message: 'Quantity must be a whole number (zero removes the item).' };
   if (q === 0) {
     db.prepare('DELETE FROM cart_items WHERE id = ?').run(row.id);
     return { ok: true, message: 'Item removed.' };
@@ -264,7 +268,7 @@ function cartCount(req) {
 
 function wishlistItems(userId) {
   if (!userId) return [];
-  const categoryIds = catalog.fashionCategoryIds();
+  const categoryIds = catalog.publicCategoryIds();
   if (!categoryIds.length) return [];
   const marks = categoryIds.map(() => '?').join(',');
   return db.prepare(
@@ -298,7 +302,7 @@ function inWishlist(userId, productIds) {
 
 function wishlistCount(userId) {
   if (!userId) return 0;
-  const categoryIds = catalog.fashionCategoryIds();
+  const categoryIds = catalog.publicCategoryIds();
   if (!categoryIds.length) return 0;
   const marks = categoryIds.map(() => '?').join(',');
   return db.prepare(

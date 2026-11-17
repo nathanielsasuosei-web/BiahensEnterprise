@@ -291,11 +291,7 @@
                   <textarea class="textarea" id="meta_description" name="meta_description" rows="3" maxlength="170" data-counter="170" placeholder="A 1–2 sentence summary shown in search results."><%= v.meta_description || '' %></textarea>
                   <span class="hint" data-counter-out>0 / 170 characters</span>
                 </div>
-                <div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:.8rem">
-                  <div class="tiny" style="color:#1A0DAB;font-weight:700;font-size:.9rem" data-preview-title><%= v.meta_title || v.name || 'Product name' %> | <%= settings.store_name %></div>
-                  <div class="tiny" style="color:#006621" data-preview-url><%= cfg.publicUrl %>/p/<%= v.slug || 'product-slug' %></div>
-                  <div class="tiny" style="color:#545454;line-height:1.5" data-preview-desc><%= v.meta_description || v.short_description || 'Your meta description preview appears here.' %></div>
-                </div>
+
               </div>
             </div>
           </div>

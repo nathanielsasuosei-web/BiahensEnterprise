@@ -1,187 +1,117 @@
 'use strict';
-/**
- * Hosted stub payment gateway + Paystack-compatible webhook endpoint.
- */
+/** Owned Paystack redirects/callbacks and raw-body signed webhooks. */
 const express = require('express');
 const db = require('../db');
-const config = require('../config');
 const settings = require('../services/settings');
 const orders = require('../services/orders');
 const payments = require('../services/payments');
+const auth = require('../middleware/auth');
 const { money, round2 } = require('../utils/helpers');
-const { sendMail } = require('../utils/log');
-
 const router = express.Router();
 
-function orderForReference(ref) {
-  const payment = payments.findByReference(ref);
-  if (!payment) return null;
-  const order = orders.getOrder(payment.order_id);
-  return order ? { payment, order } : null;
+function requirePaymentOwner(req, res, next) {
+  const payment = payments.findByReference(req.params.reference);
+  const order = payment && orders.getOrder(payment.order_id);
+  if (!order || !orders.canAccess(req.user, order)) return res.status(404).send('Payment not found.');
+  req.paymentContext = { payment, order };
+  return next();
+}
+router.use('/pay/:reference', auth.requireUser, requirePaymentOwner);
+
+function redirectResult(req, res, result) {
+  const { order } = req.paymentContext;
+  if (result.needsReview) req.flash('warn', 'Your payment was received but needs support review. Do not pay again.');
+  else if (!result.ok) req.flash('info', result.message || 'Payment is not yet confirmed.');
+  return res.redirect(`/order/${order.order_number}${result.ok && !result.needsReview ? '?paid=1' : ''}`);
 }
 
-/* --------------------------------------------------------- hosted checkout */
-router.get('/pay/:reference', (req, res, next) => {
-  const ctx = orderForReference(req.params.reference);
-  if (!ctx) return next();
-  const { payment, order } = ctx;
-
-  if (payment.status === 'success' || order.payment_status === 'paid') {
-    return res.redirect(`/order/${order.order_number}?paid=1`);
+router.get('/pay/:reference/callback', async (req, res, next) => {
+  const ref = req.params.reference;
+  if (['reference', 'trxref'].some(key => req.query[key] !== undefined && req.query[key] !== ref)) {
+    return res.status(400).send('The callback reference does not match this order. No payment was credited.');
   }
+  try { return redirectResult(req, res, await payments.verify(ref)); } catch (error) {
+    if (!error.code || !error.code.startsWith('PAYSTACK_')) return next(error);
+    req.flash('warn', error.message);
+    return res.redirect(`/order/${req.paymentContext.order.order_number}`);
+  }
+});
+router.post('/pay/:reference/check', async (req, res, next) => {
+  try { return redirectResult(req, res, await payments.verify(req.params.reference)); } catch (error) {
+    if (!error.code || !error.code.startsWith('PAYSTACK_')) return next(error);
+    req.flash('warn', error.message);
+    return res.redirect(`/order/${req.paymentContext.order.order_number}`);
+  }
+});
 
-  res.render('checkout/gateway', {
-    layout: false,
-    pageTitle: `${settings.get('gateway_brand')} — Secure payment`,
-    bodyClass: 'page-gateway',
-    order,
-    payment,
-    mode: payments.mode(),
-    momoNetworks: payments.MOMO_NETWORKS,
-    banks: payments.BANKS,
-    testCards: payments.TEST_CARDS,
+router.get('/pay/:reference', async (req, res, next) => {
+  const { payment, order } = req.paymentContext;
+  if (payment.status === 'success' || ['paid', 'partially_refunded', 'refunded'].includes(order.payment_status)) {
+    return res.redirect(`/order/${order.order_number}${order.payment_status === 'paid' && !payment.needs_review ? '?paid=1' : ''}`);
+  }
+  orders.expirePaymentHolds(order.id);
+  if (orders.getOrder(order.id).status !== 'pending_payment') return res.redirect(`/order/${order.order_number}`);
+  if (!payments.isSimulator()) {
+    // No live card, expiry, CVV or MoMo credential form is ever rendered here.
+    try {
+      const initialized = await payments.initialize(order);
+      return res.redirect(303, initialized.authorization_url);
+    } catch (error) {
+      if (error.code && error.code.startsWith('SQLITE_')) return next(error);
+      req.flash('warn', error.message);
+      return res.redirect(`/order/${order.order_number}`);
+    }
+  }
+  return res.render('checkout/gateway', {
+    layout: false, pageTitle: 'POINTGH — Demo payment simulator', bodyClass: 'page-gateway', order, payment,
+    mode: payments.mode(), momoNetworks: payments.MOMO_NETWORKS, banks: payments.BANKS, testCards: payments.TEST_CARDS,
     channel: req.query.channel || (payment.method === 'momo' ? 'mobile_money' : 'card'),
-    error: req.query.error || null,
-    money,
-    round2,
-    storeName: settings.get('store_name'),
-    supportPhone: settings.get('support_phone'),
-    gatewayBrand: settings.get('gateway_brand'),
+    error: req.query.error || null, money, round2, storeName: settings.get('store_name'),
+    supportPhone: settings.get('support_phone'), gatewayBrand: payments.brand(),
   });
-  return undefined;
 });
 
 router.post('/pay/:reference', (req, res) => {
-  const ctx = orderForReference(req.params.reference);
-  if (!ctx) return res.redirect('/');
-  const { order } = ctx;
-
-  const channel = req.body.channel === 'mobile_money' ? 'mobile_money'
-    : req.body.channel === 'bank' ? 'bank' : 'card';
-
+  if (!payments.isSimulator()) return res.status(403).send('Local payment entry is disabled. Use Paystack-hosted checkout.');
+  const channel = ['mobile_money', 'bank'].includes(req.body.channel) ? req.body.channel : 'card';
   const result = payments.authorize(req.params.reference, {
-    channel,
-    card: {
-      number: req.body.card_number,
-      expiry: req.body.card_expiry,
-      cvv: req.body.card_cvv,
-      brand: req.body.card_brand || (String(req.body.card_number || '').startsWith('4') ? 'Visa' : 'Mastercard'),
-    },
-    momo: { number: req.body.momo_number, network: req.body.momo_network },
-    bank: { id: req.body.bank_id },
-    simulate: req.body.simulate || null,
+    channel, card: { number: req.body.card_number, expiry: req.body.card_expiry, cvv: req.body.card_cvv },
+    momo: { number: req.body.momo_number, network: req.body.momo_network }, bank: { id: req.body.bank_id }, simulate: req.body.simulate,
   });
-
-  if (result.ok && !result.alreadyPaid) {
-    sendMail({
-      to: order.ship_email || order.guest_email || 'customer@example.com',
-      subject: `Payment received — order ${order.order_number}`,
-      text: `We have received GH₵${round2(order.total).toFixed(2)} for order ${order.order_number}.\n\n`
-        + `You can track it here: ${config.publicUrl}/order/${order.order_number}\n\n`
-        + `${settings.get('store_name')} · ${settings.get('support_phone')}`,
-    });
-    return res.redirect(`/order/${order.order_number}?paid=1`);
-  }
-  if (result.ok && result.alreadyPaid) return res.redirect(`/order/${order.order_number}?paid=1`);
-
-  return res.redirect(`/pay/${req.params.reference}?channel=${channel}&error=${encodeURIComponent(result.message || 'Payment declined')}`);
+  if (result.ok) return redirectResult(req, res, result);
+  return res.redirect(`/pay/${req.params.reference}?channel=${channel}&error=${encodeURIComponent(result.message || 'Demo payment failed')}`);
 });
 
 router.post('/pay/:reference/cancel', (req, res) => {
-  const ctx = orderForReference(req.params.reference);
-  if (!ctx) return res.redirect('/');
-  const { payment, order } = ctx;
-  if (payment.status === 'initiated') {
-    db.prepare(`UPDATE payments SET status = 'abandoned', error = 'Cancelled by customer' WHERE id = ?`).run(payment.id);
+  const { payment, order } = req.paymentContext;
+  // Navigating away from a hosted checkout does not cancel an in-flight MoMo
+  // approval. Never create a new reference just because the customer left it.
+  if (payments.isSimulator() && payment.status === 'initiated') {
+    db.prepare("UPDATE payments SET status = 'abandoned', error = 'Demo attempt cancelled' WHERE id = ?").run(payment.id);
   }
-  orders.addEvent(order.id, order.status, 'Customer cancelled the payment attempt and can retry from the order page.', 'customer');
-  req.flash('info', 'Payment cancelled. You can retry any time from your order confirmation page.');
+  req.flash('info', 'Your order is saved. Check payment before retrying if you already approved a payment prompt.');
   return res.redirect(`/order/${order.order_number}`);
 });
 
-/**
- * Demo helper: fires a correctly-signed webhook at the real endpoint so you
- * can watch signature verification + idempotent order completion work.
- */
-router.post('/pay/:reference/simulate-webhook', async (req, res) => {
-  const ctx = orderForReference(req.params.reference);
-  if (!ctx) return res.status(404).json({ ok: false, message: 'Unknown reference.' });
-  const { payment, order } = ctx;
+router.post('/pay/:reference/simulate-webhook', (req, res) => {
+  if (!payments.isSimulator()) return res.status(403).json({ ok: false, message: 'Simulator helpers are disabled.' });
+  const { payment, order } = req.paymentContext;
+  if (!['simulator', 'biahens-stub'].includes(payment.gateway)) return res.status(403).json({ ok: false });
   const payload = payments.buildWebhookPayload(payment);
-  const signature = payments.signPayload(payload);
-  const target = `${config.publicUrl.replace(/\/$/, '')}/webhooks/paystack`;
-
-  try {
-    const resp = await fetch(target, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-paystack-signature': signature },
-      body: JSON.stringify(payload),
-    });
-    const body = await resp.json().catch(() => ({}));
-    return res.json({
-      ok: resp.ok,
-      status: resp.status,
-      endpoint: target,
-      signature,
-      response: body,
-      order: orders.getOrder(order.id),
-    });
-  } catch (err) {
-    // fall back to in-process handling so the demo never dead-ends
-    const handled = payments.handleWebhook(payload);
-    return res.json({ ok: true, fallback: true, reason: err.message, handled, order: orders.getOrder(order.id) });
-  }
+  const result = payments.handleWebhook(payload);
+  return res.json({ ok: result.ok, result, order: orders.trackingSnapshot(orders.getOrder(order.id)) });
 });
 
-/* ---------------------------------------------------------------- webhook */
-// Paystack pings the endpoint with GET when you set it in the dashboard.
-router.get('/webhooks/paystack', (_req, res) => res.status(200).send('pointGh webhook endpoint is live.'));
-
-/**
- * Mounted with express.raw() in app.js so we can verify the HMAC over the
- * exact bytes that were sent.
- */
-router.post('/webhooks/paystack', (req, res) => {
-  const signature = req.headers['x-paystack-signature'];
-  const raw = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body || {});
-
-  if (!payments.verifySignature(raw, signature)) {
-    console.warn('⚠  webhook rejected — bad signature');
-    return res.status(401).json({ ok: false, message: 'Invalid signature.' });
-  }
-
-  let body;
-  try { body = JSON.parse(raw); } catch (_) { return res.status(400).json({ ok: false, message: 'Malformed JSON.' }); }
-
-  const result = payments.handleWebhook(body, req);
-  // Always answer 200 quickly so the gateway stops retrying.
-  return res.status(200).json({ ok: true, received: true, result });
-});
-
-/** Local webhook tester used by the admin panel (signs + posts to itself). */
-router.post('/admin/api/webhooks/test', async (req, res) => {
-  const reference = String(req.body.reference || '').trim();
+router.post('/admin/api/webhooks/test', auth.requireAdmin, (req, res) => {
+  if (!payments.isSimulator()) return res.status(403).json({ ok: false, message: 'Simulator helpers are disabled.' });
+  const payment = payments.findByReference(String(req.body.reference || ''));
+  if (!payment || !['simulator', 'biahens-stub'].includes(payment.gateway)) return res.status(404).json({ ok: false, message: 'No simulator reference found.' });
   const event = String(req.body.event || 'charge.success');
-  const payment = payments.findByReference(reference);
-  if (!payment) return res.status(404).json({ ok: false, message: 'No payment with that reference.' });
-
-  const payload = event === 'charge.success'
-    ? payments.buildWebhookPayload(payment)
-    : { event, data: { reference, gateway_response: 'Simulated by admin' } };
+  if (!['charge.success', 'charge.failed', 'charge.abandoned'].includes(event)) return res.status(400).json({ ok: false });
+  const payload = { ...payments.buildWebhookPayload(payment), event };
+  const raw = Buffer.from(JSON.stringify(payload));
   const signature = payments.signPayload(payload);
-  const target = `${config.publicUrl.replace(/\/$/, '')}/webhooks/paystack`;
-
-  try {
-    const resp = await fetch(target, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-paystack-signature': signature },
-      body: JSON.stringify(payload),
-    });
-    return res.json({ ok: resp.ok, status: resp.status, endpoint: target, signature, sent: payload, response: await resp.json().catch(() => ({})) });
-  } catch (err) {
-    const handled = payments.handleWebhook(payload, req);
-    return res.json({ ok: true, fallback: true, reason: err.message, handled });
-  }
+  if (!payments.verifyWebhookSignature(raw, { 'x-paystack-signature': signature })) return res.status(500).json({ ok: false });
+  return res.json({ ok: true, result: payments.handleWebhook(payload, req, { rawBody: raw }) });
 });
-
 module.exports = router;

@@ -32,6 +32,13 @@ function round2(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 }
 
+// Old orders may have a VAT amount without a recorded percentage.
+function vatLabel(rate) {
+  const percentage = Number(rate);
+  return rate !== null && rate !== undefined && rate !== '' && Number.isFinite(percentage)
+    ? `VAT (${percentage}%)` : 'VAT';
+}
+
 function discountPercent(price, compareAt) {
   if (!compareAt || compareAt <= price) return 0;
   return Math.round(((compareAt - price) / compareAt) * 100);
@@ -135,7 +142,7 @@ const STATUS_META = {
 };
 
 module.exports = {
-  money, moneyShort, toNumber, round2, discountPercent, truncate, slugify,
+  money, moneyShort, toNumber, round2, vatLabel, discountPercent, truncate, slugify,
   dateFmt, timeAgo, escapeHtml, parseJson, paginate, pick, firstDefined,
   GHANA_REGIONS, ORDER_STATUS_FLOW, STATUS_META, CURRENCY, SYMBOL,
 };

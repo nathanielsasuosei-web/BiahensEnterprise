@@ -56,35 +56,27 @@
                   <option value="<%= s %>"><%= STATUS_META[s] ? STATUS_META[s].label : s %></option>
                 <% }); %>
               </select>
-              <input class="input" name="note" placeholder="Note for the timeline (optional)" style="max-width:260px" maxlength="500">
+              <input class="input" name="note" placeholder="Customer-visible status note (optional)" style="max-width:260px" maxlength="500">
               <label class="checkbox" style="font-size:.8rem"><input type="checkbox" name="notify_customer" value="1" checked> Email the customer</label>
               <button class="btn primary" type="submit" <%= nextStatuses.length ? '' : 'disabled' %>><%- icon('check') %> Update</button>
             </form>
 
-            <% if (order.payment_status !== 'paid' && order.status !== 'cancelled') { %>
-              <form action="/admin/orders/<%= order.id %>/collect" method="post" class="row" style="gap:.4rem">
-                <select class="select" name="method" style="max-width:170px">
-                  <% [['momo', 'Mobile Money'], ['card', 'Card'], ['cod', 'Cash on delivery']].forEach(function (m) { %>
-                    <option value="<%= m[0] %>" <%= order.payment_method === m[0] ? 'selected' : '' %>><%= m[1] %></option>
-                  <% }); %>
-                </select>
-                <button class="btn success" type="submit"
-                        onclick="return confirm('Confirm you have actually received <%= settings.currency_symbol %> <%= money(order.total) %>?\n\nThis marks the order paid and writes to the payment ledger.')">
-                  <%- icon('wallet') %> Mark paid
-                </button>
+            <% if (order.payment_status === 'unpaid' && order.payment_method === 'cod' && !['cancelled','refunded'].includes(order.status)) { %>
+              <form action="/admin/orders/<%= order.id %>/collect" method="post">
+                <input type="hidden" name="method" value="cod">
+                <button class="btn success" type="submit" onclick="return confirm('Confirm you have actually collected the cash for this order? This does not charge a card or MoMo account.')"><%- icon('wallet') %> Record cash collected</button>
               </form>
             <% } %>
-
-            <% if (order.payment_status === 'paid' || order.payment_status === 'partially_refunded') { %>
-              <form action="/admin/orders/<%= order.id %>/refund" method="post" class="row" style="gap:.4rem">
-                <input class="input" type="number" name="amount" step="0.01" min="0.01" max="<%= order.total %>"
-                       value="<%= order.total %>" style="max-width:130px" title="Leave the full amount for a complete refund">
-                <input class="input" name="reason" placeholder="Refund reason" style="max-width:200px" maxlength="300">
-                <button class="btn danger" type="submit"
-                        onclick="return confirm('Issue this refund?\n\nThe payment ledger records it and the order moves to refunded. This cannot be undone from the panel.')">
-                  <%- icon('refresh') %> Refund
-                </button>
+            <% const providerPayment = order.payments.find(function (payment) { return payment.gateway === 'paystack'; }); %>
+            <% if (providerPayment) { %>
+              <form action="/admin/orders/<%= order.id %>/payment-check" method="post">
+                <input type="hidden" name="reference" value="<%= providerPayment.reference %>">
+                <button class="btn ghost" type="submit"><%- icon('refresh') %> Verify with Paystack</button>
               </form>
+            <% } %>
+            <% if (order.payment_status === 'paid' || order.payment_status === 'partially_refunded') { %>
+              <span class="tiny muted">Cancellation is not a refund. <%= providerPayment ? 'Issue and track refunds in Paystack; refunds are not initiated or synced by this app.' : 'Any cash refund must be made outside this app.' %></span>
+              <% if (providerPayment) { %><a class="btn ghost" href="https://dashboard.paystack.com/" target="_blank" rel="noopener">Paystack refunds</a><% } %>
             <% } %>
           </div>
 
@@ -126,7 +118,7 @@
                     <tr><td colspan="4" class="num muted">Subtotal</td><td class="num strong"><%= settings.currency_symbol %> <%= money(order.subtotal) %></td><td></td></tr>
                     <% if (order.discount > 0) { %><tr><td colspan="4" class="num muted">Discount <%= order.coupon_code ? '(' + order.coupon_code + ')' : '' %></td><td class="num" style="color:var(--green)">− <%= settings.currency_symbol %> <%= money(order.discount) %></td><td></td></tr><% } %>
                     <tr><td colspan="4" class="num muted">Delivery (<%= order.delivery_method %>)</td><td class="num"><%= order.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(order.shipping_fee) : 'FREE' %></td><td></td></tr>
-                    <% if (order.tax > 0) { %><tr><td colspan="4" class="num muted">Tax</td><td class="num"><%= settings.currency_symbol %> <%= money(order.tax) %></td><td></td></tr><% } %>
+                    <% if (order.tax_rate > 0 || order.tax > 0) { %><tr data-vat-row><td colspan="4" class="num muted"><%= h.vatLabel(order.tax_rate) %></td><td class="num"><%= settings.currency_symbol %> <%= money(order.tax, { symbol: false }) %></td><td></td></tr><% } %>
                     <tr style="background:#F7F9FC"><td colspan="4" class="num strong">Total <%= order.payment_status === 'paid' ? 'paid' : 'due' %></td><td class="num strong" style="font-size:1.05rem"><%= settings.currency_symbol %> <%= money(order.total) %></td><td></td></tr>
                   </tfoot>
                 </table>
@@ -141,7 +133,7 @@
               <div class="timeline">
                 <% order.events.slice().reverse().forEach(function (e, idx) { %>
                   <div class="tl <%= idx === 0 ? 'current' : 'done' %>">
-                    <b><%= STATUS_META[e.status] ? STATUS_META[e.status].label : e.status %></b>
+                    <b><%= STATUS_META[e.status] ? STATUS_META[e.status].label : e.status %> <span class="badge <%= e.is_public ? 'info' : 'muted' %>"><%= e.is_public ? 'Customer-visible' : 'Internal only' %></span></b>
                     <time><%= dateFmt(e.created_at, 'D MMM YYYY, h:mm a') %> · <%= timeAgo(e.created_at) %> · by <%= e.actor %></time>
                     <% if (e.note) { %><p><%= e.note %></p><% } %>
                   </div>
@@ -171,7 +163,7 @@
                         <td class="mono" style="font-size:.72rem"><%= p.reference %></td>
                         <td><span class="badge outline"><%= p.channel || p.method %></span></td>
                         <td class="num strong"><%= settings.currency_symbol %> <%= money(p.amount) %></td>
-                        <td><span class="badge <%= p.status === 'success' ? 'success' : p.status === 'failed' ? 'danger' : p.status === 'refunded' ? 'warn' : 'muted' %>"><%= p.status %></span>
+                        <td><span class="badge <%= p.status === 'success' ? 'success' : p.status === 'failed' ? 'danger' : p.status === 'refunded' ? 'warn' : 'muted' %>"><%= p.status %></span><% if (p.needs_review) { %> <span class="badge danger">Review required</span><% } %>
                           <% if (p.error) { %><br><span class="tiny" style="color:var(--red)"><%= p.error %></span><% } %></td>
                         <td class="small"><%= p.payer || '—' %><% if (p.last4) { %> · •••• <%= p.last4 %><% } %></td>
                         <td class="small muted"><%= p.paid_at ? dateFmt(p.paid_at, 'D MMM, h:mm a') : dateFmt(p.created_at, 'D MMM, h:mm a') %></td>
@@ -193,7 +185,7 @@
                 <span class="avatar" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#2E86AB);color:#fff;display:grid;place-items:center;font-weight:900;flex:none"><%= initials(order.ship_name) %></span>
                 <span style="flex:1">
                   <b style="display:block;font-size:.92rem"><%= order.ship_name %></b>
-                  <span class="muted small"><%= order.user_id ? 'Registered customer' : 'Guest checkout' %></span>
+                  <span class="muted small"><%= order.user_id ? 'Registered customer' : 'Legacy order (no linked account)' %></span>
                 </span>
               </div>
               <div class="stat-line row between"><span class="muted">Phone</span><b><%= order.ship_phone %></b></div>
@@ -261,7 +253,7 @@
                 </div>
                 <div class="field">
                   <label class="label" for="carrier">Carrier</label>
-                  <input class="input" id="carrier" name="carrier" value="<%= order.carrier || '' %>" placeholder="pointGh Riders">
+                  <input class="input" id="carrier" name="carrier" value="<%= order.carrier || '' %>" placeholder="POINTGH Riders">
                 </div>
               </div>
               <div class="field">

@@ -6,9 +6,8 @@
 <title><%= pageTitle %></title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="/img/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap">
+<link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>@font-face{font-family:"Plus Jakarta Sans";src:url("/fonts/plus-jakarta-sans-latin.woff2") format("woff2");font-style:normal;font-weight:200 800;font-display:swap}</style>
 <link rel="stylesheet" href="/css/site.css">
 </head>
 <body class="page-gateway">
@@ -17,7 +16,7 @@
     <div class="gw-head">
       <div style="flex:1">
         <div class="row" style="gap:.5rem;margin-bottom:.25rem">
-          <span style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;color:#3A1A00;font-size:.9rem">B</span>
+          <span style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;color:#3A1A00;font-size:.9rem">P</span>
           <b><%= gatewayBrand %></b>
           <span class="badge <%= mode === 'test' ? 'gold' : 'success' %>"><%= mode === 'test' ? 'TEST MODE' : 'LIVE' %></span>
         </div>
@@ -152,7 +151,7 @@
 
         <div class="secure-note" style="margin-top:1.2rem">
           <%- icon('shield') %>
-          <span>This is a simulated <%= gatewayBrand %> page built to Paystack’s API contract. In production your real keys are set in <code>.env</code> and the webhook at <code>/webhooks/paystack</code> verifies an HMAC SHA-512 signature before marking an order paid. Card data is never stored.</span>
+          <span>This is a test payment simulator. Do not enter real card details or send money. Live payment processing needs a separate provider integration; adding API keys alone does not enable it.</span>
         </div>
       </div>
 
@@ -171,6 +170,7 @@
           <div class="sum-row"><span>Items</span><b><%= settings.currency_symbol %> <%= money(order.subtotal) %></b></div>
           <% if (order.discount > 0) { %><div class="sum-row"><span>Discount</span><b class="save">− <%= settings.currency_symbol %> <%= money(order.discount) %></b></div><% } %>
           <div class="sum-row"><span>Delivery</span><b><%= order.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(order.shipping_fee) : 'FREE' %></b></div>
+          <% if (order.tax_rate > 0 || order.tax > 0) { %><div class="sum-row" data-vat-row><span><%= h.vatLabel(order.tax_rate) %></span><b><%= settings.currency_symbol %> <%= money(order.tax, { symbol: false }) %></b></div><% } %>
           <div class="sum-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= money(order.total) %></b></div>
         </div>
         <div class="tiny" style="margin-top:1rem;color:#64748B">
@@ -198,6 +198,6 @@
     }); });
   });
 </script>
-<script src="/js/site.js" defer></script>
+<script src="/js/site.js?v=2.2" defer></script>
 </body>
 </html>

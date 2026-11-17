@@ -4,6 +4,7 @@ const db = require('../db');
 const settings = require('../services/settings');
 const catalog = require('../services/catalog');
 const orders = require('../services/orders');
+const auth = require('../middleware/auth');
 const helpers = require('../utils/helpers');
 
 const router = express.Router();
@@ -12,32 +13,61 @@ const PAGE = Number(settings.get('page_size')) || 24;
 /* ------------------------------------------------------------------- home */
 router.get('/', (req, res) => {
   const slides = db.prepare('SELECT * FROM slides WHERE is_active = 1 ORDER BY sort_order, id').all();
-  const dealEnds = new Date(Date.now() + 2 * 86400000 + 7 * 3600000).toISOString();
-
-  const featured = catalog.queryProducts({ featured: true, sort: 'popular', perPage: 12 });
-  const flashDeals = catalog.queryProducts({ onSale: true, sort: 'discount', perPage: 10 });
-  const newArrivals = catalog.queryProducts({ sort: 'newest', perPage: 12 });
-  const bestSellers = catalog.queryProducts({ sort: 'popular', perPage: 12 });
-  const deals = catalog.queryProducts({ onSale: true, sort: 'popular', perPage: 12 });
-  const budgetPicks = catalog.queryProducts({ max: 500, sort: 'rating', perPage: 10 });
-
   const cats = catalog.categoryTree({ withCounts: true });
-  const brands = catalog.brandList().slice(0, 14);
+  const flatCats = cats.flatMap((cat) => [cat].concat(cat.children || []));
+  const categoryEdits = [
+    { slug: 'womens-clothing', label: 'For her', photo: '/img/fashion/womens-ankara.jpg' },
+    { slug: 'mens-clothing', label: 'For him', photo: '/img/fashion/mens-oxford.jpg' },
+    { slug: 'sneakers', label: 'Shoes', photo: '/img/fashion/sneakers.jpg' },
+    { slug: 'handbags', label: 'Bags', photo: '/img/fashion/accessories.jpg' },
+    { slug: 'watches-jewellery', label: 'The finishing touches', photo: '/img/fashion/jewellery.jpg' },
+    { slug: 'traditional-wear', label: 'Ghanaian heritage', photo: '/img/fashion/kente-style.jpg' },
+  ];
+  const shopCategories = categoryEdits.flatMap((edit) => {
+    const cat = flatCats.find((item) => item.slug === edit.slug);
+    return cat ? [{ ...cat, ...edit, photo: cat.image || edit.photo }] : [];
+  });
+
+  // Each collection is queried independently so category tabs remain accurate
+  // as the owner grows the catalogue; they are not filters on a small sample.
+  const collections = new Map();
+  function collection(slug) {
+    if (collections.has(slug)) return collections.get(slug);
+    const cat = flatCats.find((item) => item.slug === slug);
+    const items = cat ? catalog.queryProducts({ categoryIds: catalog.categoryIdsIncludingChildren(cat.id), sort: 'popular', perPage: 4 }).items : [];
+    collections.set(slug, items);
+    return items;
+  }
+  const popular = catalog.queryProducts({ sort: 'popular', perPage: 16 }).items;
+  const favourites = [];
+  ['womens-clothing', 'mens-clothing', 'sneakers', 'handbags'].forEach((slug) => {
+    const item = collection(slug)[0];
+    if (item) favourites.push(item);
+  });
+  popular.forEach((item) => { if (favourites.length < 4 && !favourites.some((p) => p.id === item.id)) favourites.push(item); });
+  const shoppingGroups = [
+    { id: 'all', label: 'All favourites', url: '/best-sellers', items: favourites },
+    { id: 'women', label: 'For her', url: '/c/womens-clothing', items: collection('womens-clothing') },
+    { id: 'men', label: 'For him', url: '/c/mens-clothing', items: collection('mens-clothing') },
+    { id: 'shoes', label: 'Shoes & bags', url: '/c/shoes-bags', items: collection('shoes-bags') },
+    { id: 'accessories', label: 'Accessories', url: '/c/watches-jewellery', items: collection('watches-jewellery') },
+  ].filter((group) => group.items.length);
+
+  const offers = catalog.queryProducts({ onSale: true, sort: 'discount', perPage: 16 }).items;
+  const salePicks = [];
+  offers.forEach((item) => {
+    if (salePicks.length < 4 && !salePicks.some((p) => p.category_id === item.category_id)) salePicks.push(item);
+  });
+  offers.forEach((item) => { if (salePicks.length < 4 && !salePicks.some((p) => p.id === item.id)) salePicks.push(item); });
 
   res.render('home', {
     pageTitle: settings.get('meta_title'),
     bodyClass: 'page-home',
     slides,
-    dealEnds,
-    featured: featured.items,
-    flashDeals: flashDeals.items,
-    newArrivals: newArrivals.items,
-    bestSellers: bestSellers.items,
-    deals: deals.items,
-    budgetPicks: budgetPicks.items,
-    cats,
-    brands,
-    productTotal: catalog.countActive(),
+    departments: cats,
+    shopCategories,
+    shoppingGroups,
+    salePicks,
   });
 });
 
@@ -77,7 +107,7 @@ function buildQuery(req, extra = {}) {
   const categorySlug = String(req.query.category || '').trim();
   if (categorySlug) {
     const category = catalog.getCategoryBySlug(categorySlug);
-    q.categoryIds = category && catalog.isFashionCategory(category.id)
+    q.categoryIds = category && catalog.isPublicCategory(category.id)
       ? catalog.categoryIdsIncludingChildren(category.id)
       : [-1];
   }
@@ -91,7 +121,7 @@ function buildQuery(req, extra = {}) {
 
 router.get('/c/:slug', (req, res, next) => {
   const cat = catalog.getCategoryBySlug(req.params.slug);
-  if (!cat || !catalog.isFashionCategory(cat.id)) return next();
+  if (!cat || !catalog.isPublicCategory(cat.id)) return next();
   const ids = catalog.categoryIdsIncludingChildren(cat.id);
   const children = db.prepare('SELECT * FROM categories WHERE parent_id = ? AND is_active = 1 ORDER BY sort_order, name').all(cat.id);
   const parent = cat.parent_id ? catalog.getCategory(cat.parent_id) : null;
@@ -109,7 +139,7 @@ router.get('/c/:slug', (req, res, next) => {
     activeFilters: active,
     view: {
       pageTitle: `${cat.name} — Price in Ghana | ${settings.get('store_name')}`,
-      metaDescription: `Shop ${cat.name} in Ghana, selected and sold directly by pointGh. Secure checkout and delivery across all 16 regions.`,
+      metaDescription: `Shop ${cat.name} in Ghana, selected and sold directly by POINTGH. Secure checkout and delivery across all 16 regions.`,
       heading: cat.name,
       subheading: cat.description || `${catalog.queryProducts({ categoryIds: ids }).pager.total} products available with fast delivery across Ghana`,
       hero: { icon: cat.icon, accent: cat.accent, image: cat.image },
@@ -130,9 +160,9 @@ router.get('/b/:slug', (req, res, next) => {
     query,
     view: {
       pageTitle: `${brand.name} products in Ghana | ${settings.get('store_name')}`,
-      metaDescription: `Shop ${brand.name} fashion in Ghana, selected and sold directly by pointGh. ${brand.tagline || 'Secure checkout and nationwide delivery.'}`,
+      metaDescription: `Shop ${brand.name} products in Ghana, selected and sold directly by POINTGH. ${brand.tagline || 'Secure checkout and nationwide delivery.'}`,
       heading: brand.name,
-      subheading: brand.tagline || `${brand.name} pieces in the owner-curated fashion edit.`,
+      subheading: brand.tagline || `${brand.name} products selected by the store owner.`,
       hero: { icon: '🏷', accent: '#0F2A43', image: brand.logo },
       activeBrand: brand,
       breadcrumbs: [{ label: 'Brands', url: '/brands' }, { label: brand.name, url: `/b/${brand.slug}` }],
@@ -155,7 +185,7 @@ router.get('/search', (req, res) => {
     view: {
       pageTitle: query.q ? `Results for “${query.q}” | ${settings.get('store_name')}` : `Search | ${settings.get('store_name')}`,
       heading: query.q ? `Results for “${query.q}”` : 'Search the store',
-      subheading: query.q ? `Showing fashion pieces matching your search across our collections.` : 'Type a fashion piece, brand or category to begin.',
+      subheading: query.q ? `Showing products matching your search across all departments.` : 'Search for a product, brand or department.',
       hero: { icon: '🔎', accent: '#0F2A43' },
       searchMode: true,
       breadcrumbs: [{ label: 'Search', url: '/search' }],
@@ -169,9 +199,9 @@ router.get('/deals', (req, res) => {
     query,
     view: {
       pageTitle: `Today's Deals & Offers in Ghana | ${settings.get('store_name')}`,
-      metaDescription: 'Discover considered fashion offers in Ghana — clothing, Ankara, Kente, shoes and accessories selected by the owner, with secure checkout and nationwide delivery.',
+      metaDescription: 'Shop offers across fashion, electronics, home, beauty and more, with account checkout and delivery across Ghana.',
       heading: "Today's Deals",
-      subheading: 'A little something off the pieces we love. Every item is selected and sold directly by pointGh.',
+      subheading: 'A little something off the pieces we love. Every item is selected and sold directly by POINTGH.',
       hero: { icon: '🔥', accent: '#F26B21' },
       dealsPage: true,
       breadcrumbs: [{ label: 'Deals', url: '/deals' }],
@@ -184,7 +214,7 @@ router.get('/new-arrivals', (req, res) => listingView(req, res, {
   view: {
     pageTitle: `New Arrivals | ${settings.get('store_name')}`,
     heading: 'New Arrivals',
-    subheading: 'Fresh additions to the owner-curated fashion edit.',
+    subheading: 'Fresh finds across our growing departments.',
     hero: { icon: '✨', accent: '#14624A' },
     breadcrumbs: [{ label: 'New arrivals', url: '/new-arrivals' }],
   },
@@ -219,7 +249,7 @@ router.get('/brands', (req, res) => {
 
 router.get('/categories', (req, res) => {
   res.render('catalog/categories', {
-    pageTitle: `Fashion Categories | ${settings.get('store_name')}`,
+    pageTitle: `All Shopping Categories | ${settings.get('store_name')}`,
     bodyClass: 'page-categories',
     cats: catalog.categoryTree({ withCounts: true }),
     total: catalog.countActive(),
@@ -284,45 +314,32 @@ router.post('/p/:slug/review', (req, res) => {
 });
 
 /* --------------------------------------------------------- order tracking */
-router.get('/track-order', (req, res) => {
-  res.render('track', {
-    pageTitle: `Track Your Order | ${settings.get('store_name')}`,
+function renderTracking(req, res, number = '') {
+  const myOrders = orders.ordersForUser(req.user.id);
+  const latest = myOrders.find(order => !['delivered', 'cancelled', 'refunded'].includes(order.status)) || myOrders[0];
+  const order = number ? orders.findForTracking(number, req.user.id) : latest ? orders.getOrder(latest.id) : null;
+  if (number && !order) res.status(404);
+  return res.render('track', {
+    pageTitle: `Track Your Orders | ${settings.get('store_name')}`,
     bodyClass: 'page-track',
-    order: null,
-    notFound: null,
-    breadcrumbs: [{ label: 'Track order', url: '/track-order' }],
+    myOrders, order, tracking: order ? orders.trackingSnapshot(order) : null,
+    notFound: number && !order ? 'That order was not found in your account.' : null,
+    breadcrumbs: [{ label: 'My orders', url: '/account/orders' }, { label: 'Tracking' }],
   });
+}
+
+router.get('/track-order', auth.requireUser, (req, res) => {
+  return renderTracking(req, res, String(req.query.order || req.query.n || '').trim());
 });
 
-router.post('/track-order', (req, res) => {
-  const number = (req.body.order_number || '').trim();
-  const contact = (req.body.contact || '').trim();
-  if (!number || !contact) {
-    req.flash('danger', 'Enter both your order number and the phone number or email used at checkout.');
-    return res.redirect('/track-order');
-  }
-  const order = orders.findForTracking(number, contact);
-  if (!order) {
-    return res.render('track', {
-      pageTitle: `Track Your Order | ${settings.get('store_name')}`,
-      bodyClass: 'page-track',
-      order: null,
-      notFound: `We could not find an order matching “${number}” with those contact details.`,
-      breadcrumbs: [{ label: 'Track order', url: '/track-order' }],
-    });
-  }
-  return res.render('track', {
-    pageTitle: `Order ${order.order_number} | ${settings.get('store_name')}`,
-    bodyClass: 'page-track',
-    order,
-    notFound: null,
-    breadcrumbs: [{ label: 'Track order', url: '/track-order' }, { label: order.order_number }],
-  });
+router.post('/track-order', auth.requireUser, (req, res) => {
+  const number = String(req.body.order_number || '').trim();
+  return renderTracking(req, res, number);
 });
 
 /* ----------------------------------------------------------- static pages */
 const PAGES = [
-  { path: '/about', view: 'pages/about', title: 'About pointGh' },
+  { path: '/about', view: 'pages/about', title: 'About POINTGH' },
   { path: '/contact', view: 'pages/contact', title: 'Contact Us' },
   { path: '/faq', view: 'pages/faq', title: 'Frequently Asked Questions' },
   { path: '/shipping-delivery', view: 'pages/shipping', title: 'Shipping & Delivery' },

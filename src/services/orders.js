@@ -3,18 +3,25 @@ const db = require('../db');
 const settings = require('./settings');
 const catalog = require('./catalog');
 const cartSvc = require('./cart');
-const { round2, toNumber } = require('../utils/helpers');
+const { round2, toNumber, STATUS_META, dateFmt } = require('../utils/helpers');
 const { audit, notify } = require('../utils/log');
+const { isGhanaPhone } = require('../utils/phone');
+const notifications = require('./notifications');
 
+// Payment/refund states are financial facts, not fulfilment dropdown options.
 const NEXT_STATUS = {
-  pending_payment: ['paid', 'cancelled'],
-  paid: ['processing', 'cancelled', 'refunded'],
-  processing: ['shipped', 'cancelled', 'refunded'],
-  shipped: ['delivered', 'cancelled'],
-  delivered: ['refunded'],
+  pending_payment: ['cancelled'],
+  paid: ['processing', 'cancelled'],
+  processing: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: [],
   cancelled: [],
   refunded: [],
 };
+
+class StockError extends Error {
+  constructor() { super('An item is no longer available in the requested quantity. Please review your bag.'); this.code = 'STOCK_UNAVAILABLE'; }
+}
 
 function orderNumber() {
   const y = new Date().getFullYear();
@@ -26,12 +33,18 @@ function orderNumber() {
 }
 
 /**
- * Turn the current cart into an order. Stock is only decremented once payment
- * succeeds (or immediately for cash-on-delivery).
+ * Turn the cart into an order and allocate stock in one transaction. Online
+ * orders hold stock for 30 minutes; COD holds it until cancellation/fulfilment.
  */
 function createFromCart(req, { shipping, payment, delivery }) {
+  if (!req.user || !req.user.id) return { ok: false, code: 'AUTH_REQUIRED', message: 'Sign in or create an account before placing an order.' };
+  if (!isGhanaPhone(req.user.phone)) return { ok: false, code: 'PHONE_REQUIRED', message: 'Add a valid phone number to your account before placing an order.' };
   const cart = cartSvc.getCart(req, { region: shipping.region, method: delivery.method });
   if (cart.isEmpty) return { ok: false, message: 'Your cart is empty.' };
+  if (cart.dropped) return { ok: false, message: 'Some items are no longer available. Please review your bag before ordering.' };
+  if (!['card', 'momo', 'cod'].includes(payment.method) || !settings.get(`${payment.method}_enabled`)) {
+    return { ok: false, message: 'That payment method is currently unavailable.' };
+  }
 
   const minOrder = toNumber(settings.get('min_order'), 0);
   if (cart.subtotal < minOrder) {
@@ -45,18 +58,18 @@ function createFromCart(req, { shipping, payment, delivery }) {
   const tx = db.transaction(() => {
     const info = db.prepare(
       `INSERT INTO orders (order_number, user_id, guest_name, guest_email, status, payment_status,
-        payment_method, subtotal, discount, shipping_fee, tax, total, currency, coupon_id, coupon_code,
+        payment_method, subtotal, discount, shipping_fee, tax, tax_rate, total, currency, coupon_id, coupon_code,
         ship_name, ship_phone, ship_email, ship_region, ship_city, ship_line, ship_landmark,
         delivery_method, delivery_note, admin_notes)
        VALUES (@order_number,@user_id,@guest_name,@guest_email,@status,@payment_status,@payment_method,
-        @subtotal,@discount,@shipping_fee,@tax,@total,@currency,@coupon_id,@coupon_code,
+        @subtotal,@discount,@shipping_fee,@tax,@tax_rate,@total,@currency,@coupon_id,@coupon_code,
         @ship_name,@ship_phone,@ship_email,@ship_region,@ship_city,@ship_line,@ship_landmark,
         @delivery_method,@delivery_note,@admin_notes)`
     ).run({
       order_number: number,
-      user_id: req.user ? req.user.id : null,
-      guest_name: req.user ? null : shipping.name,
-      guest_email: req.user ? null : shipping.email || null,
+      user_id: req.user.id,
+      guest_name: null,
+      guest_email: null,
       status,
       payment_status: paymentStatus,
       payment_method: payment.method,
@@ -64,6 +77,7 @@ function createFromCart(req, { shipping, payment, delivery }) {
       discount: cart.discount,
       shipping_fee: cart.shipping,
       tax: cart.tax,
+      tax_rate: cart.taxRate,
       total: cart.total,
       currency: settings.get('currency', 'GHS'),
       coupon_id: cart.coupon ? cart.coupon.id : null,
@@ -95,7 +109,7 @@ function createFromCart(req, { shipping, payment, delivery }) {
     });
 
     db.prepare(
-      `INSERT INTO order_events (order_id, status, note, actor) VALUES (?,?,?,?)`
+      `INSERT INTO order_events (order_id, status, note, actor, is_public) VALUES (?,?,?,?,1)`
     ).run(orderId, status, payment.method === 'cod'
       ? 'Order placed — cash on delivery. Awaiting fulfilment.'
       : `Order placed — awaiting ${payment.method === 'momo' ? 'Mobile Money' : 'card'} payment.`, 'customer');
@@ -104,11 +118,17 @@ function createFromCart(req, { shipping, payment, delivery }) {
       db.prepare('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?').run(cart.coupon.id);
     }
 
-    if (payment.method === 'cod') reserveStock(orderId);
+    reserveStock(orderId);
+    if (payment.method !== 'cod') db.prepare("UPDATE orders SET stock_held_until = datetime('now','+30 minutes') WHERE id = ?").run(orderId);
+    notifications.queueOwnerOrder(orderId);
     return orderId;
   });
 
-  const orderId = tx();
+  let orderId;
+  try { orderId = tx.immediate(); } catch (error) {
+    if (error.code === 'STOCK_UNAVAILABLE') return { ok: false, message: error.message };
+    throw error;
+  }
   notify('order', 'info', `New order ${number}`,
     `${cart.count} item(s) · GH₵${cart.total.toFixed(2)} · ${payment.method === 'cod' ? 'Cash on delivery' : payment.method === 'momo' ? 'Mobile Money' : 'Card'}`,
     `/admin/orders/${orderId}`);
@@ -116,22 +136,63 @@ function createFromCart(req, { shipping, payment, delivery }) {
   return { ok: true, orderId, orderNumber: number, cart };
 }
 
+/** Stock flags and all line updates commit together, so retries never allocate twice. */
 function reserveStock(orderId) {
-  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
-  items.forEach((i) => catalog.adjustStock(i.product_id, i.variant_id, -i.qty));
+  return db.transaction(() => {
+    const order = db.prepare('SELECT stock_state FROM orders WHERE id = ?').get(orderId);
+    if (!order || order.stock_state === 'allocated') return false;
+    if (order.stock_state === 'released') throw new StockError();
+    const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+    for (const item of items) {
+      if (!item.product_id || !Number.isSafeInteger(item.qty) || item.qty <= 0) throw new StockError();
+      const product = db.prepare(`UPDATE products SET stock = stock - ? WHERE id = ?
+        AND stock >= ? AND is_active = 1 AND status = 'active'`).run(item.qty, item.product_id, item.qty);
+      if (!product.changes) throw new StockError();
+      if (item.variant_id) {
+        const variant = db.prepare(`UPDATE variants SET stock = stock - ? WHERE id = ?
+          AND product_id = ? AND stock >= ? AND is_active = 1`).run(item.qty, item.variant_id, item.product_id, item.qty);
+        if (!variant.changes) throw new StockError();
+      }
+    }
+    db.prepare("UPDATE orders SET stock_state = 'allocated' WHERE id = ?").run(orderId);
+    return true;
+  })();
 }
 
 function releaseStock(orderId) {
-  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
-  items.forEach((i) => catalog.adjustStock(i.product_id, i.variant_id, i.qty));
+  return db.transaction(() => {
+    const changed = db.prepare("UPDATE orders SET stock_state = 'released', stock_held_until = NULL WHERE id = ? AND stock_state = 'allocated'").run(orderId);
+    if (!changed.changes) return false;
+    for (const item of db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId)) {
+      if (item.product_id) db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(item.qty, item.product_id);
+      if (item.variant_id) db.prepare('UPDATE variants SET stock = stock + ? WHERE id = ? AND product_id = ?').run(item.qty, item.variant_id, item.product_id);
+    }
+    return true;
+  })();
 }
 
 function markSold(orderId) {
-  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
-  items.forEach((i) => {
-    if (!i.product_id) return;
-    db.prepare('UPDATE products SET sold_count = sold_count + ? WHERE id = ?').run(i.qty, i.product_id);
-  });
+  return db.transaction(() => {
+    const changed = db.prepare('UPDATE orders SET sold_recorded = 1 WHERE id = ? AND sold_recorded = 0').run(orderId);
+    if (!changed.changes) return false;
+    for (const item of db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId)) {
+      if (item.product_id) db.prepare('UPDATE products SET sold_count = sold_count + ? WHERE id = ?').run(item.qty, item.product_id);
+    }
+    return true;
+  })();
+}
+
+/** Expiration is also checked at initialize/verify, not just by the timer. */
+function expirePaymentHolds(orderId = null) {
+  return db.transaction(() => {
+    const rows = db.prepare(`SELECT id FROM orders WHERE payment_status = 'unpaid' AND status = 'pending_payment'
+      AND stock_held_until IS NOT NULL AND datetime(stock_held_until) <= datetime('now')
+      ${orderId ? 'AND id = ?' : ''}`).all(...(orderId ? [orderId] : []));
+    for (const row of rows) {
+      setStatus(row.id, 'cancelled', { note: 'The 30-minute payment window expired. Please place a new order if you still want these items.', actor: 'system' });
+    }
+    return rows.length;
+  })();
 }
 
 function getOrder(id) {
@@ -180,39 +241,31 @@ function listOrders({ q = '', status = 'all', userId = null, page = 1, perPage =
   return { items: rows, total, page, perPage };
 }
 
-function setStatus(orderId, status, { note = '', actor = 'admin', req = null, refundStock = false } = {}) {
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-  if (!order) return { ok: false, message: 'Order not found.' };
-  if (!NEXT_STATUS[order.status] || !NEXT_STATUS[order.status].includes(status)) {
-    // Allow admins to force any state (real support desks need this).
-    if (!['pending_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'].includes(status)) {
-      return { ok: false, message: 'Unknown status.' };
+function setStatus(orderId, status, { note = '', actor = 'admin', req = null } = {}) {
+  return db.transaction(() => {
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return { ok: false, message: 'Order not found.' };
+    if (status === order.status) return { ok: true, message: 'Order already has this status.' };
+    if (status === 'paid' || status === 'refunded') {
+      return { ok: false, message: 'Payment and refund states cannot be set manually. Verify the Paystack payment, or record an actual cash-on-delivery collection.' };
     }
-  }
-
-  const tx = db.transaction(() => {
-    if (status === 'paid' && order.payment_status !== 'paid') {
-      db.prepare(`UPDATE orders SET payment_status = 'paid' WHERE id = ?`).run(orderId);
-      reserveStock(orderId);
-      markSold(orderId);
+    if (!(NEXT_STATUS[order.status] || []).includes(status)) return { ok: false, message: 'That order status transition is not allowed.' };
+    if (['processing', 'shipped', 'delivered'].includes(status) && order.payment_method !== 'cod' && order.payment_status !== 'paid') {
+      return { ok: false, message: 'Verify the online payment before fulfilling this order.' };
     }
     if (status === 'cancelled') {
-      if (order.payment_status === 'paid') releaseStock(orderId);
-      db.prepare(`UPDATE orders SET payment_status = CASE WHEN payment_status='paid' THEN 'refunded' ELSE payment_status END WHERE id = ?`).run(orderId);
+      releaseStock(orderId);
+      // Cancellation is NOT a refund. Any captured payment stays paid and is
+      // explicitly flagged for the owner to refund through the provider.
+      if (order.payment_status === 'paid') notify('order', 'warn', `Refund review — ${order.order_number}`,
+        'Order cancelled after payment. No refund has been sent. Review the payment in Paystack.', `/admin/orders/${orderId}`);
     }
-    if (status === 'refunded') {
-      db.prepare(`UPDATE orders SET payment_status = 'refunded' WHERE id = ?`).run(orderId);
-      if (refundStock) releaseStock(orderId);
-    }
-    db.prepare(`UPDATE orders SET status = @status, updated_at = datetime('now'), cancel_reason = @cancel WHERE id = @id`)
-      .run({ status, id: orderId, cancel: status === 'cancelled' ? (note || null) : order.cancel_reason });
-    db.prepare('INSERT INTO order_events (order_id, status, note, actor) VALUES (?,?,?,?)')
-      .run(orderId, status, note || null, actor);
-  });
-  tx();
-
-  if (req) audit(req, `order.status.${status}`, 'order', orderId, { from: order.status, note });
-  return { ok: true, message: `Order ${order.order_number} marked as ${status.replace('_', ' ')}.` };
+    db.prepare(`UPDATE orders SET status = ?, updated_at = datetime('now'), cancel_reason = ? WHERE id = ?`)
+      .run(status, status === 'cancelled' ? (note || null) : order.cancel_reason, orderId);
+    addEvent(orderId, status, note || null, actor, { isPublic: true });
+    if (req) audit(req, `order.status.${status}`, 'order', orderId, { from: order.status, note });
+    return { ok: true, message: `Order ${order.order_number} marked as ${status.replace('_', ' ')}.${status === 'cancelled' && order.payment_status === 'paid' ? ' Payment has not been refunded.' : ''}` };
+  })();
 }
 
 function updateOrder(orderId, patch) {
@@ -228,15 +281,20 @@ function updateOrder(orderId, patch) {
   return { ok: true, message: 'Order updated.' };
 }
 
-function addEvent(orderId, status, note, actor = 'system') {
-  db.prepare('INSERT INTO order_events (order_id, status, note, actor) VALUES (?,?,?,?)').run(orderId, status, note, actor);
+function addEvent(orderId, status, note, actor = 'system', { isPublic = false } = {}) {
+  db.prepare('INSERT INTO order_events (order_id, status, note, actor, is_public) VALUES (?,?,?,?,?)')
+    .run(orderId, status, note, actor, isPublic ? 1 : 0);
+}
+
+function customerEvents(order) {
+  return (order.events || []).filter(event => event.is_public === 1);
 }
 
 /** Customer-facing order list for the account area. */
 function ordersForUser(userId, limit = 100) {
   return db.prepare(
     `SELECT o.*, (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS lines
-     FROM orders o WHERE o.user_id = ? ORDER BY o.placed_at DESC LIMIT ?`
+     FROM orders o WHERE o.user_id = ? ORDER BY o.placed_at DESC, o.id DESC LIMIT ?`
   ).all(userId, limit);
 }
 
@@ -246,17 +304,42 @@ function statusCounts() {
   return out;
 }
 
-function findForTracking(number, contact) {
-  const c = String(contact || '').trim().toLowerCase();
-  const row = db.prepare(
-    `SELECT * FROM orders WHERE order_number = ? COLLATE NOCASE
-     AND (LOWER(COALESCE(ship_phone,'')) LIKE @c OR LOWER(COALESCE(ship_email,'')) LIKE @c
-          OR LOWER(COALESCE(guest_email,'')) LIKE @c)`
-  ).get(number, { c: `%${c.replace(/[^0-9a-z@._+-]/g, '')}%` });
+/** All customer-facing order links use the same ownership check. */
+function canAccess(user, order, { allowAdmin = true } = {}) {
+  return !!(user && order && (order.user_id === user.id
+    || (allowAdmin && ['owner', 'staff'].includes(user.role))));
+}
+
+function findForTracking(number, userId) {
+  if (!userId) return null;
+  const row = db.prepare('SELECT id FROM orders WHERE order_number = ? COLLATE NOCASE AND user_id = ?')
+    .get(String(number || '').trim(), Number(userId));
   return row ? getOrder(row.id) : null;
+}
+
+/** Deliberately excludes addresses, payment credentials and private admin notes. */
+function trackingSnapshot(order) {
+  const flow = order.payment_method === 'cod' ? ['processing', 'shipped', 'delivered']
+    : ['pending_payment', 'paid', 'processing', 'shipped', 'delivered'];
+  const index = flow.indexOf(order.status);
+  return {
+    order_number: order.order_number,
+    status: order.status,
+    label: (STATUS_META[order.status] || {}).label || order.status,
+    tone: (STATUS_META[order.status] || {}).tone || 'muted',
+    payment_status: order.payment_status,
+    tracking_number: order.tracking_number || '',
+    carrier: order.carrier || '',
+    updated_at: order.updated_at,
+    steps: flow.map((status, position) => ({ status, label: STATUS_META[status].label, done: index > position, current: index === position })),
+    events: customerEvents(order).slice().reverse().map(event => ({
+      id: event.id, label: (STATUS_META[event.status] || {}).label || event.status,
+      date: dateFmt(event.created_at), note: event.note || '',
+    })),
+  };
 }
 
 module.exports = {
   createFromCart, getOrder, getOrderByNumber, listOrders, setStatus, updateOrder, addEvent,
-  ordersForUser, statusCounts, findForTracking, reserveStock, releaseStock, orderNumber, NEXT_STATUS,
+  ordersForUser, statusCounts, findForTracking, canAccess, trackingSnapshot, customerEvents, reserveStock, releaseStock, markSold, expirePaymentHolds, orderNumber, NEXT_STATUS,
 };

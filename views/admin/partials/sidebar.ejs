@@ -4,7 +4,7 @@
 %>
 <aside class="sidebar" id="sidebar">
   <div class="sb-brand">
-    <span class="sb-logo">B</span>
+    <span class="sb-logo">P</span>
     <span>
       <b><%= settings.store_name %></b>
       <span>Control panel</span>
@@ -85,8 +85,8 @@
       <a class="sb-link <%= nav === 'audit' ? 'active' : '' %>" href="/admin/system/audit" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
         <span class="ico"><%- icon('shield') %></span> Audit log <%- lock %>
       </a>
-      <a class="sb-link <%= nav === 'mail' ? 'active' : '' %>" href="/admin/system/mail">
-        <span class="ico"><%- icon('send') %></span> Email outbox
+      <a class="sb-link <%= nav === 'mail' ? 'active' : '' %>" href="/admin/system/mail" <%= isOwner ? '' : 'data-owner-only aria-disabled="true"' %>>
+        <span class="ico"><%- icon('send') %></span> Order alerts &amp; delivery <%- lock %>
       </a>
       <a class="sb-link <%= nav === 'health' ? 'active' : '' %>" href="/admin/system/health">
         <span class="ico"><%- icon('activity') %></span> Health &amp; backups

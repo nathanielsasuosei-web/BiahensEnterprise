@@ -13,7 +13,7 @@
     ['notifications', 'Notifications', 'bell'], ['audit_log', 'Audit entries', 'history'],
     ['sessions', 'Sessions', 'key'], ['settings', 'Settings keys', 'settings']];
   const totalRows = TABLES.reduce(function (s, t) { return s + (counts[t[0]] || 0); }, 0);
-  const healthy = env === 'production' ? true : true;
+
 %>
 <div class="admin-shell">
   <%- include('partials/sidebar') %>
@@ -45,6 +45,12 @@
         </div>
       <% } %>
 
+      <section class="card" style="margin-bottom:1rem">
+        <div class="card-head"><div><h2>Production readiness</h2><span class="sub">Local evidence only. Configuration is not provider approval, successful delivery, or a completed deployment.</span></div><span class="badge <%= readiness.ready ? 'success' : 'warn' %>"><%= readiness.ready ? 'Checks passed' : 'Verification still required' %></span></div>
+        <div class="card-body">
+          <% readiness.checks.forEach(function (check) { %><div style="padding:.6rem 0;border-bottom:1px solid var(--line)"><span class="badge <%= check.ok ? 'success' : 'warn' %>"><%= check.ok ? 'OK' : 'Not verified' %></span> <b class="small"><%= check.name %></b><p class="tiny muted" style="margin:.35rem 0 0"><%= check.detail %></p></div><% }); %>
+        </div>
+      </section>
       <div class="kpi-grid">
         <div class="kpi" style="--accent:#12805C">
           <div class="k"><span class="ico"><%- icon('activity') %></span> Status</div>
@@ -102,7 +108,7 @@
               <div class="stat-line row between"><span class="muted">Rate limiting</span><b>express-rate-limit</b></div>
               <div class="stat-line row between"><span class="muted">Maintenance mode</span>
                 <b><span class="badge <%= settings.maintenance_mode === 'true' ? 'danger' : 'success' %>"><%= settings.maintenance_mode === 'true' ? 'ON' : 'off' %></span></b></div>
-              <div class="stat-line row between"><span class="muted">Mail transport</span><b><span class="badge warn">outbox only</span></b></div>
+              <div class="stat-line row between"><span class="muted">Mail transport</span><b><a class="badge info" href="/admin/system/mail">Resend + WhatsApp outbox</a></b></div>
             </div>
           </div>
 
@@ -113,7 +119,7 @@
                 <div class="row between wrap" style="gap:.5rem">
                   <span style="flex:1;min-width:200px">
                     <b class="small"><%- icon('download') %> Database backup</b>
-                    <span class="tiny muted" style="display:block">Streams a consistent <code>VACUUM INTO</code> snapshot as a <code>.sqlite</code> download. Store it off-server.</span>
+                    <span class="tiny muted" style="display:block">Creates an integrity-checked SQLite online backup, including committed WAL contents. Live servers retain seven daily snapshots. Copy the database AND uploads off-server.</span>
                   </span>
                   <form action="/admin/system/backup" method="post"><button class="btn primary sm" type="submit">Back up now</button></form>
                 </div>
@@ -136,6 +142,7 @@
                   <form action="/admin/system/cache/clear" method="post"><button class="btn ghost sm" type="submit">Clear</button></form>
                 </div>
               </div>
+              <% if (cfg.storeMode === 'demo') { %>
               <div class="callout" style="border-left:3px solid var(--red)">
                 <div class="row between wrap" style="gap:.5rem">
                   <span style="flex:1;min-width:200px">
@@ -145,6 +152,7 @@
                   <a class="btn danger sm" href="/admin/settings">Open</a>
                 </div>
               </div>
+              <% } %>
             </div>
           </div>
         </div>
@@ -157,29 +165,24 @@
             <ul class="checklist">
               <li>Set <code>NODE_ENV=production</code> and a long random <code>SESSION_SECRET</code> in <code>.env</code>.</li>
               <li>Point <code>PUBLIC_URL</code> at your real HTTPS domain so webhooks and receipts link correctly.</li>
-              <li>Add live gateway keys and switch <a href="/admin/settings?tab=payments" style="font-weight:800">gateway mode to live</a>.</li>
+              <li>Configure <code>PAYMENT_PROVIDER=paystack</code> and <code>GATEWAY_MODE=live</code> in hosting secrets. The panel cannot override them.</li>
               <li>Register the webhook URL <code><%= publicUrl %>/webhooks/paystack</code> in your gateway dashboard.</li>
-              <li>Connect an SMTP provider in <code>src/utils/log.js</code> so receipts actually reach customers.</li>
+              <li>Configure Resend and the approved WhatsApp Business template, confirm owner opt-in, and explicitly verify both alert channels.</li>
               <li>Replace placeholder imagery and upload your real logo in <a href="/admin/settings" style="font-weight:800">Settings</a>.</li>
-              <li>Schedule a daily <code>VACUUM INTO</code> backup and keep at least one copy off-server.</li>
+              <li>Confirm scheduled SQLite backups and an encrypted off-server copy of the database and uploads. Test recovery without touching the live disk.</li>
               <li>Review the policy pages for your real returns window, warranty and business registration details.</li>
             </ul>
           </div>
         </div>
 
         <div class="card">
-          <div class="card-head"><div><h2>Deploying this build</h2><span class="sub">Node 18+ and a writable <code>data/</code> folder are all it needs</span></div></div>
+          <div class="card-head"><div><h2>Persistent deployment</h2><span class="sub">One long-running Node 22 server with one attached durable disk</span></div></div>
           <div class="card-body small">
-            <pre class="mono" style="background:#0F2A43;color:#DCE7F1;border-radius:10px;padding:.85rem;font-size:.74rem;line-height:1.75;overflow:auto;margin:0">npm install
-cp .env.example .env      # then edit the values
-npm run db:init           # create the schema
-npm run db:seed           # optional demo data
-npm start                 # serves on PORT (default 3000)</pre>
-            <div class="divider"></div>
-            <div class="stat-line row between"><span class="muted">Database file</span><b class="mono" style="font-size:.74rem">data/biahens.sqlite</b></div>
-            <div class="stat-line row between"><span class="muted">Uploads</span><b class="mono" style="font-size:.74rem">public/uploads/</b></div>
-            <div class="stat-line row between"><span class="muted">Back up both</span><b>Yes — they are the whole store</b></div>
-            <p class="tiny muted" style="margin:.7rem 0 0">Runs on any Node host: a $5 VPS, Railway, Render or Fly.io. Put it behind a reverse proxy that terminates TLS.</p>
+            <p>Use the included <code>render.yaml</code> or <code>Dockerfile</code>. Follow <code>docs/production.md</code>; never run demo seed/reset commands on the live disk.</p>
+            <div class="stat-line"><span class="muted">Database</span><p class="mono tiny" style="overflow-wrap:anywhere"><%= storagePaths.database %></p></div>
+            <div class="stat-line"><span class="muted">Uploads</span><p class="mono tiny" style="overflow-wrap:anywhere"><%= storagePaths.uploads %></p></div>
+            <div class="stat-line"><span class="muted">Local backups</span><p class="mono tiny" style="overflow-wrap:anywhere"><%= storagePaths.backups %></p></div>
+            <p class="tiny muted">SQLite, sessions and the notification outbox share the same database. Do not scale this deployment to multiple instances or attach the database to a network filesystem.</p>
           </div>
         </div>
       </div>

@@ -21,7 +21,7 @@
       <div class="page-head">
         <div>
           <h1>Payment ledger</h1>
-          <p class="sub">Every charge attempt, gateway response and refund — reconciled against orders. Gateway: <b><%= gateway.brand %></b> in <b><%= gateway.mode %></b> mode.</p>
+          <p class="sub">Charge attempts and server-verified receipts, matched to orders. Refunds must be issued and reconciled in Paystack, not this ledger. Gateway: <b><%= gateway.brand %></b> in <b><%= gateway.mode %></b> mode.</p>
         </div>
         <div class="actions">
           <a class="btn ghost" href="/admin/settings?tab=payments"><%- icon('settings') %> Gateway settings</a>
@@ -88,7 +88,7 @@
                     <td><span class="row" style="gap:.3rem"><span class="ico" style="color:var(--navy-3)"><%- icon(ch[1]) %></span>
                       <span class="small"><%= ch[0] %><%= p.method && p.method !== p.channel ? ' · ' + p.method : '' %></span></span></td>
                     <td class="num strong"><%= settings.currency_symbol %> <%= money(p.amount) %></td>
-                    <td><span class="badge <%= st[1] %>"><%= st[0] %></span>
+                    <td><span class="badge <%= st[1] %>"><%= st[0] %></span><% if (p.needs_review) { %> <span class="badge danger">Review required</span><% } %>
                       <% if (p.error) { %><span class="tiny" style="display:block;color:var(--red)"><%= truncate(p.error, 34) %></span><% } %></td>
                     <td class="mono tiny muted"><%= p.gateway_ref || '—' %></td>
                     <td class="small"><%= dateFmt(p.paid_at || p.created_at, 'D MMM YYYY') %>
@@ -119,7 +119,7 @@
         </div>
         <div class="card-foot">
           <span class="tiny muted">Webhook endpoint <b class="mono"><%= gateway.webhookUrl %></b> · signature
-            <%= gateway.secretSet ? '<b style="color:var(--green)">secret configured</b>' : '<b style="color:var(--red)">no secret set — signatures are not verified</b>' %> ·
+            <%= gateway.secretSet ? '<b style="color:var(--green)">secret configured</b>' : '<b style="color:var(--red)">not configured — incoming webhooks are rejected</b>' %> ·
             references are unique so a replayed webhook can never double-complete an order.</span>
         </div>
       </div>
@@ -143,8 +143,9 @@
           </div>
         </div>
 
+        <% if (gateway.simulator) { %>
         <div class="card">
-          <div class="card-head"><div><h2>Test-mode cheat sheet</h2></div></div>
+          <div class="card-head"><div><h2>Demo simulator cheat sheet</h2></div></div>
           <div class="card-body small">
             <div class="stat-line row between"><span class="muted">Card — success</span><b class="mono">4084 0840 8408 4081</b></div>
             <div class="stat-line row between"><span class="muted">Card — declined</span><b class="mono">5060 6666 6666 6666 666</b></div>
@@ -152,17 +153,18 @@
             <div class="stat-line row between"><span class="muted">MoMo — fail</span><b class="mono">any number ending 0000</b></div>
             <div class="stat-line row between"><span class="muted">Expiry / CVV</span><b>anything valid</b></div>
             <div class="divider"></div>
-            <p class="tiny muted" style="margin:0">In test mode the simulator settles instantly and writes a real <code>payments</code> row plus a signed webhook, so the flow is identical to production.</p>
+            <p class="tiny muted" style="margin:0">This isolated simulator never charges money and is disabled when Paystack is selected. The production flow redirects to Paystack and verifies provider responses on the server.</p>
           </div>
         </div>
 
+        <% } else { %><div class="card pad"><h2>Provider settlement</h2><p class="small muted">Verify an outstanding payment from its order. A captured charge on a closed or already-paid order is flagged for review without taking stock again. Refunds are handled directly in Paystack.</p><a class="btn ghost" href="https://dashboard.paystack.com/" target="_blank" rel="noopener">Open Paystack</a></div><% } %>
         <div class="card">
           <div class="card-head"><div><h2>Reconciliation checklist</h2></div></div>
           <div class="card-body small">
             <ul class="checklist">
-              <li>Every <b>success</b> row has a matching order with <b>payment_status = paid</b>.</li>
+              <li>Check any <b>Review required</b> receipt before fulfilling an order or issuing a provider refund.</li>
               <li>COD orders show no gateway charge — they are settled in <a href="/admin/orders?payment_status=cod_pending">COD pending</a>.</li>
-              <li>Refunds appear here <b>and</b> on the order timeline with the actor’s name.</li>
+              <li>Refunds are not automated or synced here. Match your Paystack refund and settlement reports separately.</li>
               <li>Failed attempts are kept so you can see abandonment and retry rates.</li>
               <li>Export the ledger monthly and match it against your gateway dashboard statement.</li>
             </ul>

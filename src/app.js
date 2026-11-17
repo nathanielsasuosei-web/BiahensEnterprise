@@ -22,13 +22,23 @@ const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
+// Process/database liveness only; no session, customer data, provider calls or
+// maintenance page. Deployment readiness is a separate owner-only check.
+app.get('/healthz', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { db.prepare('SELECT 1').get(); return res.json({ ok: true }); }
+  catch (_) { return res.status(503).json({ ok: false }); }
+});
+app.use(require('./middleware/origin').sameOriginMutation);
+
 /* ------------------------------------------------------------ view engine */
 app.set('views', path.join(config.root, 'views'));
 app.set('view engine', 'ejs');
 
 /* ------------------------------------------------------------- middleware */
 app.use(compression());
-app.use(morgan(config.isProd ? 'combined' : 'dev', {
+morgan.token('pointgh-path', req => req.path.replace(/^(\/reset-password\/)[^/]+/, '$1[redacted]'));
+app.use(morgan(config.isProd ? ':remote-addr :method :pointgh-path :status :res[content-length] :response-time ms' : 'dev', {
   skip: (req) => req.path.startsWith('/img/ph.svg') || req.path.endsWith('.css') || req.path.endsWith('.js'),
 }));
 
@@ -46,11 +56,13 @@ if (path.resolve(config.uploads.dir) !== path.resolve(path.join(config.root, 'pu
   app.use('/uploads', express.static(config.uploads.dir, { maxAge: '1h', fallthrough: true }));
 }
 
+// This must precede every body parser, including urlencoded. A parsed object
+// reserialized into JSON is not the raw body Paystack signed.
+app.use('/webhooks', express.raw({ type: '*/*', limit: '1mb', inflate: false }), require('./routes/webhooks'),
+  (error, _req, res, _next) => res.status([400, 413, 415].includes(error.status) ? error.status : 400)
+    .json({ ok: false, message: 'Invalid webhook request body.' }));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
-
-// Webhook endpoints must see the RAW body for HMAC verification.
-app.use('/webhooks', express.raw({ type: '*/*', limit: '1mb' }));
 app.use('/admin/api', express.json({ limit: '1mb' }));
 app.use('/api', express.json({ limit: '1mb' }));
 
@@ -85,10 +97,13 @@ app.use(context);
 /* --------------------------------------------------------- security heads */
 app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
-  res.set('X-Frame-Options', 'SAMEORIGIN');
+  // Allow the development storefront to be embedded in the live preview.
+  // The deployed shop keeps its same-origin clickjacking protection.
+  if (config.isProd) res.set('X-Frame-Options', 'SAMEORIGIN');
   res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  if (req.path.startsWith('/admin')) {
-    res.set('Cache-Control', 'no-store, max-age=0');
+  if (config.storeMode === 'live' && config.publicUrl.startsWith('https:')) res.set('Strict-Transport-Security', 'max-age=31536000');
+  if (/^\/(admin|account|checkout|order|pay|track-order|login|register|forgot-password|reset-password|api\/(?:orders|internal))(\/|$)/.test(req.path)) {
+    res.set('Cache-Control', 'private, no-store, max-age=0');
   }
   next();
 });

@@ -26,7 +26,7 @@
   <div class="steps">
     <% steps.forEach(function (s) { %>
       <div class="step <%= s.n === step ? 'active' : '' %> <%= s.n < step ? 'done' : '' %>">
-        <span class="n"><%= s.n < step ? '&#10003;' : s.n %></span>
+        <span class="n"><%= s.n < step ? '✓' : s.n %></span>
         <span><%= s.label %></span>
       </div>
     <% }); %>
@@ -40,14 +40,10 @@
         <div class="card">
           <div class="summary-head row between">
             <span><%- icon('pin') %> Where should we deliver?</span>
-            <% if (!user) { %><span class="badge gold">Guest checkout — no account needed</span><% } %>
+            <span class="badge gold">Account checkout</span>
           </div>
           <div class="summary-body">
-            <% if (!user) { %>
-              <div class="inline-alert">Checking out as a guest. <a href="/login" style="font-weight:800">Sign in</a> or <a href="/register" style="font-weight:800">create an account</a> to save addresses, track orders and use your wishlist. Your cart is kept either way.</div>
-            <% } else { %>
-              <div class="inline-alert success">Signed in as <b><%= user.name %></b> — tick the box below to save this address for next time.</div>
-            <% } %>
+            <div class="inline-alert success">Signed in as <b><%= user.name %></b>. This order will appear automatically in your account for tracking.</div>
 
             <div class="form-grid">
               <div class="field">
@@ -197,11 +193,12 @@
               <% } %>
             </div>
 
-            <div class="inline-alert" style="margin-top:1.1rem">
-              <b>Test mode is on.</b> Card and Mobile Money payments run through our simulated Paystack-compatible gateway, so no real money moves. Test card <code style="background:#fff;padding:.1rem .35rem;border-radius:4px;border:1px solid #DFE6EE">4084 0840 8408 4081</code> succeeds; <code style="background:#fff;padding:.1rem .35rem;border-radius:4px;border:1px solid #DFE6EE">5060 6666 6666 6666 666</code> is declined.
-            </div>
-
-            <div class="secure-note" style="margin-top:1rem"><%- icon('lock') %><span>Card details are captured on the payment gateway’s own hosted page — they never touch our servers. We only receive a signed webhook confirming the charge.</span></div>
+            <% if (isPaymentSimulator) { %>
+              <div class="inline-alert" style="margin-top:1.1rem"><b>Demo payments only.</b> No money moves. Use test card <code>4084 0840 8408 4081</code>; never enter real card details into the simulator.</div>
+            <% } else if (settings.gateway_mode === 'test') { %>
+              <div class="inline-alert" style="margin-top:1.1rem"><b>Paystack test mode.</b> You will use Paystack’s hosted test checkout. No real money moves.</div>
+            <% } %>
+            <div class="secure-note" style="margin-top:1rem"><%- icon('lock') %><span><%= isPaymentSimulator ? 'This preview uses an isolated payment simulator, not a real payment service.' : 'Card and Mobile Money payments are handled on Paystack’s secure hosted checkout. We never collect your card number or CVV. Payment is confirmed on our server.' %></span></div>
           </div>
           <div class="card-foot" style="justify-content:space-between">
             <a class="btn ghost" href="/checkout/back/2"><%- icon('arrow-left') %> Back</a>
@@ -221,7 +218,7 @@
               <div class="card pad" style="box-shadow:none">
                 <div class="tiny" style="margin-bottom:.35rem">Deliver to <a href="/checkout/back/1" style="float:right;color:#F26B21">Edit</a></div>
                 <b style="display:block;font-size:.9rem"><%= sh.name %></b>
-                <span class="small muted"><%= sh.line %><br><%= sh.city %>, <%= sh.region %><br><%= sh.phone %><%= sh.email ? '<br>' + sh.email : '' %></span>
+                <span class="small muted"><%= sh.line %><br><%= sh.city %>, <%= sh.region %><br><%= sh.phone %><% if (sh.email) { %><br><%= sh.email %><% } %></span>
               </div>
               <div class="card pad" style="box-shadow:none">
                 <div class="tiny" style="margin-bottom:.35rem">Delivery method <a href="/checkout/back/2" style="float:right;color:#F26B21">Edit</a></div>
@@ -264,9 +261,7 @@
               <span>I agree to the <a href="/terms" target="_blank" style="color:#F26B21;font-weight:700">terms of sale</a>, the <a href="/returns-refunds" target="_blank" style="color:#F26B21;font-weight:700">returns policy</a> and the <a href="/privacy" target="_blank" style="color:#F26B21;font-weight:700">privacy policy</a>.</span>
             </label>
 
-            <% if (!user) { %>
-              <div class="inline-alert">Checking out as a guest — save your order number from the confirmation page to track it. <a href="/login" style="font-weight:800">Sign in</a> instead to keep everything in one place.</div>
-            <% } %>
+
           </div>
           <div class="card-foot" style="justify-content:space-between">
             <a class="btn ghost" href="/checkout/back/3"><%- icon('arrow-left') %> Back</a>
@@ -297,8 +292,9 @@
           <div class="sum-row"><span>Subtotal</span><b><%= settings.currency_symbol %> <%= cart.subtotal.toFixed(2) %></b></div>
           <% if (cart.discount > 0) { %><div class="sum-row"><span>Coupon <%= cart.coupon ? '(' + cart.coupon.code + ')' : '' %></span><b class="save">− <%= settings.currency_symbol %> <%= cart.discount.toFixed(2) %></b></div><% } %>
           <div class="sum-row"><span>Delivery <%= dl.method === 'pickup' ? '(pickup)' : '' %></span><b><%= cart.shipping > 0 ? settings.currency_symbol + ' ' + cart.shipping.toFixed(2) : 'FREE' %></b></div>
-          <% if (cart.tax > 0) { %><div class="sum-row"><span>Tax</span><b><%= settings.currency_symbol %> <%= cart.tax.toFixed(2) %></b></div><% } %>
+          <% if (cart.taxRate > 0) { %><div class="sum-row" data-vat-row><span><%= h.vatLabel(cart.taxRate) %></span><b><%= settings.currency_symbol %> <%= cart.tax.toFixed(2) %></b></div><% } %>
           <div class="sum-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= cart.total.toFixed(2) %></b></div>
+          <% if (cart.taxRate > 0) { %><p class="small muted">VAT applies to items after coupon discounts, excluding delivery.</p><% } %>
           <div class="divider" style="margin:.9rem 0"></div>
           <div class="stack small" style="gap:.4rem">
             <span class="row" style="gap:.4rem"><span style="color:#12805C"><%- icon('shield') %></span> Buyer protection included</span>

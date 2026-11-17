@@ -1,0 +1,11 @@
+.git
+node_modules
+.cache
+.arena
+.env
+.env.*
+data
+public/uploads
+*.log
+coverage
+Unselected files

@@ -45,13 +45,17 @@ function ensureWritableDb() {
       log(`could not copy baked database (${err.message}) — will seed instead`);
     }
   }
+  // copyFile preserves the baked artifact's permission bits. A deployment
+  // bundle may be read-only, but the restored database must allow sessions,
+  // carts and SQLite WAL writes in the writable runtime directory.
+  if (fs.existsSync(target)) fs.chmodSync(target, 0o600);
   return { restored, seeded: false };
 }
 
 /** Called once from src/app.js before any route handles a request. */
 function bootstrap() {
   if (done) return require('./index');
-  done = true;
+  require('../config/production').assertRuntime(config);
 
   ensureWritableDb();
 
@@ -71,9 +75,15 @@ function bootstrap() {
     }
   }
 
-  // Uploads directory must exist and be writable.
-  try { fs.mkdirSync(config.uploads.dir, { recursive: true }); } catch (_) { /* read-only fs */ }
+  if (config.storeMode === 'live') {
+    require('./owner').assertNoDemoAccounts(db, config);
+    require('../services/settings').ensureDefaults();
+    require('./owner').ensureOwner(db, config);
+  }
+  require('./departments').ensureDepartments(db);
 
+  fs.mkdirSync(config.uploads.dir, { recursive: true });
+  done = true;
   return db;
 }
 

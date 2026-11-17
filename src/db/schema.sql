@@ -1,5 +1,5 @@
 -- ============================================================================
---  pointGh -- database schema (SQLite / better-sqlite3)
+--  POINTGH -- database schema (SQLite / better-sqlite3)
 -- ============================================================================
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
@@ -200,6 +200,7 @@ CREATE TABLE IF NOT EXISTS orders (
   discount        REAL    NOT NULL DEFAULT 0,
   shipping_fee    REAL    NOT NULL DEFAULT 0,
   tax             REAL    NOT NULL DEFAULT 0,
+  tax_rate        REAL    CHECK (tax_rate IS NULL OR (tax_rate >= 0 AND tax_rate <= 100)),
   total           REAL    NOT NULL DEFAULT 0,
   currency        TEXT    NOT NULL DEFAULT 'GHS',
   coupon_id       INTEGER REFERENCES coupons(id) ON DELETE SET NULL,
@@ -247,6 +248,7 @@ CREATE TABLE IF NOT EXISTS order_events (
   status     TEXT    NOT NULL,
   note       TEXT,
   actor      TEXT    NOT NULL DEFAULT 'system',
+  is_public  INTEGER NOT NULL DEFAULT 0 CHECK (is_public IN (0,1)),
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_order_events_order ON order_events(order_id);
@@ -272,6 +274,16 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+
+-- Only a digest and minimal outcome are retained, never raw card authorizations.
+-- A failed transaction rolls this receipt back, allowing Paystack to retry.
+CREATE TABLE IF NOT EXISTS payment_webhook_receipts (
+  digest TEXT PRIMARY KEY,
+  event TEXT NOT NULL,
+  reference TEXT,
+  outcome TEXT NOT NULL,
+  received_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
 -- ------------------------------------------------------- site management ----
 CREATE TABLE IF NOT EXISTS settings (
@@ -345,3 +357,30 @@ CREATE TABLE IF NOT EXISTS sessions (
   expire INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);
+
+-- One-time application data upgrades (never wipe live customer/order data).
+CREATE TABLE IF NOT EXISTS app_migrations (
+  name TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Durable delivery log. 'sent' means accepted by the provider, not confirmed read.
+CREATE TABLE IF NOT EXISTS notification_outbox (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel TEXT NOT NULL CHECK (channel IN ('email','whatsapp')),
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  dedupe_key TEXT NOT NULL UNIQUE,
+  recipient TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  text TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','sending','sent','failed','unconfigured')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT,
+  locked_at TEXT,
+  provider_id TEXT,
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  sent_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_status ON notification_outbox(status, next_attempt_at);

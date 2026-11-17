@@ -45,7 +45,7 @@
         <b><%= billed %></b><br>
         <% if (email) { %><%= email %><br><% } %>
         <%= s.ship_phone %><br>
-        <% if (s.customer_user_id) { %>Customer ID #<%= s.customer_user_id %><% } else { %>Guest checkout<% } %>
+        <% if (s.customer_user_id) { %>Customer ID #<%= s.customer_user_id %><% } else { %>Legacy order (no linked account)<% } %>
       </div>
     </div>
     <div>
@@ -86,8 +86,8 @@
       <div class="row"><span>Discount<%= s.coupon_code ? ' — ' + s.coupon_code : '' %></span><b style="color:var(--green)">− <%= settings.currency_symbol %> <%= money(s.discount) %></b></div>
     <% } %>
     <div class="row"><span><%= deliveryLabel %></span><b><%= s.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(s.shipping_fee) : 'Free' %></b></div>
-    <% if (s.tax > 0) { %>
-      <div class="row"><span>Tax</span><b><%= settings.currency_symbol %> <%= money(s.tax) %></b></div>
+    <% if (s.tax_rate > 0 || s.tax > 0) { %>
+      <div class="row" data-vat-row><span><%= h.vatLabel(s.tax_rate) %></span><b><%= settings.currency_symbol %> <%= money(s.tax, { symbol: false }) %></b></div>
     <% } %>
     <div class="row grand"><span>Total</span><span><%= settings.currency_symbol %> <%= money(s.total) %></span></div>
     <div class="row" style="margin-top:.4rem;font-size:.8rem;color:var(--muted)">
