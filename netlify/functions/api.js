@@ -9,8 +9,8 @@
  *     status = 200
  *
  * serverless-http wraps Express for AWS Lambda / Netlify Functions.
- * We normalize event.path and query parameters so Express matches the original
- * requested path whether invoked directly or via redirect rewrite.
+ * We normalize event.path, event.rawPath, and query parameters so Express
+ * matches the original requested path whether invoked directly or via rewrite.
  */
 const serverless = require('serverless-http');
 const app = require('../../src/app');
@@ -26,11 +26,12 @@ const serverlessHandler = serverless(app, {
 });
 
 exports.handler = async (event, context) => {
-  // Normalize path and query string when rewritten by Netlify redirects
+  // Normalize path and query string across API Gateway v1 / v2 and Netlify rewrites
+  let pathname = '/';
   if (event.rawUrl) {
     try {
       const parsed = new URL(event.rawUrl);
-      event.path = parsed.pathname;
+      pathname = parsed.pathname || '/';
       if (!event.queryStringParameters && parsed.search) {
         event.queryStringParameters = {};
         parsed.searchParams.forEach((val, key) => {
@@ -38,13 +39,15 @@ exports.handler = async (event, context) => {
         });
       }
     } catch (_) {
-      if (event.path) {
-        event.path = event.path.replace(/^\/\.netlify\/functions\/[^\/]+/, '') || '/';
-      }
+      pathname = (event.path || '/').replace(/^\/\.netlify\/functions\/[^\/]+/, '') || '/';
     }
   } else if (event.path) {
-    event.path = event.path.replace(/^\/\.netlify\/functions\/[^\/]+/, '') || '/';
+    pathname = event.path.replace(/^\/\.netlify\/functions\/[^\/]+/, '') || '/';
   }
+
+  event.path = pathname;
+  event.rawPath = pathname;
+  if (event.requestPath) event.requestPath = pathname;
 
   // Ensure client IP is available on requestContext to prevent rate-limit errors
   if (!event.requestContext) event.requestContext = {};

@@ -27,7 +27,11 @@ app.set('views', path.join(config.root, 'views'));
 app.set('view engine', 'ejs');
 
 /* ------------------------------------------------------------- middleware */
-app.use(compression());
+// Edge CDN handles compression on serverless platforms (Netlify/Vercel);
+// running in-process compression causes base64 encoding errors in serverless handlers.
+if (!config.isServerless) {
+  app.use(compression());
+}
 app.use(morgan(config.isProd ? 'combined' : 'dev', {
   skip: (req) => req.path.startsWith('/img/ph.svg') || req.path.endsWith('.css') || req.path.endsWith('.js'),
 }));
