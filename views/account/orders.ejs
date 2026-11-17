@@ -22,7 +22,7 @@
         <div class="empty-state card">
           <div class="ico">&#128230;</div>
           <h3>No <%= status === 'all' ? '' : STATUS_META[status] ? STATUS_META[status].label.toLowerCase() : '' %> orders</h3>
-          <p><%= status === 'all' ? 'You have not placed an order yet. Everything you buy will appear here with live tracking.' : 'Nothing matches that filter yet.' %></p>
+          <p><%= status === 'all' ? 'You have not placed an order yet. Everything you buy will appear here with private, automatically refreshed tracking.' : 'Nothing matches that filter yet.' %></p>
           <a class="btn primary" href="/deals"><%- icon('fire') %> Start shopping</a>
         </div>
       <% } else { %>
@@ -60,7 +60,8 @@
               </div>
 
               <div class="row wrap" style="gap:.45rem">
-                <a class="btn primary sm" href="/account/orders/<%= o.order_number %>"><%- icon('eye') %> View order</a>
+                <a class="btn primary sm" href="/track-order?order=<%= encodeURIComponent(o.order_number) %>"><%- icon('truck') %> Track order</a>
+                <a class="btn ghost sm" href="/account/orders/<%= o.order_number %>"><%- icon('eye') %> View order</a>
                 <a class="btn ghost sm" href="/account/orders/<%= o.order_number %>/receipt" target="_blank"><%- icon('receipt') %> Receipt</a>
                 <form action="/account/orders/<%= o.order_number %>/reorder" method="post" style="display:inline">
                   <button class="btn ghost sm" type="submit"><%- icon('refresh') %> Buy again</button>

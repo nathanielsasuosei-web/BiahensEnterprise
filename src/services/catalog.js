@@ -5,57 +5,44 @@ const { paginate, parseJson, slugify, round2, discountPercent } = require('../ut
 
 /* ------------------------------------------------------------- categories */
 
-// pointGh is a fashion-only single-seller store. These are the
-// only public catalogue roots; descendants inherit the same restriction.
-const FASHION_ROOT_SLUGS = Object.freeze(['fashion', 'shoes-bags']);
-
-function fashionCategoryIds() {
-  const roots = db.prepare(
-    `SELECT id FROM categories WHERE slug IN (${FASHION_ROOT_SLUGS.map(() => '?').join(',')})`
-  ).all(...FASHION_ROOT_SLUGS);
-  return [...new Set(roots.flatMap((row) => categoryIdsIncludingChildren(row.id)))];
+/** Public products may belong to any active department, not just fashion.
+ * An inactive parent also hides its descendants from browsing and search. */
+function publicCategoryIds() {
+  return db.prepare(`WITH RECURSIVE visible(id) AS (
+    SELECT id FROM categories WHERE parent_id IS NULL AND is_active = 1
+    UNION
+    SELECT c.id FROM categories c JOIN visible v ON c.parent_id = v.id WHERE c.is_active = 1
+  ) SELECT id FROM visible`).all().map(row => row.id);
 }
 
-function isFashionCategory(categoryId) {
-  return fashionCategoryIds().includes(Number(categoryId));
+function isPublicCategory(categoryId) {
+  return publicCategoryIds().includes(Number(categoryId));
 }
 
-function categoryTree({ activeOnly = true, withCounts = false, fashionOnly = true } = {}) {
-  const where = activeOnly ? 'WHERE is_active = 1' : '';
-  const rows = db.prepare(`SELECT * FROM categories ${where} ORDER BY sort_order, name`).all();
-  const counts = {};
-  if (withCounts) {
-    db.prepare(
-      `SELECT category_id AS id, COUNT(*) AS n FROM products
-       WHERE is_active = 1 AND status = 'active' GROUP BY category_id`
-    ).all().forEach((r) => { counts[r.id] = r.n; });
-  }
+function categoryTree({ activeOnly = true, withCounts = false } = {}) {
+  const rows = db.prepare(`SELECT * FROM categories ${activeOnly ? 'WHERE is_active = 1' : ''} ORDER BY sort_order, name`).all();
+  const counts = new Map(withCounts ? db.prepare(`SELECT category_id AS id, COUNT(*) AS n FROM products
+    WHERE is_active = 1 AND status = 'active' GROUP BY category_id`).all().map(r => [r.id, r.n]) : []);
   const byParent = new Map();
-  rows.forEach((c) => {
+  rows.forEach(c => {
     c.children = [];
-    c.product_count = counts[c.id] || 0;
-    if (!byParent.has(c.parent_id || 0)) byParent.set(c.parent_id || 0, []);
-    byParent.get(c.parent_id || 0).push(c);
+    c.product_count = counts.get(c.id) || 0;
+    const parent = c.parent_id || 0;
+    if (!byParent.has(parent)) byParent.set(parent, []);
+    byParent.get(parent).push(c);
   });
-  rows.forEach((c) => {
-    c.children = (byParent.get(c.id) || []).slice(0, 8);
-    c.total_count = c.product_count + c.children.reduce((s, ch) => s + (ch.product_count || 0), 0);
-  });
-  const roots = byParent.get(0) || [];
-  return fashionOnly ? roots.filter((c) => FASHION_ROOT_SLUGS.includes(c.slug)) : roots;
+  function build(category, ancestors = new Set()) {
+    if (ancestors.has(category.id)) return null;
+    const visited = new Set(ancestors).add(category.id);
+    category.children = (byParent.get(category.id) || []).map(child => build(child, visited)).filter(Boolean);
+    category.total_count = category.product_count + category.children.reduce((n, child) => n + child.total_count, 0);
+    return category;
+  }
+  return (byParent.get(0) || []).map(c => build(c)).filter(Boolean);
 }
 
-function menuCategories(limit = 9) {
-  return db.prepare(
-    `SELECT * FROM categories WHERE is_active = 1 AND show_in_menu = 1 AND parent_id IS NULL
-       AND slug IN (${FASHION_ROOT_SLUGS.map(() => '?').join(',')})
-     ORDER BY sort_order, name LIMIT ?`
-  ).all(...FASHION_ROOT_SLUGS, limit).map((c) => {
-    c.children = db.prepare(
-      `SELECT * FROM categories WHERE parent_id = ? AND is_active = 1 ORDER BY sort_order, name LIMIT 12`
-    ).all(c.id);
-    return c;
-  });
+function menuCategories(limit = 100) {
+  return categoryTree({ withCounts: true }).filter(c => c.show_in_menu).slice(0, limit);
 }
 
 function getCategoryBySlug(slug) {
@@ -70,7 +57,7 @@ function getCategory(id) {
 function categoryIdsIncludingChildren(id) {
   const out = [Number(id)];
   let frontier = [Number(id)];
-  const guard = new Set();
+  const guard = new Set(out);
   while (frontier.length) {
     const q = frontier.map(() => '?').join(',');
     const kids = db.prepare(`SELECT id FROM categories WHERE parent_id IN (${q})`).all(...frontier).map((r) => r.id);
@@ -95,31 +82,16 @@ function breadcrumbsForCategory(cat) {
 
 /* ----------------------------------------------------------------- brands */
 
-function brandList({ activeOnly = true, withCounts = false, fashionOnly = activeOnly } = {}) {
-  const rows = db.prepare(
-    `SELECT * FROM brands ${activeOnly ? 'WHERE is_active = 1' : ''} ORDER BY sort_order, name`
-  ).all();
-  if (fashionOnly) {
-    const ids = fashionCategoryIds();
-    if (!ids.length) return [];
-    const marks = ids.map(() => '?').join(',');
-    const counts = {};
-    db.prepare(
-      `SELECT brand_id AS id, COUNT(*) AS n FROM products
-       WHERE is_active = 1 AND status = 'active' AND category_id IN (${marks})
-       GROUP BY brand_id`
-    ).all(...ids).forEach((r) => { counts[r.id] = r.n; });
-    rows.forEach((b) => { b.product_count = counts[b.id] || 0; });
-    return rows.filter((b) => b.product_count > 0);
+function brandList({ activeOnly = true, withCounts = false } = {}) {
+  const rows = db.prepare(`SELECT * FROM brands ${activeOnly ? 'WHERE is_active = 1' : ''} ORDER BY sort_order, name`).all();
+  if (withCounts || activeOnly) {
+    const ids = publicCategoryIds();
+    const counts = new Map(ids.length ? db.prepare(`SELECT brand_id AS id, COUNT(*) AS n FROM products
+      WHERE is_active = 1 AND status = 'active' AND category_id IN (${ids.map(() => '?').join(',')})
+      GROUP BY brand_id`).all(...ids).map(r => [r.id, r.n]) : []);
+    rows.forEach(b => { b.product_count = counts.get(b.id) || 0; });
   }
-  if (withCounts) {
-    const counts = {};
-    db.prepare(
-      `SELECT brand_id AS id, COUNT(*) AS n FROM products WHERE is_active = 1 AND status='active' GROUP BY brand_id`
-    ).all().forEach((r) => { counts[r.id] = r.n; });
-    rows.forEach((b) => { b.product_count = counts[b.id] || 0; });
-  }
-  return rows;
+  return activeOnly ? rows.filter(b => b.product_count > 0) : rows;
 }
 
 function getBrandBySlug(slug) { return db.prepare('SELECT * FROM brands WHERE slug = ?').get(slug); }
@@ -151,25 +123,25 @@ function getVariants(productId) {
   return db.prepare('SELECT * FROM variants WHERE product_id = ? AND is_active = 1 ORDER BY sort_order, id').all(productId);
 }
 
-function publicFashionClause() {
-  const ids = fashionCategoryIds();
+function publicCatalogClause() {
+  const ids = publicCategoryIds();
   if (!ids.length) return { sql: 'AND 1 = 0', params: {} };
   const params = {};
   const marks = ids.map((id, i) => {
-    params[`fashionCat${i}`] = id;
-    return `@fashionCat${i}`;
+    params[`publicCat${i}`] = id;
+    return `@publicCat${i}`;
   });
   return { sql: `AND p.category_id IN (${marks.join(',')})`, params };
 }
 
 function getProductBySlug(slug, { admin = false } = {}) {
-  const fashion = admin ? { sql: '', params: {} } : publicFashionClause();
+  const visibility = admin ? { sql: '', params: {} } : publicCatalogClause();
   const p = db.prepare(
     `SELECT ${PUBLIC_COLS} FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN brands b ON b.id = p.brand_id
-     WHERE p.slug = @slug ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"} ${fashion.sql}`
-  ).get(Object.assign({ slug }, fashion.params));
+     WHERE p.slug = @slug ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"} ${visibility.sql}`
+  ).get(Object.assign({ slug }, visibility.params));
   if (!p) return null;
   decorate(p);
   p.variants = getVariants(p.id);
@@ -177,13 +149,13 @@ function getProductBySlug(slug, { admin = false } = {}) {
 }
 
 function getProductById(id, { admin = false } = {}) {
-  const fashion = admin ? { sql: '', params: {} } : publicFashionClause();
+  const visibility = admin ? { sql: '', params: {} } : publicCatalogClause();
   const p = db.prepare(
     `SELECT ${PUBLIC_COLS} FROM products p
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN brands b ON b.id = p.brand_id
-     WHERE p.id = @id ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"} ${fashion.sql}`
-  ).get(Object.assign({ id }, fashion.params));
+     WHERE p.id = @id ${admin ? '' : "AND p.is_active = 1 AND p.status = 'active'"} ${visibility.sql}`
+  ).get(Object.assign({ id }, visibility.params));
   if (!p) return null;
   decorate(p);
   p.variants = getVariants(p.id);
@@ -225,10 +197,10 @@ function queryProducts(opts = {}) {
     if (status && status !== 'all') { where.push('p.status = @status'); params.status = status; }
   } else {
     where.push("p.is_active = 1", "p.status = 'active'");
-    const fashionIds = fashionCategoryIds();
-    if (!fashionIds.length) return { items: [], pager: paginate(0, page, perPage) };
-    where.push(`p.category_id IN (${fashionIds.map((_, i) => `@fashionCat${i}`).join(',')})`);
-    fashionIds.forEach((value, i) => { params[`fashionCat${i}`] = value; });
+    const publicIds = publicCategoryIds();
+    if (!publicIds.length) return { items: [], pager: paginate(0, page, perPage) };
+    where.push(`p.category_id IN (${publicIds.map((_, i) => `@publicCat${i}`).join(',')})`);
+    publicIds.forEach((value, i) => { params[`publicCat${i}`] = value; });
   }
   if (ids) {
     if (!ids.length) return { items: [], pager: paginate(0, page, perPage) };
@@ -296,7 +268,7 @@ function relatedProducts(product, limit = 8) {
 }
 
 function priceBounds() {
-  const ids = fashionCategoryIds();
+  const ids = publicCategoryIds();
   if (!ids.length) return { min: 0, max: 1000 };
   const marks = ids.map(() => '?').join(',');
   const r = db.prepare(
@@ -307,7 +279,7 @@ function priceBounds() {
 }
 
 function uniqueTags(limit = 30) {
-  const ids = fashionCategoryIds();
+  const ids = publicCategoryIds();
   if (!ids.length) return [];
   const marks = ids.map(() => '?').join(',');
   const rows = db.prepare(
@@ -323,7 +295,7 @@ function uniqueTags(limit = 30) {
 }
 
 function countActive() {
-  const ids = fashionCategoryIds();
+  const ids = publicCategoryIds();
   if (!ids.length) return 0;
   const marks = ids.map(() => '?').join(',');
   return db.prepare(
@@ -464,7 +436,7 @@ function lowStockProducts(limit = 25) {
 }
 
 module.exports = {
-  FASHION_ROOT_SLUGS, fashionCategoryIds, isFashionCategory,
+  publicCategoryIds, isPublicCategory,
   categoryTree, menuCategories, getCategoryBySlug, getCategory, categoryIdsIncludingChildren,
   breadcrumbsForCategory, brandList, getBrandBySlug, decorate, getVariants,
   getProductBySlug, getProductById, bumpViews, queryProducts, relatedProducts,

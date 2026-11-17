@@ -125,7 +125,7 @@ router.post('/:id/status', (req, res, next) => {
     });
   }
   if (result.ok && status === 'cancelled') {
-    // stock was already released for paid orders inside setStatus
+    // Allocation was released, but any captured payment still requires an actual refund.
     notify('order', 'warn', `Order cancelled — ${order.order_number}`, note || 'No reason recorded.', `/admin/orders/${order.id}`);
   }
   req.flash(result.ok ? 'success' : 'danger', result.message);
@@ -142,7 +142,7 @@ router.post('/:id/update', (req, res, next) => {
   const result = orders.updateOrder(order.id, patch);
   audit(req, 'order.update', 'order', order.id, patch);
   if (result.ok && (patch.tracking_number && patch.tracking_number !== order.tracking_number)) {
-    orders.addEvent(order.id, 'shipped', `Tracking number ${patch.tracking_number}${patch.carrier ? ` (${patch.carrier})` : ''} added.`, 'admin');
+    orders.addEvent(order.id, order.status, `Tracking number ${patch.tracking_number}${patch.carrier ? ` (${patch.carrier})` : ''} added.`, 'admin', { isPublic: true });
   }
   req.flash(result.ok ? 'success' : 'danger', result.message);
   return res.redirect(`/admin/orders/${order.id}`);
@@ -155,7 +155,7 @@ router.post('/:id/event', (req, res, next) => {
   if (!note) { req.flash('danger', 'Write a note first.'); return res.redirect(`/admin/orders/${order.id}`); }
   orders.addEvent(order.id, order.status, note, `${req.user.name} (admin)`);
   audit(req, 'order.note', 'order', order.id, { note });
-  req.flash('success', 'Note added to the order timeline.');
+  req.flash('success', 'Internal note saved. It is not visible to the customer.');
   return res.redirect(`/admin/orders/${order.id}`);
 });
 
@@ -186,6 +186,24 @@ router.post('/:id/refund', (req, res, next) => {
   });
   req.flash(result.ok ? 'success' : 'danger', result.message);
   return res.redirect(`/admin/orders/${order.id}`);
+});
+
+router.post('/:id/payment-check', async (req, res, next) => {
+  const order = orders.getOrder(Number(req.params.id));
+  const payment = payments.findByReference(String(req.body.reference || ''));
+  if (!order || !payment || payment.order_id !== order.id) return next();
+  try {
+    const result = await payments.verify(payment.reference);
+    req.flash(result.needsReview ? 'warn' : result.ok ? 'success' : 'info', result.needsReview
+      ? 'Captured payment needs review. Check the ledger and Paystack before fulfilment or refund.'
+      : result.ok ? 'Paystack has confirmed this payment.' : result.message);
+    audit(req, 'payment.verify', 'payment', payment.id, { confirmed: result.ok, review: !!result.needsReview });
+    return res.redirect(`/admin/orders/${order.id}`);
+  } catch (error) {
+    if (!error.code || !error.code.startsWith('PAYSTACK_')) return next(error);
+    req.flash('warn', error.message);
+    return res.redirect(`/admin/orders/${order.id}`);
+  }
 });
 
 /* ----------------------------------------------------------- bulk actions */
@@ -233,7 +251,7 @@ router.get('/fulfilment/picklist', (req, res) => {
     out += `   ${String(r.qty).padStart(3)}× ${r.name}${r.variant_title ? ` [${r.variant_title}]` : ''}${r.sku ? ` (${r.sku})` : ''}\n`;
     return out;
   });
-  return res.send(`pointGh — WAREHOUSE PICK LIST\nGenerated ${new Date().toLocaleString('en-GB')}\n${lines.join('')}`);
+  return res.send(`POINTGH — WAREHOUSE PICK LIST\nGenerated ${new Date().toLocaleString('en-GB')}\n${lines.join('')}`);
 });
 
 module.exports = router;

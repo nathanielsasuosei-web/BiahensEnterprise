@@ -3,6 +3,12 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const cart = require('../services/cart');
 const { audit } = require('../utils/log');
+const { isGhanaPhone } = require('../utils/phone');
+
+function safeReturnTo(value, fallback = '/account') {
+  const path = typeof value === 'string' ? value : '';
+  return /^\/(?!\/)/.test(path) && !/[\\\r\n]/.test(path) ? path : fallback;
+}
 
 function loadUser(req, _res, next) {
   if (req.session && req.session.userId) {
@@ -21,12 +27,29 @@ function loadUser(req, _res, next) {
 
 function requireUser(req, res, next) {
   if (req.user) return next();
-  if (req.xhr || req.path.startsWith('/api/')) {
+  const pathname = req.originalUrl.split('?')[0];
+  if (req.xhr || req.headers.accept === 'application/json' || pathname.startsWith('/api/')) {
     return res.status(401).json({ ok: false, message: 'Please sign in to continue.', loginUrl: '/login' });
   }
-  req.session.returnTo = req.originalUrl;
-  req.flash('info', 'Please sign in to continue.');
+  // Never return a shopper to a POST-only endpoint after signing in.
+  req.session.returnTo = safeReturnTo(req.method === 'GET' ? req.originalUrl
+    : pathname.startsWith('/checkout') ? '/checkout'
+      : pathname.startsWith('/pay/') ? pathname.replace(/\/(cancel|simulate-webhook)$/, '')
+        : pathname.startsWith('/track-order') ? '/track-order' : '/account');
+  req.flash('info', 'Sign in or create an account to checkout and track your orders.');
   return res.redirect('/login');
+}
+
+function requireCheckoutAccount(req, res, next) {
+  return requireUser(req, res, () => {
+    if (isGhanaPhone(req.user.phone)) return next();
+    if (req.xhr || req.headers.accept === 'application/json') {
+      return res.status(403).json({ ok: false, message: 'Add a valid phone number to your account before checkout.', profileUrl: '/account/profile' });
+    }
+    req.session.returnTo = '/checkout';
+    req.flash('info', 'Add a valid phone number to your profile before checking out.');
+    return res.redirect('/account/profile');
+  });
 }
 
 /**
@@ -61,7 +84,7 @@ function ownerArea(area) {
 }
 
 function guestOnly(req, res, next) {
-  if (req.user) return res.redirect(req.session.returnTo || '/account');
+  if (req.user) return res.redirect(safeReturnTo(req.session.returnTo));
   next();
 }
 
@@ -75,12 +98,16 @@ function credentials(email, password) {
   return { ok: true, user };
 }
 
-function login(req, user) {
-  // Merge the guest cart BEFORE switching the cart key to the account.
+async function login(req, user) {
+  const previous = {};
+  for (const key of ['returnTo', 'adminReturn', 'checkout', 'shipRegion', 'shipMethod', 'couponCode', 'flash']) {
+    if (req.session[key] !== undefined) previous[key] = req.session[key];
+  }
+  // Preserve a guest bag, but never retain the unauthenticated session ID.
   cart.mergeIntoUser(req.sessionID, user.id);
-  req.session.userId = user.id;
-  req.session.adminReturn = null;
-  db.prepare(`UPDATE users SET last_login_at = datetime('now') WHERE id = ?`).run(user.id);
+  await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
+  Object.assign(req.session, previous, { userId: user.id });
+  db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
   audit(req, 'auth.login', 'user', user.id, { role: user.role });
 }
 
@@ -92,6 +119,6 @@ function logout(req) {
 }
 
 module.exports = {
-  loadUser, requireUser, requireAdmin, requireOwner, ownerArea, guestOnly,
+  loadUser, requireUser, requireCheckoutAccount, requireAdmin, requireOwner, ownerArea, guestOnly, safeReturnTo,
   credentials, login, logout,
 };

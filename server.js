@@ -1,37 +1,60 @@
 'use strict';
-const app = require('./src/app');
+const app = require('./src/app'); // validates live config before opening the DB
 const config = require('./src/config');
 const settings = require('./src/services/settings');
 const db = require('./src/db');
+const notifications = require('./src/services/notifications');
+const payments = require('./src/services/payments');
+const orders = require('./src/services/orders');
+const backups = require('./src/services/backups');
+const jobs = new Set();
+let stopping = false;
+function job(work, label) {
+  if (stopping) return;
+  const pending = Promise.resolve().then(work).catch(() => console.error(`[${label}] Failed; inspect the owner delivery log or system health.`));
+  jobs.add(pending);
+  pending.finally(() => jobs.delete(pending));
+}
+const workers = [
+  setInterval(() => job(() => notifications.flush(), 'delivery'), 30000),
+  setInterval(() => job(() => orders.expirePaymentHolds(), 'stock holds'), 30000),
+  setInterval(() => job(() => backups.scheduled(), 'backup'), 3600000),
+];
+workers.forEach(worker => worker.unref());
 
 const server = app.listen(config.port, config.host, () => {
-  const products = db.prepare(`SELECT COUNT(*) AS n FROM products WHERE is_active = 1 AND status = 'active'`).get().n;
-  const owner = db.prepare(`SELECT email FROM users WHERE role = 'owner' LIMIT 1`).get();
-
-  console.log('\n┌──────────────────────────────────────────────────────────────┐');
-  console.log(`│  ${settings.get('store_name').padEnd(58)} │`);
-  console.log('│  pointGh — e-commerce platform (Express + EJS)    │');
-  console.log('└──────────────────────────────────────────────────────────────┘');
-  console.log(`   ▸ Listening   http://${config.host}:${config.port}   (${config.env})`);
-  console.log(`   ▸ Database    ${config.db.file}`);
-  console.log(`   ▸ Catalogue   ${products} live products`);
-  console.log(`   ▸ Storefront  ${config.publicUrl}`);
-  console.log(`   ▸ Admin       ${config.publicUrl}/admin/login`);
-  console.log(`   ▸ Owner       ${owner ? owner.email : config.owner.email}  (products can only be uploaded by the owner)`);
-  console.log(`   ▸ Gateway     ${settings.get('gateway_brand')} — mode: ${settings.get('gateway_mode')}`);
-  console.log(`   ▸ Webhook     POST ${config.publicUrl}/webhooks/paystack  (HMAC SHA-512 verified)\n`);
+  const products = db.prepare("SELECT COUNT(*) AS n FROM products WHERE is_active = 1 AND status = 'active'").get().n;
+  console.log(`\n${settings.get('store_name')} — ${config.storeMode === 'live' ? 'LIVE STORE' : 'DEMO / NO REAL PAYMENTS'}`);
+  console.log(`Listening: http://${config.host}:${config.port} (${config.env})`);
+  console.log(`Storefront: ${config.publicUrl} · ${products} active products`);
+  console.log(`Admin: ${config.publicUrl}/admin/login`);
+  console.log(`Storage: ${config.storage.persistent ? 'configured persistent disk — verify host attachment' : 'development/demo filesystem'}`);
+  console.log(`Payments: ${payments.brand()} · ${payments.mode()}`);
+  console.log(`Webhook: ${config.publicUrl}/webhooks/paystack`);
+  console.log('Provider configuration is not proof of payment, message delivery, settlement or off-server backup.\n');
+  job(() => notifications.flush(), 'delivery');
+  job(() => orders.expirePaymentHolds(), 'stock holds');
+  job(() => backups.scheduled(), 'backup');
 });
-
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\n✖  Port ${config.port} is already in use. Set PORT=something-else and retry.\n`);
-    process.exit(1);
-  }
-  throw err;
+server.on('error', error => {
+  if (error.code === 'EADDRINUSE') console.error(`Port ${config.port} is already in use.`);
+  else console.error('Server could not start:', error.code || 'unknown error');
+  process.exitCode = 1;
+  workers.forEach(clearInterval);
 });
-
-process.on('unhandledRejection', (err) => console.error('unhandledRejection:', err));
-process.on('SIGTERM', () => server.close(() => process.exit(0)));
-process.on('SIGINT', () => server.close(() => process.exit(0)));
-
+async function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  workers.forEach(clearInterval);
+  const force = setTimeout(() => process.exit(1), 25000);
+  force.unref();
+  await new Promise(resolve => server.close(resolve));
+  await Promise.allSettled([...jobs]);
+  try { db.pragma('wal_checkpoint(TRUNCATE)'); db.close(); } catch (_) { /* shutdown only */ }
+  clearTimeout(force);
+  process.exit(0);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+process.on('unhandledRejection', () => console.error('Unhandled background error. Check system health; no provider success has been assumed.'));
 module.exports = server;

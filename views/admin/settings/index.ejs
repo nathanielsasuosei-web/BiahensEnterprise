@@ -85,7 +85,7 @@
                     <label class="label" for="<%= s[0] %>"><%= s[1] %></label>
                     <div class="input-group">
                       <span class="prefix"><%- icon(s[0]) %></span>
-                      <input class="input mono" id="<%= s[0] %>" name="<%= s[0] %>" value="<%= val(s[0]) %>" placeholder="https://<%= s[0] %>.com/biahens">
+                      <input class="input mono" id="<%= s[0] %>" name="<%= s[0] %>" value="<%= val(s[0]) %>" placeholder="https://<%= s[0] %>.com/pointgh">
                     </div>
                   </div>
                 <% }); %>
@@ -174,7 +174,7 @@
             </div>
             <div class="field">
               <label class="label" for="stPassword">Password <span class="muted" id="pwReq">(required — at least 8 characters)</span></label>
-              <input class="input" id="stPassword" name="password" type="text" minlength="8" autocomplete="new-password" placeholder="Set a temporary password they change after first sign-in">
+              <input class="input" id="stPassword" name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Set a temporary password they change after first sign-in">
               <span class="hint">Leave blank when editing an existing account to keep the current password.</span>
             </div>
           </div>
@@ -189,6 +189,7 @@
           <div class="card-body">
             <form action="/admin/settings/general" method="post" style="margin-bottom:1rem">
               <input type="hidden" name="tab" value="general">
+              <input type="hidden" name="_booleans" value="maintenance_mode">
               <div class="row wrap" style="gap:.6rem;align-items:flex-start">
                 <div style="flex:1;min-width:240px">
                   <b class="small">Maintenance mode</b>
@@ -205,6 +206,7 @@
 
             <div class="divider"></div>
 
+            <% if (cfg.storeMode === 'demo') { %>
             <form action="/admin/settings/danger/reset-demo" method="post" class="row wrap" style="gap:.6rem;align-items:flex-end"
               onsubmit="return confirm('Rebuild the entire demo dataset?\n\nEvery product, order, customer and review will be regenerated from the seed script. This cannot be undone.')">
               <div style="flex:1;min-width:240px">
@@ -217,6 +219,7 @@
               </div>
               <button class="btn danger" type="submit"><%- icon('refresh') %> Reset data</button>
             </form>
+            <% } else { %><p class="small muted">Demo reset and sample-data seeding are disabled for this live store.</p><% } %>
           </div>
         </div>
       <% } %>
@@ -302,9 +305,10 @@
       <% if (tab === 'commerce') { %>
         <form action="/admin/settings/general" method="post" data-busy>
           <input type="hidden" name="tab" value="commerce">
+          <input type="hidden" name="_booleans" value="momo_enabled,card_enabled,cod_enabled,reviews_moderated,reviews_require_purchase,newsletter_on">
           <div class="grid g-2" style="gap:1rem;align-items:start;margin-bottom:1rem">
             <div class="card">
-              <div class="card-head"><div><h2>Currency, tax &amp; order rules</h2></div></div>
+              <div class="card-head"><div><h2>Currency, VAT &amp; order rules</h2></div></div>
               <div class="card-body">
                 <div class="form-grid">
                   <div class="field">
@@ -318,9 +322,9 @@
                 </div>
                 <div class="form-grid">
                   <div class="field">
-                    <label class="label" for="tax_rate">Tax rate (%)</label>
-                    <input class="input" id="tax_rate" name="tax_rate" type="number" step="0.01" min="0" value="<%= val('tax_rate') %>">
-                    <span class="hint">0 keeps prices exactly as displayed with no added tax.</span>
+                    <label class="label" for="tax_rate">VAT (%)</label>
+                    <input class="input" id="tax_rate" name="tax_rate" type="number" step="0.01" min="0" max="100" value="<%= val('tax_rate') %>">
+                    <span class="hint">Added to item prices after coupons, excluding delivery. Default: 1%. Existing orders keep their original VAT.</span>
                   </div>
                   <div class="field">
                     <label class="label" for="min_order">Minimum order value</label>
@@ -486,26 +490,26 @@
             <input type="hidden" name="tab" value="payments">
             <div class="card">
               <div class="card-head">
-                <div><h2>Payment gateway</h2><span class="sub">Paystack-compatible · currently running in <b><%= gatewayMode %></b> mode</span></div>
+                <div><h2>Payment gateway</h2><span class="sub">Server-selected gateway · currently running in <b><%= gatewayMode %></b> mode</span></div>
                 <span class="badge <%= gatewayMode === 'live' ? 'success' : 'gold' %>"><%= gatewayMode === 'live' ? 'LIVE' : 'TEST MODE' %></span>
               </div>
               <div class="card-body">
                 <div class="inline-alert" style="margin-bottom:1rem">
                   <%- icon('info') %>
-                  <span>In <b>test mode</b> the built-in simulator settles every charge, so no real money moves. Card <code>4084 0840 8408 4081</code> succeeds, <code>5060 6666 6666 6666 666</code> is declined and Mobile Money numbers ending <code>0000</code> fail. Go live by putting real keys in <code>.env</code> and choosing live below.</span>
+                  <span><%= simulatorEnabled ? 'This is an isolated demo simulator. It cannot take real payments. Never enter real card details.' : 'Card and Mobile Money payments use Paystack-hosted checkout. The server checks the reference, exact amount, currency, environment and successful status before crediting an order.' %> Production payment mode and credentials are controlled by hosting environment variables. There is no simulator fallback.</span>
                 </div>
                 <div class="field">
                   <label class="label" for="gateway_brand">Gateway brand name</label>
-                  <input class="input" id="gateway_brand" name="gateway_brand" value="<%= val('gateway_brand') %>">
-                  <span class="hint">Shown on the hosted payment page.</span>
+                  <input class="input" id="gateway_brand" value="<%= val('gateway_brand') %>" readonly>
+                  <span class="hint">Selected by PAYMENT_PROVIDER on the server.</span>
                 </div>
                 <div class="field">
                   <label class="label" for="gateway_mode">Mode</label>
-                  <select class="select" id="gateway_mode" name="gateway_mode">
-                    <option value="test" <%= String(val('gateway_mode')) === 'test' ? 'selected' : '' %>>Test — simulated charges, no real money</option>
-                    <option value="live" <%= String(val('gateway_mode')) === 'live' ? 'selected' : '' %>>Live — real keys from .env are used</option>
+                  <select class="select" id="gateway_mode" name="gateway_mode" <%= gatewayModeLocked ? 'disabled' : '' %>>
+                    <option value="test" <%= gatewayMode === 'test' ? 'selected' : '' %>>Test — no real money</option>
+                    <option value="live" <%= gatewayMode === 'live' ? 'selected' : '' %>>Live — Paystack only, no simulation</option>
                   </select>
-                  <span class="hint">Live mode still requires valid keys in your environment file, otherwise checkout falls back to the simulator.</span>
+                  <span class="hint">Environment settings override old database defaults. Hosted checkout never falls back to simulated payment.</span>
                 </div>
                 <div class="field">
                   <label class="label">Payment API credentials</label>
@@ -516,7 +520,7 @@
                       <div><span>Secret key</span><b class="badge <%= paymentCredentials.secretKey ? 'success' : 'muted' %>"><%= paymentCredentials.secretKey ? 'Configured' : 'Not configured' %></b></div>
                       <div><span>Webhook signing secret</span><b class="badge <%= paymentCredentials.webhookSecret ? 'success' : 'muted' %>"><%= paymentCredentials.webhookSecret ? 'Configured' : 'Not configured' %></b></div>
                     </div>
-                    <span class="hint">Use <code>PAYSTACK_PUBLIC_KEY</code>, <code>PAYSTACK_SECRET_KEY</code> and <code>PAYSTACK_WEBHOOK_SECRET</code>. Values are intentionally omitted from this page and its HTML.</span>
+                    <span class="hint">Use <code>PAYSTACK_SECRET_KEY</code> and, for timestamped signatures, <code>PAYSTACK_WEBHOOK_SECRET</code>. The public key is optional for hosted checkout. Values are intentionally omitted from this page and its HTML.</span>
                   </div>
                 </div>
                 <div class="divider"></div>
@@ -532,6 +536,7 @@
           <div class="stack" style="gap:1rem">
             <form action="/admin/settings/general" method="post" class="card">
               <input type="hidden" name="tab" value="payments">
+              <input type="hidden" name="_booleans" value="momo_enabled,card_enabled,cod_enabled">
               <div class="card-head"><div><h2>Accepted methods</h2><span class="sub">Hidden methods disappear from checkout</span></div></div>
               <div class="card-body stack" style="gap:.75rem">
                 <label class="row between" style="gap:.6rem">
@@ -553,6 +558,7 @@
               <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save methods</button></div>
             </form>
 
+            <% if (simulatorEnabled) { %>
             <form action="/admin/settings/gateway/test" method="post" class="card">
               <div class="card-head"><div><h2>Webhook tester</h2><span class="sub">Fire a correctly-signed event through the real endpoint</span></div></div>
               <div class="card-body">
@@ -566,12 +572,13 @@
                   <select class="select" id="gwEvent" name="event">
                     <option value="charge.success">charge.success — mark the order paid</option>
                     <option value="charge.failed">charge.failed — record a failed attempt</option>
-                    <option value="refund.success">refund.success — simulate a refund</option>
+                    <option value="charge.abandoned">charge.abandoned — record an abandoned attempt</option>
                   </select>
                 </div>
               </div>
               <div class="card-foot"><button class="btn gold" type="submit"><%- icon('zap') %> Send signed webhook</button></div>
             </form>
+            <% } else { %><div class="card pad"><h2>Real payment verification</h2><p class="small muted">Use the payment check action on an order, or configure the signed webhook in Paystack. Simulator helpers are disabled. Initiate and reconcile refunds in your Paystack dashboard; this app does not send refunds.</p><a class="btn ghost" href="https://dashboard.paystack.com/" target="_blank" rel="noopener">Open Paystack dashboard</a></div><% } %>
           </div>
         </div>
       <% } %>
@@ -580,6 +587,7 @@
       <% if (tab === 'homepage') { %>
         <form action="/admin/settings/general" method="post" data-busy>
           <input type="hidden" name="tab" value="homepage">
+          <input type="hidden" name="_booleans" value="rail_flash,rail_featured,rail_best,rail_new,rail_deals,trust_strip,newsletter_on,announcement_on">
           <div class="grid g-2" style="gap:1rem;align-items:start">
             <div class="card">
               <div class="card-head">
@@ -696,13 +704,7 @@
                   <input class="input" id="meta_keywords" name="meta_keywords" value="<%= val('meta_keywords') %>" placeholder="online shopping ghana, accra, mobile money, phones, electronics">
                   <span class="hint">Largely ignored by Google but harmless; Bing still reads it.</span>
                 </div>
-                <div class="divider"></div>
-                <b class="small">Search-result preview</b>
-                <div style="border:1px solid var(--line);border-radius:10px;padding:.85rem;margin-top:.5rem;background:#fff">
-                  <div style="color:#1A0DAB;font-weight:700;font-size:.95rem;line-height:1.35"><span id="seoTitle"><%= val('meta_title') || val('store_name') %></span></div>
-                  <div style="color:#006621;font-size:.76rem;margin:.15rem 0"><%= cfg.publicUrl %></div>
-                  <div style="color:#545454;font-size:.82rem;line-height:1.5" id="seoDesc"><%= val('meta_description') || 'Your meta description preview appears here.' %></div>
-                </div>
+
               </div>
               <div class="card-foot"><button class="btn primary" type="submit"><%- icon('save') %> Save SEO settings</button></div>
             </div>
@@ -772,7 +774,7 @@
     function seo() {
       var t = document.getElementById('seoTitle'), d = document.getElementById('seoDesc');
       if (t && mt) t.textContent = mt.value || '<%= val('store_name').replace(/'/g, "\\'") %>';
-      if (d && md) d.textContent = md.value || 'Your meta description preview appears here.';
+      if (d && md) d.textContent = md.value || '';
     }
     if (mt) mt.addEventListener('input', seo);
     if (md) md.addEventListener('input', seo);

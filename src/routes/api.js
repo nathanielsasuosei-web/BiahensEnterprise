@@ -5,6 +5,8 @@ const settings = require('../services/settings');
 const catalog = require('../services/catalog');
 const cartSvc = require('../services/cart');
 const stats = require('../services/stats');
+const orders = require('../services/orders');
+const auth = require('../middleware/auth');
 const { placeholderSvg, imgSrc } = require('../utils/images');
 const { round2, discountPercent, truncate } = require('../utils/helpers');
 
@@ -94,16 +96,13 @@ router.get('/api/shipping-quote', (req, res) => {
 function toNumber(v) { return Number(v) || 0; }
 
 /* ------------------------------------------------------------- cart (XHR) */
-router.post('/api/cart/add', (req, res) => {
-  const result = cartSvc.addToCart(req, {
-    productId: req.body.product_id, variantId: req.body.variant_id || null, qty: req.body.qty || 1,
-  });
+// Every cart mutation returns the same complete snapshot. This keeps the bag,
+// subtotal and empty state in sync without reloading the page.
+function cartPayload(req) {
   const cart = cartSvc.getCart(req);
-  return res.status(result.ok ? 200 : 400).json({
-    ok: result.ok,
-    message: result.message,
-    needsVariant: !!result.needsVariant,
-    count: cart.count, subtotal: cart.subtotal, total: cart.total,
+  return {
+    count: cart.count, subtotal: cart.subtotal, discount: cart.discount,
+    shipping: cart.shipping, taxRate: cart.taxRate, tax: cart.tax, total: cart.total,
     freeShippingGap: cart.freeShippingGap,
     items: cart.items.map((i) => ({
       id: i.id, name: i.product.name, slug: i.product.slug, qty: i.qty,
@@ -111,24 +110,31 @@ router.post('/api/cart/add', (req, res) => {
       image: imgSrc(i.image, { w: 160, h: 160, hint: i.product.category_name, name: i.product.name }),
       variant: i.variant ? i.variant.title : null, available: i.available,
     })),
+  };
+}
+
+router.post('/api/cart/add', (req, res) => {
+  const result = cartSvc.addToCart(req, {
+    productId: req.body.product_id, variantId: req.body.variant_id || null, qty: req.body.qty || 1,
+  });
+  return res.status(result.ok ? 200 : 400).json({
+    ok: result.ok, message: result.message, needsVariant: !!result.needsVariant, ...cartPayload(req),
   });
 });
 
 router.post('/api/cart/update', (req, res) => {
   const result = cartSvc.setQty(req, Number(req.body.id), req.body.qty);
-  const cart = cartSvc.getCart(req);
-  return res.json({ ok: result.ok, message: result.message, count: cart.count, subtotal: cart.subtotal, total: cart.total });
+  return res.status(result.ok ? 200 : 400).json({ ok: result.ok, message: result.message, ...cartPayload(req) });
 });
 
 router.post('/api/cart/remove', (req, res) => {
   const result = cartSvc.removeItem(req, Number(req.body.id));
-  const cart = cartSvc.getCart(req);
-  return res.json({ ok: result.ok, count: cart.count, subtotal: cart.subtotal, total: cart.total });
+  return res.status(result.ok ? 200 : 404).json({ ok: result.ok, message: result.message, ...cartPayload(req) });
 });
 
 router.get('/api/wishlist/ids', (req, res) => {
   if (!req.user) return res.json({ ok: true, ids: [] });
-  const categoryIds = catalog.fashionCategoryIds();
+  const categoryIds = catalog.publicCategoryIds();
   if (!categoryIds.length) return res.json({ ok: true, ids: [] });
   const marks = categoryIds.map(() => '?').join(',');
   const rows = db.prepare(
@@ -146,6 +152,25 @@ router.post('/api/wishlist/toggle', (req, res) => {
   return res.json({ ok: true, added: r.added, message: r.message, count: cartSvc.wishlistCount(req.user.id) });
 });
 
+/* --------------------------------------------- private automatic tracking */
+router.get('/api/orders/:number/tracking', auth.requireUser, (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  const order = orders.findForTracking(req.params.number, req.user.id);
+  if (!order) return res.status(404).json({ ok: false, message: 'Order not found in your account.' });
+  return res.json({ ok: true, order: orders.trackingSnapshot(order) });
+});
+
+/* A scheduler may retry failed deliveries. No credentials or customer data are returned. */
+router.get('/api/internal/notifications/drain', async (req, res, next) => {
+  res.set('Cache-Control', 'private, no-store');
+  const notifications = require('../services/notifications');
+  if (!notifications.authorizeWorker(req.get('Authorization'))) return res.status(401).json({ ok: false });
+  try {
+    const results = await notifications.flush({ limit: 20 });
+    return res.json({ ok: true, processed: results.length, sent: results.filter(item => item.status === 'sent').length });
+  } catch (error) { return next(error); }
+});
+
 /* ------------------------------------------------------------------ stats */
 router.get('/api/health', (_req, res) => {
   res.json({
@@ -157,7 +182,7 @@ router.get('/api/health', (_req, res) => {
     gateway: payments_mode(),
   });
 });
-function payments_mode() { return settings.get('gateway_mode') || 'test'; }
+function payments_mode() { return require('../services/payments').mode(); }
 
 router.get('/api/stats/series', (req, res) => {
   res.json({ ok: true, series: stats.series(Math.min(365, Number(req.query.days) || 30), req.query.metric || 'revenue') });

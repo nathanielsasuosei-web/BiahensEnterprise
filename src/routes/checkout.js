@@ -5,9 +5,14 @@ const settings = require('../services/settings');
 const cartSvc = require('../services/cart');
 const orders = require('../services/orders');
 const payments = require('../services/payments');
+const auth = require('../middleware/auth');
+const notifications = require('../services/notifications');
+const { normalizePhone, isGhanaPhone } = require('../utils/phone');
 const { GHANA_REGIONS, round2, toNumber } = require('../utils/helpers');
 
 const router = express.Router();
+// Gate every checkout step, including direct POST requests. Browsing and bags remain public.
+router.use('/checkout', auth.requireCheckoutAccount);
 
 const STEPS = [
   { n: 1, key: 'address', label: 'Delivery details' },
@@ -82,12 +87,11 @@ function requireCart(req, res, next) {
 router.get('/checkout', requireCart, (req, res) => renderStep(req, res, Number(req.query.step) || draft(req).step || 1));
 
 /* ------------------------------------------------------ step 1: address */
-const GH_PHONE = /^(\+233|0)(20|23|24|25|26|27|28|50|54|55|56|57|59)[0-9]{7}$/;
 function validateShipping(body) {
   const errors = {};
   const s = {
     name: (body.name || '').trim(),
-    phone: (body.phone || '').replace(/[\s-]/g, ''),
+    phone: normalizePhone(body.phone),
     email: (body.email || '').trim().toLowerCase(),
     region: (body.region || '').trim(),
     city: (body.city || '').trim(),
@@ -96,7 +100,7 @@ function validateShipping(body) {
     save_address: body.save_address === '1' || body.save_address === 'on',
   };
   if (s.name.length < 3) errors.name = 'Enter the full name of the person receiving the order.';
-  if (!GH_PHONE.test(s.phone)) errors.phone = 'Enter a valid Ghanaian number, e.g. 024 123 4567 or +233 24 123 4567.';
+  if (!isGhanaPhone(s.phone)) errors.phone = 'Enter a valid Ghanaian number, e.g. 024 123 4567 or +233 24 123 4567.';
   if (s.email && !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(s.email)) errors.email = 'Enter a valid email address (or leave it blank).';
   if (!GHANA_REGIONS.includes(s.region)) errors.region = 'Choose your region.';
   if (s.city.length < 2) errors.city = 'Enter your town or city.';
@@ -157,63 +161,84 @@ router.post('/checkout/payment', requireCart, (req, res) => {
 });
 
 /* ------------------------------------------ step 4: place order & pay */
-router.post('/checkout/place', requireCart, (req, res, next) => {
-  const d = draft(req);
-  if (!d.shipping || !d.shipping.name || !d.shipping.phone) {
-    req.flash('danger', 'Please complete your delivery details.');
-    return renderStep(req, res, 1);
-  }
-  if (!d.payment || !d.payment.method) {
-    req.flash('danger', 'Please choose a payment method.');
-    return renderStep(req, res, 3);
-  }
-  if (req.body.terms !== '1' && req.body.terms !== 'on') {
-    req.flash('danger', 'Please accept the terms of sale and privacy policy to continue.');
-    return renderStep(req, res, 4);
-  }
+router.post('/checkout/place', requireCart, async (req, res, next) => {
+  try {
+    const d = draft(req);
+    const address = validateShipping(d.shipping || {});
+    if (Object.keys(address.errors).length) {
+      req.flash('danger', 'Please complete your delivery details.');
+      return renderStep(req, res, 1, address.errors);
+    }
+    if (!d.payment || !d.payment.method) {
+      req.flash('danger', 'Please choose a payment method.');
+      return renderStep(req, res, 3);
+    }
+    if (req.body.terms !== '1' && req.body.terms !== 'on') {
+      req.flash('danger', 'Please accept the terms of sale and privacy policy to continue.');
+      return renderStep(req, res, 4);
+    }
 
-  const result = orders.createFromCart(req, { shipping: d.shipping, payment: d.payment, delivery: d.delivery });
-  if (!result.ok) {
-    req.flash('danger', result.message);
-    return renderStep(req, res, 4);
-  }
+    const result = orders.createFromCart(req, { shipping: d.shipping, payment: d.payment, delivery: d.delivery });
+    if (!result.ok) {
+      req.flash('danger', result.message);
+      return renderStep(req, res, 4);
+    }
 
-  const order = orders.getOrder(result.orderId);
-  req.session.lastOrderNumber = order.order_number;
+    const order = orders.getOrder(result.orderId);
+    req.session.lastOrderNumber = order.order_number;
+    req.session.placedCart = result.cart.items.map((i) => ({ name: i.product.name, qty: i.qty, total: i.line_total }));
 
-  // snapshot the cart lines into the session so the confirmation page can show them
-  req.session.placedCart = result.cart.items.map((i) => ({ name: i.product.name, qty: i.qty, total: i.line_total }));
-
-  if (d.payment.method === 'cod') {
+    // Placed items belong to this order now, even if the provider is slow.
+    // Save the emptied bag before any network await to prevent duplicate orders.
     cartSvc.clear(req);
     req.session.checkout = null;
-    return res.redirect(`/order/${order.order_number}?placed=1`);
-  }
+    await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    let destination = `/order/${order.order_number}?placed=1`;
+    if (order.payment_method !== 'cod') {
+      try {
+        const init = await payments.initialize(order, { method: order.payment_method, email: req.user.email });
+        req.session.pendingReference = init.reference;
+        destination = init.authorization_url;
+      } catch (error) {
+        if (error.code && error.code.startsWith('SQLITE_')) throw error;
+        req.flash('warn', error.message);
+        destination = `/order/${order.order_number}`;
+      }
+    }
 
-  const init = payments.initialize(order, { method: d.payment.method, email: d.shipping.email || (req.user && req.user.email) });
-  req.session.pendingReference = init.reference;
-  return res.redirect(init.authorization_url);
+    // Try both owner alerts now; failures remain durable for the server worker
+    // and never invalidate a placed order or a verified provider payment.
+    await notifications.flush({ orderId: order.id, limit: 2 }).catch(error => console.error('[order alerts]', error.message));
+    return res.redirect(destination);
+  } catch (error) { return next(error); }
 });
 
 router.get('/checkout/back/:step', requireCart, (req, res) => renderStep(req, res, Number(req.params.step) || 1));
 
 /* ------------------------------------------------- confirmation / receipt */
-router.get('/order/:number', (req, res, next) => {
+router.post('/order/:number/pay', auth.requireUser, async (req, res, next) => {
   const order = orders.getOrderByNumber(req.params.number);
-  if (!order) return next();
-  const allowed = (req.user && order.user_id === req.user.id)
-    || req.session.lastOrderNumber === order.order_number
-    || (req.user && (req.user.role === 'owner' || req.user.role === 'staff'));
-  if (!allowed) {
-    req.flash('danger', 'That order does not belong to this session.');
-    return res.redirect('/account/orders');
+  if (!order || !orders.canAccess(req.user, order)) return next();
+  try {
+    const initialized = await payments.initialize(order, { email: order.customer_email });
+    return res.redirect(303, initialized.authorization_url);
+  } catch (error) {
+    if (error.code && error.code.startsWith('SQLITE_')) return next(error);
+    req.flash('warn', error.message);
+    return res.redirect(`/order/${order.order_number}`);
   }
-  const justPlaced = req.query.placed === '1';
-  const justPaid = req.query.paid === '1';
-  if (justPaid || justPlaced) {
-    delete req.session.checkout;
-    if (justPaid) cartSvc.clear(req);
-  }
+});
+
+router.get('/order/:number', auth.requireUser, (req, res, next) => {
+  let order = orders.getOrderByNumber(req.params.number);
+  if (!order || !orders.canAccess(req.user, order)) return next();
+  orders.expirePaymentHolds(order.id);
+  order = orders.getOrder(order.id);
+  order.events = orders.customerEvents(order);
+  const justPlaced = req.query.placed === '1' && req.session.lastOrderNumber === order.order_number;
+  const justPaid = req.query.paid === '1' && order.payment_status === 'paid'
+    && !['cancelled', 'refunded'].includes(order.status) && !order.payments.some(payment => payment.needs_review);
+  // Query parameters are never proof of payment and must not clear a new bag.
   res.render('checkout/confirmation', {
     pageTitle: `Order ${order.order_number} | ${settings.get('store_name')}`,
     bodyClass: 'page-confirmation',
@@ -226,9 +251,9 @@ router.get('/order/:number', (req, res, next) => {
   return undefined;
 });
 
-router.get('/order/:number/receipt', (req, res, next) => {
+router.get('/order/:number/receipt', auth.requireUser, (req, res, next) => {
   const order = orders.getOrderByNumber(req.params.number);
-  if (!order) return next();
+  if (!order || !orders.canAccess(req.user, order)) return next();
   res.render('admin/partials/invoice', {
     layout: false,
     order,

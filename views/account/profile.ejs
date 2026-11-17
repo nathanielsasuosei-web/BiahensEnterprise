@@ -31,8 +31,8 @@
               <% if (errors.name) { %><span class="error-text"><%= errors.name %></span><% } %>
             </div>
             <div class="field">
-              <label class="label" for="fPhone">Phone number</label>
-              <input class="input <%= errors.phone ? 'err' : '' %>" id="fPhone" name="phone" value="<%= values.phone || '' %>" placeholder="0241234567" inputmode="tel">
+              <label class="label" for="fPhone">Phone number <span style="color:#D64545">*</span></label>
+              <input class="input <%= errors.phone ? 'err' : '' %>" id="fPhone" name="phone" type="tel" autocomplete="tel" required value="<%= values.phone || '' %>" placeholder="0241234567" inputmode="tel">
               <span class="hint">Used for delivery calls and Mobile Money receipts.</span>
               <% if (errors.phone) { %><span class="error-text"><%= errors.phone %></span><% } %>
             </div>

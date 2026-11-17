@@ -2,19 +2,23 @@
   "name": "pointgh",
   "version": "1.0.0",
   "private": true,
-  "description": "pointGh - owner-curated fashion e-commerce for Ghana",
+  "description": "POINTGH - owner-managed e-commerce for Ghana",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
+    "test": "node --test tests/*.test.js",
     "db:init": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
     "db:reset": "node src/db/reset.js",
     "vercel:build": "node scripts/vercel-build.js",
-    "vercel:dev": "vercel dev"
+    "vercel:dev": "vercel dev",
+    "notifications:send": "node scripts/send-notifications.js",
+    "production:check": "node scripts/production-check.js",
+    "backup": "node scripts/backup.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22 <23"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -28,7 +32,7 @@
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.19.0",
     "morgan": "^1.12.1",
-    "multer": "^2.4.0",
-    "sharp": "^0.35.4"
+    "multer": "^2.5.0",
+    "sharp": "^0.35.5"
   }
 }

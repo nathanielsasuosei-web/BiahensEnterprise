@@ -3,6 +3,7 @@
   const imgs = product.images_list.length ? product.images_list : [null];
   const defaultVariant = product.variants.length ? product.variants.find(function (v) { return v.stock > 0; }) || product.variants[0] : null;
   const currentPrice = defaultVariant ? product.price + defaultVariant.price_delta : product.price;
+  const currentStock = defaultVariant ? defaultVariant.stock : product.stock;
   const off = discountPercent(product.price, product.compare_at_price);
 %>
 <%- include('../partials/header') %>
@@ -77,15 +78,16 @@
         <% if (product.sku) { %><span class="muted">·</span><span class="muted">SKU <%= product.sku %></span><% } %>
       </div>
 
+      <% if (Number(settings.tax_rate) > 0) { %><p class="small muted"><%= h.vatLabel(settings.tax_rate) %> added after discounts at checkout. Delivery shown separately.</p><% } %>
       <div class="p-price-box">
-        <span class="now" id="productPrice"><%= settings.currency_symbol %> <%= Number(currentPrice).toFixed(2) %></span>
+        <span class="now" id="productPrice"><%= settings.currency_symbol %> <%= money(currentPrice, { symbol: false }) %></span>
         <% if (product.compare_at_price && product.compare_at_price > product.price) { %>
-          <span class="was"><%= settings.currency_symbol %> <%= Number(product.compare_at_price).toFixed(2) %></span>
+          <span class="was"><%= settings.currency_symbol %> <%= money(product.compare_at_price, { symbol: false }) %></span>
           <span class="save">Save <%= settings.currency_symbol %> <%= (product.compare_at_price - product.price).toFixed(2) %> (<%= off %>%)</span>
         <% } %>
         <div class="unit">
           <% if (product.in_stock) { %>
-            <span class="p-stock in" id="variantStock"><%= product.low_stock ? `Hurry — only ${product.stock} left in stock` : `In stock · ${product.stock} available · ready to ship today` %></span>
+            <span class="p-stock in" id="variantStock"><%= currentStock <= product.low_stock_at ? `Only ${currentStock} left for this option` : `In stock · ${currentStock} available · ready to ship today` %></span>
           <% } else { %>
             <span class="p-stock out" id="variantStock">Out of stock — <a href="/contact" style="color:#F26B21">ask us to source it</a></span>
           <% } %>
@@ -107,7 +109,7 @@
               <span class="muted small">Each option has its own price &amp; stock</span></div>
             <div class="opt-swatches">
               <% product.variants.forEach(function (v, i) { %>
-                <button type="button" class="opt-swatch <%= i === 0 ? 'active' : '' %>"
+                <button type="button" class="opt-swatch <%= defaultVariant && v.id === defaultVariant.id ? 'active' : '' %>" aria-pressed="<%= !!(defaultVariant && v.id === defaultVariant.id) %>"
                         data-variant-btn data-variant="<%= v.id %>"
                         data-price="<%= product.price + v.price_delta %>" data-stock="<%= v.stock %>"
                         <%= v.stock > 0 ? '' : 'disabled' %>>
@@ -135,12 +137,12 @@
             <div class="label" style="margin-bottom:.35rem">Quantity</div>
             <div class="qty-box">
               <button type="button" aria-label="Decrease quantity">−</button>
-              <input type="number" name="qty" value="1" min="1" max="<%= product.in_stock ? product.stock : 1 %>" aria-label="Quantity">
+              <input type="number" name="qty" value="1" min="1" max="<%= product.in_stock ? currentStock : 1 %>" aria-label="Quantity">
               <button type="button" aria-label="Increase quantity">+</button>
             </div>
           </div>
           <div class="grow small muted">
-            <% if (product.in_stock) { %>Max <%= product.stock %> per order · bulk enquiries welcome on <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" style="color:#F26B21;font-weight:700"><%= settings.support_phone %></a><% } %>
+            <% if (product.in_stock) { %>Max <span data-variant-max><%= currentStock %></span> per order · bulk enquiries welcome on <a href="tel:<%= settings.support_phone.replace(/\s/g,'') %>" style="color:#F26B21;font-weight:700"><%= settings.support_phone %></a><% } %>
           </div>
         </div>
 
@@ -221,8 +223,8 @@
         <div>
           <div class="card pad">
             <h3 style="margin-bottom:.7rem">At a glance</h3>
-            <div class="stat-line"><span class="muted">Brand</span><b><%= product.brand_name ? `<a href="/b/${product.brand_slug}">${product.brand_name}</a>` : '—' %></b></div>
-            <div class="stat-line"><span class="muted">Category</span><b><%= product.category_name ? `<a href="/c/${product.category_slug}">${product.category_name}</a>` : '—' %></b></div>
+            <div class="stat-line"><span class="muted">Brand</span><b><% if (product.brand_name) { %><a href="/b/<%= product.brand_slug %>"><%= product.brand_name %></a><% } else { %>—<% } %></b></div>
+            <div class="stat-line"><span class="muted">Category</span><b><% if (product.category_name) { %><a href="/c/<%= product.category_slug %>"><%= product.category_name %></a><% } else { %>—<% } %></b></div>
             <div class="stat-line"><span class="muted">SKU</span><b><%= product.sku || '—' %></b></div>
             <div class="stat-line"><span class="muted">Availability</span><b><%= product.in_stock ? product.stock + ' in stock' : 'Out of stock' %></b></div>
             <div class="stat-line"><span class="muted">Weight</span><b><%= Number(product.weight_kg || 0).toFixed(2) %> kg</b></div>

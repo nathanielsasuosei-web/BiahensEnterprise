@@ -56,20 +56,16 @@ router.post('/categories', (req, res) => {
   if (data.name.length < 2) { req.flash('danger', 'Category name is required.'); return res.redirect('/admin/categories'); }
 
   const existing = id ? db.prepare('SELECT * FROM categories WHERE id = ?').get(id) : null;
-  const editingFashionRoot = !!(existing && !existing.parent_id && catalog.FASHION_ROOT_SLUGS.includes(existing.slug));
-  if (id && (!existing || !catalog.isFashionCategory(id))) {
-    req.flash('danger', 'pointGh only manages fashion categories.');
+  if (id && !existing) {
+    req.flash('danger', 'Category not found.');
     return res.redirect('/admin/categories');
   }
-  if ((data.parent_id && !catalog.isFashionCategory(data.parent_id))
-      || (!data.parent_id && !editingFashionRoot)
-      || (editingFashionRoot && data.parent_id)
-      || (existing && existing.parent_id && !data.parent_id)) {
-    req.flash('danger', 'New categories must live inside the Fashion or Shoes & Bags collections.');
+  if (data.parent_id && (!catalog.getCategory(data.parent_id)
+      || (id && catalog.categoryIdsIncludingChildren(id).includes(data.parent_id)))) {
+    req.flash('danger', 'Choose a valid parent category; a category cannot contain itself.');
     return res.redirect('/admin/categories');
   }
-  data.slug = editingFashionRoot ? existing.slug : uniqueCategorySlug(data.slug || data.name, id);
-  if (data.parent_id === id) data.parent_id = null;
+  data.slug = uniqueCategorySlug(data.slug || data.name, id);
 
   if (id) {
     db.prepare(

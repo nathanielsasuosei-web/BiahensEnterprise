@@ -34,14 +34,9 @@ function notify(type, level, title, body, link) {
   }
 }
 
-/** Dev "outbox" -- emails are recorded instead of sent so nothing is lost. */
-const outbox = [];
-function sendMail({ to, subject, text, html }) {
-  const msg = { to, subject, text, html, at: new Date().toISOString() };
-  outbox.unshift(msg);
-  if (outbox.length > 100) outbox.pop();
-  console.log(`\n✉  [mail-outbox] to=${to} subject="${subject}"\n`);
-  return msg;
+/** Queue transactional email durably; the worker/cron delivers it via Resend. */
+function sendMail(message) {
+  return require('../services/notifications').queueEmail(message);
 }
 
-module.exports = { audit, notify, sendMail, outbox };
+module.exports = { audit, notify, sendMail };

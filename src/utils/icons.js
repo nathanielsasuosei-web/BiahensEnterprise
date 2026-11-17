@@ -4,7 +4,24 @@
  * icon dependency. Usage in EJS: <%- icon('cart') %> or <%- icon('cart','ico-lg') %>
  */
 const P = {
+  smartphone: '<rect x="6" y="2.5" width="12" height="19" rx="2.2"/><path d="M10 5h4M11.5 18h1"/>',
+  monitor: '<rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 21h8M12 16.5V21M3 12.5h18"/>',
+  laptop: '<rect x="5" y="4" width="14" height="11" rx="1.5"/><path d="M5 15l-3 4h20l-3-4M10 17h4"/>',
+  shirt: '<path d="M8 3.5L3 6l-1 5 4 1v8.5h12V12l4-1-1-5-5-2.5a4 4 0 0 1-8 0z"/>',
+  sofa: '<path d="M5 10V7a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v3M5 18v3M19 18v3"/><path d="M6 13h12M3 10a2 2 0 0 1 3 1.7V15h12v-3.3A2 2 0 0 1 22 12v6H2v-6a2 2 0 0 1 1-2z"/>',
+  appliance: '<rect x="4.5" y="2.5" width="15" height="19" rx="2"/><path d="M4.5 7h15M8 5h.1M11 5h.1"/><circle cx="12" cy="14" r="4"/><path d="M8 14c2-2 4 2 8 0"/>',
+  leaf: '<path d="M20 3c-8-1-15 2-15 8a7 7 0 0 0 7 7c6 0 9-7 8-15zM3 21L16 8"/>',
+  basket: '<path d="M3 10h18l-2 10H5zM7 10l4-7M17 10l-4-7M8 14v2M12 14v2M16 14v2"/>',
+  dumbbell: '<path d="M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12"/>',
+  wrench: '<path d="M14 5a5 5 0 0 0-6 6L3 16a3.5 3.5 0 0 0 5 5l5-5a5 5 0 0 0 6-6l-3 3-4-4 3-3zM5.5 18.5h.1"/>',
+  book: '<path d="M3 4c3-1 6-1 9 1 3-2 6-2 9-1v15c-3-1-6-1-9 1-3-2-6-2-9-1zM12 5v15M6 8h3M6 12h3M15 8h3M15 12h3"/>',
+  baby: '<circle cx="12" cy="13" r="8"/><path d="M7 7c3-5 8-5 8-2 0 2-2 3-3 1M9 12h.1M15 12h.1M9 16c2 2 4 2 6 0"/>',
+  puzzle: '<path d="M8 3h5v4a2.5 2.5 0 1 1 4 0h4v6h-4a2.5 2.5 0 1 0 0 4v4h-6v-4a2.5 2.5 0 1 1-4 0H3v-6h4a2.5 2.5 0 1 0 0-4V3z"/>',
+  sprout: '<path d="M12 21V11M12 15C5 15 3 12 3 6c6 0 9 3 9 9zM12 11c0-6 3-9 9-9 0 6-3 9-9 9zM7 21h10"/>',
+  paw: '<ellipse cx="5" cy="9" rx="2" ry="3"/><ellipse cx="10" cy="5.5" rx="2" ry="3"/><ellipse cx="15.5" cy="6" rx="2" ry="3"/><ellipse cx="20" cy="10" rx="2" ry="3"/><path d="M6 18c-1-3 2-4 3-6 1-2 4-2 5 0 1 2 4 4 3 6-1 3-4 0-5 0s-5 3-6 0z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>',
+  bag: '<path d="M5 7.5h14l1 13H4z"/><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"/>',
+  asterisk: '<path d="M12 2v20M3.34 7l17.32 10M3.34 17L20.66 7" stroke-width="4"/>',
   cart: '<circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h3l2.6 12.4a1.6 1.6 0 0 0 1.6 1.3h8.3a1.6 1.6 0 0 0 1.6-1.2L21 7H6"/>',
   user: '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
   users: '<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.4a3.2 3.2 0 0 1 0 5.2M18 14.4a6.5 6.5 0 0 1 3.5 5.6"/>',
@@ -113,4 +130,12 @@ function icon(name, cls = '') {
     + `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${path}</svg>`;
 }
 
-module.exports = { icon, names: Object.keys(P) };
+const DEPARTMENT_ICONS = {
+  'phones-tablets': 'smartphone', electronics: 'monitor', computing: 'laptop', fashion: 'shirt',
+  'shoes-bags': 'bag', 'home-kitchen': 'sofa', appliances: 'appliance', 'beauty-health': 'leaf',
+  groceries: 'basket', 'sports-outdoors': 'dumbbell', 'auto-tools': 'wrench', 'books-stationery': 'book',
+  'baby-essentials': 'baby', 'toys-games': 'puzzle', 'garden-patio': 'sprout', 'pet-supplies': 'paw',
+};
+function departmentIcon(slug) { return icon(DEPARTMENT_ICONS[slug] || 'grid'); }
+
+module.exports = { icon, departmentIcon, names: Object.keys(P) };

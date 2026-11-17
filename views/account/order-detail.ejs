@@ -5,6 +5,8 @@
   const flow = ['pending_payment', 'paid', 'processing', 'shipped', 'delivered'];
   const curIdx = flow.indexOf(order.status);
   const canCancel = ['pending_payment', 'paid', 'processing'].includes(order.status);
+  const paymentReview = (order.payment_status === 'paid' && order.status === 'cancelled') || order.payments.some(function (payment) { return payment.needs_review; });
+  const activePayment = order.payments.find(function (payment) { return payment.gateway === 'paystack'; });
   const deliveryLabel = order.delivery_method === 'express' ? 'Express (within 24 hours)' : order.delivery_method === 'pickup' ? 'Warehouse pickup' : 'Standard delivery';
 %>
 <main class="container" id="main" style="padding:1.2rem 0 2.6rem">
@@ -28,6 +30,7 @@
     <%- include('../partials/account-nav') %>
 
     <div>
+      <a class="btn primary" href="/track-order?order=<%= encodeURIComponent(order.order_number) %>"><%- icon('truck') %> Automatic order tracking</a>
       <% if (curIdx >= 0 && !['cancelled', 'refunded'].includes(order.status)) { %>
         <div class="order-progress">
           <% flow.forEach(function (s, i) { %>
@@ -36,10 +39,13 @@
         </div>
       <% } %>
       <% if (order.status === 'cancelled') { %>
-        <div class="inline-alert danger">This order was cancelled<%= order.cancel_reason ? ': ' + order.cancel_reason : '' %>.<% if (order.payment_status === 'refunded' || order.payment_status === 'partially_refunded') { %> Any amount paid has been refunded to your original payment method within 5–7 working days.<% } %></div>
+        <div class="inline-alert danger">This order was cancelled<%= order.cancel_reason ? ': ' + order.cancel_reason : '' %>.<% if (order.payment_status === 'refunded' || order.payment_status === 'partially_refunded') { %> A refund is recorded. Contact support for the amount and provider reference; settlement timing depends on the provider.<% } %></div>
+      <% } %>
+      <% if (paymentReview) { %>
+        <div class="inline-alert">Your payment was received and needs support review. Please do not pay again. Cancelling an order does not automatically send a refund; contact our team for the next step.</div>
       <% } %>
       <% if (order.status === 'refunded') { %>
-        <div class="inline-alert">This order was refunded. The money returns to the payment method you used within 5–7 working days.</div>
+        <div class="inline-alert">A refund is recorded for this order. Contact support for the provider reference and confirmed settlement status.</div>
       <% } %>
 
       <div class="card" style="margin-top:1rem">
@@ -51,7 +57,7 @@
                 <img src="<%= imgSrc(i.image, { w: 160, h: 160, hint: settings.store_name, name: i.name }) %>" alt="" loading="lazy" style="width:62px;height:62px;border-radius:10px;object-fit:cover;border:1px solid #E8EDF3">
               </a>
               <div class="grow">
-                <b style="display:block;font-size:.9rem;line-height:1.35"><%= i.slug ? '<a href="/p/' + i.slug + '">' + i.name + '</a>' : i.name %></b>
+                <b style="display:block;font-size:.9rem;line-height:1.35"><% if (i.slug) { %><a href="/p/<%= i.slug %>"><%= i.name %></a><% } else { %><%= i.name %><% } %></b>
                 <span class="small muted">
                   <% if (i.variant_title) { %>Option: <%= i.variant_title %> · <% } %>
                   <% if (i.sku) { %>SKU <%= i.sku %> · <% } %>
@@ -74,7 +80,7 @@
             <div class="sum-row"><span>Subtotal</span><b><%= settings.currency_symbol %> <%= money(order.subtotal) %></b></div>
             <% if (order.discount > 0) { %><div class="sum-row"><span>Discount <%= order.coupon_code ? '(' + order.coupon_code + ')' : '' %></span><b class="save">− <%= settings.currency_symbol %> <%= money(order.discount) %></b></div><% } %>
             <div class="sum-row"><span>Delivery</span><b><%= order.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(order.shipping_fee) : 'FREE' %></b></div>
-            <% if (order.tax > 0) { %><div class="sum-row"><span>Tax</span><b><%= settings.currency_symbol %> <%= money(order.tax) %></b></div><% } %>
+            <% if (order.tax_rate > 0 || order.tax > 0) { %><div class="sum-row" data-vat-row><span><%= h.vatLabel(order.tax_rate) %></span><b><%= settings.currency_symbol %> <%= money(order.tax, { symbol: false }) %></b></div><% } %>
             <div class="sum-row total"><span>Total</span><b><%= settings.currency_symbol %> <%= money(order.total) %></b></div>
           </div>
         </div>
@@ -117,12 +123,16 @@
               <% if (p.paid_at) { %><span class="row between" style="margin-top:.3rem"><span class="muted">Paid at</span><b><%= dateFmt(p.paid_at, 'D MMM YYYY, h:mm a') %></b></span><% } %>
               <% if (p.error) { %><span class="row between" style="margin-top:.3rem"><span class="muted">Error</span><b style="color:#D64545"><%= p.error %></b></span><% } %>
             <% }); %>
-            <% if (order.payment_status !== 'paid' && canCancel) { %>
-              <div class="inline-alert" style="margin-top:.8rem">This order is not paid yet.
-                <% const ref = order.payments.length ? order.payments[0].reference : null; %>
-                <% if (ref) { %><a href="/pay/<%= ref %>" style="font-weight:800">Complete payment</a> or <% } %>
-                cancel below.
+            <% if (order.payment_status === 'unpaid' && order.status === 'pending_payment' && !paymentReview) { %>
+              <div class="inline-alert" style="margin-top:.8rem">This order is awaiting payment. If you already approved a Mobile Money prompt, check payment before retrying. Please do not pay twice.</div>
+              <div class="row wrap" style="gap:.4rem;margin-top:.6rem">
+                <% if (activePayment) { %>
+                  <form action="/pay/<%= activePayment.reference %>/check" method="post"><button class="btn ghost sm" type="submit"><%- icon('refresh') %> Check payment</button></form>
+                <% } %>
+                <form action="/order/<%= order.order_number %>/pay" method="post"><button class="btn primary sm" type="submit"><%- icon('wallet') %> Complete payment</button></form>
               </div>
+            <% } else if (order.payment_status === 'unpaid' && order.payment_method === 'cod' && !['cancelled', 'refunded'].includes(order.status)) { %>
+              <div class="inline-alert" style="margin-top:.8rem">Cash on delivery: please have <b><%= settings.currency_symbol %> <%= money(order.total) %></b> ready for the rider.</div>
             <% } %>
           </div>
         </div>

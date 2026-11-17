@@ -1,5 +1,5 @@
 /* ============================================================================
-   pointGh — storefront behaviour
+   POINTGH — storefront behaviour
    No dependencies. Everything degrades gracefully without JS.
    ========================================================================== */
 (function () {
@@ -8,7 +8,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const on = (el, ev, fn, opt) => el && el.addEventListener(ev, fn, opt);
-  const money = (n) => `${CFG.currency || 'GH₵'} ${Number(n || 0).toFixed(2)}`;
+  const money = (n) => `${CFG.currency || 'GH₵'} ${Number(n || 0).toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   async function api(url, opts = {}) {
     const res = await fetch(url, Object.assign({
@@ -28,6 +28,8 @@
       stack = document.createElement('div');
       stack.className = 'flash-stack';
       stack.id = 'flashStack';
+      stack.setAttribute('role', 'status');
+      stack.setAttribute('aria-live', 'polite');
       document.body.appendChild(stack);
     }
     const el = document.createElement('div');
@@ -44,53 +46,87 @@
 
   /* ------------------------------------------------------- header: drawer */
   const drawer = $('#drawer');
+  let drawerReturnFocus = null;
   function setDrawer(open) {
     if (!drawer) return;
+    const wasOpen = drawer.classList.contains('open');
+    if (open && !wasOpen) drawerReturnFocus = document.activeElement;
+    drawer.inert = !open;
     drawer.classList.toggle('open', open);
     drawer.setAttribute('aria-hidden', String(!open));
-    document.body.style.overflow = open ? 'hidden' : '';
+    document.body.style.overflow = open || $('.modal.open') ? 'hidden' : '';
     const btn = $('#burgerBtn');
     if (btn) btn.setAttribute('aria-expanded', String(open));
+    if (open) requestAnimationFrame(() => $('.drawer-close', drawer).focus());
+    else if (wasOpen && drawerReturnFocus && drawerReturnFocus.isConnected) drawerReturnFocus.focus();
   }
   on($('#burgerBtn'), 'click', () => setDrawer(!drawer.classList.contains('open')));
   $$('[data-drawer-close]').forEach((el) => on(el, 'click', () => setDrawer(false)));
-  on(document, 'keydown', (e) => { if (e.key === 'Escape') { setDrawer(false); closeMega(); closeQV(); } });
+  on(document, 'keydown', (e) => {
+    if (e.key === 'Escape') {
+      setDrawer(false); closeMega(); closeQV(); closeDropdowns();
+    }
+    // Keep keyboard navigation inside the currently open dialog.
+    if (e.key === 'Tab') {
+      const dialog = $('.modal.open .modal-box') || $('.drawer.open .drawer-panel');
+      if (!dialog) return;
+      const focusable = $$('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex="0"]', dialog)
+        .filter((el) => el.getClientRects().length && !el.closest('[inert]'));
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first) { e.preventDefault(); dialog.focus(); return; }
+      if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+    }
+  });
 
   /* ------------------------------------------------------- header: mega */
   const mega = $('#megaMenu');
   const megaBtn = $('#megaBtn');
   function openMega() {
     if (!mega) return;
+    mega.inert = false;
     mega.classList.add('open');
     if (megaBtn) megaBtn.setAttribute('aria-expanded', 'true');
   }
   function closeMega() {
     if (!mega) return;
+    const restoreFocus = mega.contains(document.activeElement);
     mega.classList.remove('open');
-    if (megaBtn) megaBtn.setAttribute('aria-expanded', 'false');
+    mega.inert = true;
+    if (megaBtn) {
+      megaBtn.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) megaBtn.focus();
+    }
   }
   on(megaBtn, 'click', (e) => { e.stopPropagation(); mega.classList.contains('open') ? closeMega() : openMega(); });
   on(document, 'click', (e) => { if (mega && mega.classList.contains('open') && !mega.contains(e.target) && e.target !== megaBtn) closeMega(); });
-  // hover-open on pointer devices
-  const navBar = $('.hdr-nav');
-  if (navBar && window.matchMedia('(hover:hover) and (min-width: 861px)').matches) {
-    navBar.addEventListener('mouseenter', openMega);
-    navBar.addEventListener('mouseleave', closeMega);
-  }
+  // Only the category trigger opens this menu, never an unrelated nav link.
+  on(megaBtn, 'keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); openMega(); const first = $('a', mega); if (first) first.focus(); }
+  });
 
   /* ------------------------------------------------- header: dropdowns */
+  function closeDropdowns() {
+    $$('.dd.open').forEach((dd) => {
+      dd.classList.remove('open');
+      const button = $('button', dd);
+      if (button) button.setAttribute('aria-expanded', 'false');
+    });
+  }
   $$('.dd > button').forEach((btn) => {
     on(btn, 'click', (e) => {
       e.stopPropagation();
       const dd = btn.closest('.dd');
       const isOpen = dd.classList.contains('open');
-      $$('.dd.open').forEach((d) => d.classList.remove('open'));
+      closeDropdowns();
+      closeMega();
       dd.classList.toggle('open', !isOpen);
       btn.setAttribute('aria-expanded', String(!isOpen));
     });
   });
-  on(document, 'click', () => $$('.dd.open').forEach((d) => { d.classList.remove('open'); const b = d.querySelector('button'); if (b) b.setAttribute('aria-expanded', 'false'); }));
-  $$('.dd-panel').forEach((p) => on(p, 'click', (e) => e.stopPropagation()));
+  // Do not stop panel events: remove-from-bag uses the shared click handler.
+  on(document, 'click', (e) => { if (!e.target.closest('.dd')) closeDropdowns(); });
 
   /* ---------------------------------------------- search autocomplete */
   const input = $('#searchInput');
@@ -98,6 +134,20 @@
   let sTimer = null;
   let sIndex = -1;
   let sItems = [];
+  let suggestRequest = 0;
+  function closeSuggest() {
+    suggestRequest += 1;
+    if (box) box.classList.remove('open');
+    if (input) {
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+    }
+  }
+  on(document, 'keydown', (e) => {
+    if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.target.closest('input, textarea, select, [contenteditable]') && !$('.modal.open') && !$('.drawer.open')) {
+      e.preventDefault(); if (input) input.focus();
+    }
+  });
 
   function renderSuggest(data) {
     if (!box) return;
@@ -120,9 +170,15 @@
           <span class="si-price">${money(p.price)}${p.discount ? ` <span class="badge orange">-${p.discount}%</span>` : ''}</span></a>`);
       });
     }
-    if (!parts.length) parts.push('<div class="suggest-empty">No matches for “' + escapeHtml(data.q) + '”. Try another word or browse <a href="/categories" style="color:#F26B21;font-weight:700">all categories</a>.</div>');
+    if (!parts.length) parts.push('<div class="suggest-empty">No matches for “' + escapeHtml(data.q) + '”. Try another word or browse <a class="suggest-item" href="/categories">all categories</a>.</div>');
     box.innerHTML = parts.join('');
+    $$('.suggest-item', box).forEach((link, index) => {
+      link.id = `search-option-${index}`;
+      link.setAttribute('role', 'option');
+      link.setAttribute('aria-selected', 'false');
+    });
     box.classList.add('open');
+    if (input) input.setAttribute('aria-expanded', 'true');
     sIndex = -1;
   }
 
@@ -132,12 +188,14 @@
 
   async function suggest(q) {
     if (!box) return;
-    if (q.length < 2) { box.classList.remove('open'); return; }
+    if (q.length < 2) { closeSuggest(); return; }
+    const request = ++suggestRequest;
     try {
       const data = await api(`/api/suggest?q=${encodeURIComponent(q)}`);
+      if (request !== suggestRequest || input.value.trim() !== q) return;
       sItems = [];
       renderSuggest(data);
-    } catch (_) { box.classList.remove('open'); }
+    } catch (_) { if (request === suggestRequest) closeSuggest(); }
   }
 
   on(input, 'input', () => {
@@ -152,16 +210,23 @@
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       sIndex = e.key === 'ArrowDown' ? Math.min(links.length - 1, sIndex + 1) : Math.max(0, sIndex - 1);
-      links.forEach((l, i) => l.classList.toggle('active', i === sIndex));
-      links[sIndex] && links[sIndex].scrollIntoView({ block: 'nearest' });
+      links.forEach((link, index) => {
+        link.classList.toggle('active', index === sIndex);
+        link.setAttribute('aria-selected', String(index === sIndex));
+      });
+      if (links[sIndex]) {
+        input.setAttribute('aria-activedescendant', links[sIndex].id);
+        links[sIndex].scrollIntoView({ block: 'nearest' });
+      }
     } else if (e.key === 'Enter' && sIndex >= 0 && links[sIndex]) {
       e.preventDefault();
       window.location.href = links[sIndex].getAttribute('href');
     } else if (e.key === 'Escape') {
-      box.classList.remove('open');
+      e.preventDefault(); // Close suggestions without clearing the search field.
+      closeSuggest();
     }
   });
-  on(document, 'click', (e) => { if (box && !box.contains(e.target) && e.target !== input) box.classList.remove('open'); });
+  on(document, 'click', (e) => { if (box && !box.contains(e.target) && e.target !== input) closeSuggest(); });
   const catSelect = $('.search-cat');
   on($('#searchForm'), 'submit', (e) => {
     if (catSelect && catSelect.value) {
@@ -173,24 +238,25 @@
 
   /* ------------------------------------------------------------ cart sync */
   function updateCartUI(data) {
-    $$('[data-cart-count]').forEach((el) => { el.textContent = data.count; el.style.display = data.count ? '' : 'none'; });
-    const items = $('.minicart-items');
+    $$('[data-cart-count]').forEach((el) => { el.textContent = data.count; });
+    const bagButton = $('#cartDD > button');
+    if (bagButton) bagButton.setAttribute('aria-label', `Shopping bag, ${data.count} items`);
+    $$('[data-cart-subtotal]').forEach((el) => { el.textContent = money(data.subtotal); });
+    $$('[data-cart-discount]').forEach((el) => { el.textContent = `− ${money(data.discount)}`; });
+    $$('[data-cart-discount-row]').forEach((el) => { el.hidden = !(data.discount > 0); });
+    $$('[data-cart-tax]').forEach((el) => { el.textContent = money(data.tax); });
+    $$('[data-cart-vat-label]').forEach((el) => { el.textContent = `VAT (${Number(data.taxRate)}%)`; });
+    $$('[data-cart-vat-row]').forEach((el) => { el.hidden = !(data.taxRate > 0); });
+    $$('[data-minicart-footer]').forEach((el) => { el.hidden = !data.count; });
+    const items = $('[data-minicart-items]');
     if (items && data.items) {
       if (!data.items.length) {
-        items.innerHTML = `<div class="mc-empty"><div style="font-size:2rem;margin-bottom:.4rem">&#128722;</div>
-          <b>Your cart is empty</b><p class="small muted" style="margin:.3rem 0 .8rem">Browse our deals and add something you love.</p>
-          <a class="btn primary sm" href="/deals">See today’s deals</a></div>`;
+        const bagIcon = $('.hdr-btn.cart > .ico');
+        items.innerHTML = '<div class="mc-empty"><span class="empty-bag-icon">' + (bagIcon ? bagIcon.outerHTML : '') + '</span><b>Room for something good.</b><p>Your next favourite is just a few clicks away.</p><a class="btn primary sm" href="/new-arrivals">Start exploring →</a></div>';
       } else {
-        items.innerHTML = data.items.slice(0, 4).map((i) => `<div class="mc-item">
-          <img src="${i.image}" alt="" loading="lazy">
-          <div class="grow"><div class="n clamp-2"><a href="/p/${i.slug}">${escapeHtml(i.name)}</a></div>
-          ${i.variant ? `<div class="v">${escapeHtml(i.variant)}</div>` : ''}
-          <div class="p">${money(i.unit_price)} <span class="muted small">× ${i.qty}</span></div></div>
-          <button class="rm" type="button" data-remove-item="${i.id}" aria-label="Remove">&times;</button></div>`).join('');
+        items.innerHTML = data.items.slice(0, 4).map((i) => `<div class="mc-item"><img src="${escapeHtml(i.image)}" alt="${escapeHtml(i.name)}" loading="lazy"><div class="grow"><div class="n clamp-2"><a href="/p/${encodeURIComponent(i.slug)}">${escapeHtml(i.name)}</a></div>${i.variant ? `<div class="v">${escapeHtml(i.variant)}</div>` : ''}<div class="p">${money(i.unit_price)} <span class="muted small">× ${i.qty}</span></div></div><button class="rm" type="button" data-remove-item="${i.id}" aria-label="Remove ${escapeHtml(i.name)}">&times;</button></div>`).join('');
       }
     }
-    const totalEl = $('.hdr-btn.cart .lbl small');
-    if (totalEl) totalEl.textContent = money(data.total);
   }
 
   async function addCart(productId, variantId, qty, btn) {
@@ -233,8 +299,11 @@
       e.preventDefault();
       try {
         const data = await api('/api/wishlist/toggle', { method: 'POST', body: { product_id: wish.getAttribute('data-wish') } });
-        wish.classList.toggle('active', data.added);
-        $$('[data-wish-count]').forEach((el) => { el.textContent = data.count; });
+        $$('.p-tool[data-wish], button[data-wish]').filter((button) => button.getAttribute('data-wish') === wish.getAttribute('data-wish')).forEach((button) => {
+          button.classList.toggle('active', data.added);
+          button.setAttribute('aria-pressed', String(data.added));
+        });
+        $$('[data-wish-count]').forEach((el) => { el.textContent = data.count; el.hidden = !data.count; });
         toast(data.message, data.added ? 'success' : 'info');
       } catch (err) {
         toast(err.message, 'warn');
@@ -249,7 +318,11 @@
     try {
       const data = await api('/api/wishlist/ids');
       const set = new Set(data.ids || []);
-      $$('[data-wish]').forEach((b) => b.classList.toggle('active', set.has(Number(b.getAttribute('data-wish')))));
+      $$('[data-wish]').forEach((b) => {
+        const saved = set.has(Number(b.getAttribute('data-wish')));
+        b.classList.toggle('active', saved);
+        b.setAttribute('aria-pressed', String(saved));
+      });
     } catch (_) {}
   })();
 
@@ -257,12 +330,18 @@
   const qvModal = $('#quickViewModal');
   const qvBody = $('#qvContent');
   let qvProduct = null;
+  let qvReturnFocus = null;
+  let qvRequest = 0;
 
   function closeQV() {
     if (!qvModal) return;
+    qvRequest += 1;
+    const wasOpen = qvModal.classList.contains('open');
     qvModal.classList.remove('open');
     qvModal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
+    qvModal.inert = true;
+    document.body.style.overflow = drawer && drawer.classList.contains('open') ? 'hidden' : '';
+    if (wasOpen && qvReturnFocus && qvReturnFocus.isConnected) qvReturnFocus.focus();
   }
   $$('[data-qv-close]').forEach((el) => on(el, 'click', closeQV));
   on(document, 'click', (e) => {
@@ -272,12 +351,17 @@
 
   async function openQuickView(slug) {
     if (!qvModal || !qvBody) { window.location.href = `/p/${slug}`; return; }
+    if (!qvModal.classList.contains('open')) qvReturnFocus = document.activeElement;
+    const request = ++qvRequest;
+    qvModal.inert = false;
     qvModal.classList.add('open');
     qvModal.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => $('[data-qv-close].modal-close', qvModal).focus());
     document.body.style.overflow = 'hidden';
     qvBody.innerHTML = '<div class="qv-media"><div class="muted">Loading…</div></div><div class="qv-body"><div class="muted">Loading product…</div></div>';
     try {
       const data = await api(`/api/products/${slug}/quickview`);
+      if (request !== qvRequest || !qvModal.classList.contains('open')) return;
       qvProduct = data.product;
       const p = qvProduct;
       const swatches = p.variants.length
@@ -304,7 +388,7 @@
             <div class="qty-box"><button type="button" data-qv-dec aria-label="Decrease">−</button>
               <input type="number" id="qvQty" value="1" min="1" max="${p.stock || 1}" aria-label="Quantity">
               <button type="button" data-qv-inc aria-label="Increase">+</button></div>
-            <button class="btn primary" id="qvAdd" ${p.in_stock ? '' : 'disabled'} style="flex:1"><span class="ico"></span> Add to cart</button>
+            <button class="btn primary" id="qvAdd" ${p.in_stock ? '' : 'disabled'} style="flex:1">Add to bag</button>
           </div>
           <p class="small muted">${escapeHtml(p.short || '')}</p>
           ${p.tags && p.tags.length ? `<div class="chips" style="margin:.7rem 0">${p.tags.slice(0, 6).map((t) => `<a class="chip" href="/search?q=${encodeURIComponent(t)}">${escapeHtml(t)}</a>`).join('')}</div>` : ''}
@@ -334,10 +418,58 @@
         } catch (_) {}
       });
     } catch (err) {
+      if (request !== qvRequest || !qvModal.classList.contains('open')) return;
       qvBody.innerHTML = `<div class="qv-body"><h3>Could not load this product</h3><p class="muted">${escapeHtml(err.message)}</p>
         <a class="btn primary" href="/p/${slug}">Open the product page</a></div>`;
     }
   }
+
+  /* --------------------------------------- homepage collection browsing */
+  $$('[data-product-tabs]').forEach((section) => {
+    const tabs = $$('[data-product-tab]', section);
+    function activate(tab, focus) {
+      tabs.forEach((button) => {
+        const active = button === tab;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+        const panel = document.getElementById(button.getAttribute('aria-controls'));
+        if (panel) panel.hidden = !active;
+      });
+      if (focus) tab.focus();
+    }
+    tabs.forEach((tab, index) => {
+      on(tab, 'click', () => activate(tab, false));
+      on(tab, 'keydown', (e) => {
+        const next = e.key === 'ArrowRight' ? (index + 1) % tabs.length : e.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
+        if (next >= 0) { e.preventDefault(); activate(tabs[next], true); }
+      });
+    });
+  });
+
+  /* ------------------------------------------- progressive email signup */
+  $$('[data-newsletter-form]').forEach((form) => on(form, 'submit', async (e) => {
+    e.preventDefault();
+    const button = $('button[type="submit"]', form);
+    const label = button.innerHTML;
+    const status = $('[data-newsletter-status]', form.parentElement);
+    button.disabled = true;
+    button.textContent = 'Joining…';
+    if (status) status.textContent = 'Saving your spot…';
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+        body: new URLSearchParams(new FormData(form)).toString(),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.message || 'Could not subscribe. Please try again.');
+      if (status) { status.textContent = data.message; status.className = 'newsletter-note success'; }
+      form.reset();
+    } catch (err) {
+      if (status) { status.textContent = err.message || 'Something went wrong. Please try again.'; status.className = 'newsletter-note error'; }
+    } finally { button.disabled = false; button.innerHTML = label; }
+  }));
 
   /* --------------------------------------------------------- hero slider */
   $$('[data-hero]').forEach((hero) => {
@@ -428,12 +560,21 @@
   // variant selection on the product page
   const variantBtns = $$('[data-variant-btn]');
   variantBtns.forEach((b) => on(b, 'click', () => {
-    variantBtns.forEach((x) => x.classList.remove('active'));
-    b.classList.add('active');
+    variantBtns.forEach((x) => {
+      x.classList.toggle('active', x === b);
+      x.setAttribute('aria-pressed', String(x === b));
+    });
     const price = b.getAttribute('data-price');
     const stock = Number(b.getAttribute('data-stock') || 0);
     const input = $('[data-variant-input]');
     if (input) input.value = b.getAttribute('data-variant');
+    const quantity = $('#buyForm input[name="qty"]');
+    if (quantity) {
+      quantity.max = Math.max(1, stock);
+      quantity.value = Math.max(1, Math.min(stock, Number(quantity.value) || 1));
+    }
+    const maximum = $('[data-variant-max]');
+    if (maximum) maximum.textContent = stock;
     if (price) {
       const el = $('#productPrice');
       if (el) el.textContent = money(price);
@@ -449,6 +590,8 @@
 
   $$('.qty-box').forEach((box) => {
     const input = $('input', box);
+    // Cart controls persist their own quantity below; do not increment twice.
+    if (!input || input.hasAttribute('data-qty-input')) return;
     on(box.querySelector('button:first-child'), 'click', () => { input.value = Math.max(1, Number(input.value) - 1); input.dispatchEvent(new Event('change')); });
     on(box.querySelector('button:last-child'), 'click', () => { input.value = Math.min(Number(input.max) || 99, Number(input.value) + 1); input.dispatchEvent(new Event('change')); });
   });
@@ -605,11 +748,55 @@
   /* ----------------------------------------------------- print receipts */
   $$('[data-print]').forEach((b) => on(b, 'click', () => window.print()));
 
+  /* ------------------------------------------- private automatic tracking */
+  const tracker = $('[data-order-tracker]');
+  if (tracker) {
+    const message = $('[data-track-message]', tracker);
+    const refresh = $('[data-track-refresh]', tracker);
+    let busy = false;
+    let expired = false;
+    async function refreshTracking() {
+      if (busy || expired || document.hidden) return;
+      busy = true;
+      refresh.disabled = true;
+      try {
+        const response = await fetch(`/api/orders/${encodeURIComponent(tracker.dataset.orderTracker)}/tracking`, {
+          headers: { Accept: 'application/json' }, cache: 'no-store', signal: AbortSignal.timeout(10000),
+        });
+        if (response.status === 401) {
+          expired = true;
+          message.innerHTML = 'Your session expired. <a href="/login?next=%2Ftrack-order">Sign in to continue tracking.</a>';
+          return;
+        }
+        if (!response.ok) throw new Error('Tracking is temporarily unavailable.');
+        const { order } = await response.json();
+        $('[data-track-status]', tracker).textContent = order.label;
+        const selectedOrder = $('.tracking-order-link.active small');
+        if (selectedOrder) selectedOrder.textContent = order.label;
+        $('[data-track-status]', tracker).className = `badge ${order.tone}`;
+        $('[data-track-progress]', tracker).innerHTML = order.steps.map(step => `<div class="seg ${step.done ? 'done' : ''} ${step.current ? 'current' : ''}">${escapeHtml(step.label)}</div>`).join('');
+        $('[data-track-events]', tracker).innerHTML = order.events.map(event => `<div class="tl-item"><span class="dot"></span><div><b class="small">${escapeHtml(event.label)}</b><time class="tiny muted">${escapeHtml(event.date)}</time>${event.note ? `<p class="small">${escapeHtml(event.note)}</p>` : ''}</div></div>`).join('');
+        $('[data-track-carrier] span', tracker).textContent = order.tracking_number
+          ? [order.carrier, order.tracking_number].filter(Boolean).join(' · ')
+          : 'Carrier details will appear once your order is dispatched.';
+        message.textContent = `Up to date at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Checks automatically every 20 seconds.`;
+      } catch (_) {
+        message.textContent = 'Unable to refresh just now. Your last update is still shown; we’ll try again.';
+      } finally {
+        busy = false;
+        refresh.disabled = expired;
+      }
+    }
+    on(refresh, 'click', refreshTracking);
+    on(document, 'visibilitychange', () => { if (!document.hidden) refreshTracking(); });
+    setInterval(refreshTracking, 20000);
+  }
+
   /* ------------------------------------------------ sticky header shadow */
   const header = $('#siteHeader');
   if (header) {
     on(window, 'scroll', () => header.classList.toggle('scrolled', window.scrollY > 8), { passive: true });
   }
 
-  console.log('%c pointGh ', 'background:#0F2A43;color:#FFB300;font-weight:700;border-radius:4px', 'storefront ready');
+  console.log('%c POINTGH ', 'background:#242820;color:#d9f58b;font-weight:700;border-radius:4px', 'storefront ready');
 })();

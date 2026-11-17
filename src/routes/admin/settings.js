@@ -15,19 +15,44 @@ const router = express.Router();
 /** Everything under /admin/settings is strictly owner-only. */
 router.use(auth.requireOwner);
 
+function validVat(patch) {
+  if (patch.tax_rate === undefined) return true;
+  const rate = Number(patch.tax_rate);
+  return String(patch.tax_rate).trim() !== '' && Number.isFinite(rate) && rate >= 0 && rate <= 100;
+}
+function paymentSettingsAllowed(req, res, patch) {
+  const secrets = ['gateway_public_key', 'gateway_webhook_secret', 'PAYSTACK_SECRET_KEY', 'PAYSTACK_WEBHOOK_SECRET'];
+  if (secrets.some(key => Object.hasOwn(patch, key))) {
+    req.flash('danger', 'Configure payment credentials only in your hosting secrets, never through a settings form.');
+    res.redirect('/admin/settings?tab=payments');
+    return false;
+  }
+  if (patch.gateway_mode !== undefined && (!['test', 'live'].includes(patch.gateway_mode)
+      || (config.payments.modeLocked && patch.gateway_mode !== payments.mode()))) {
+    req.flash('danger', 'Payment mode is controlled by the server environment. It cannot be changed from the admin panel.');
+    res.redirect('/admin/settings?tab=payments');
+    return false;
+  }
+  return true;
+}
+function rejectVat(req, res) {
+  req.flash('danger', 'VAT must be a number between 0 and 100 percent.');
+  return res.redirect('/admin/settings?tab=commerce');
+}
+
 router.get('/', (req, res) => {
   const tab = ['general', 'contact', 'commerce', 'payments', 'homepage', 'policy', 'seo'].includes(req.query.tab)
     ? req.query.tab : 'general';
   const values = { ...settings.all() };
   const defaults = { ...settings.DEFAULTS };
   const paymentCredentials = {
-    publicKey: Boolean(values.gateway_public_key || config.payments.publicKey),
+    publicKey: Boolean(config.payments.publicKey),
     secretKey: Boolean(config.payments.secretKey),
-    webhookSecret: Boolean(
-      (values.gateway_webhook_secret && values.gateway_webhook_secret !== settings.DEFAULTS.gateway_webhook_secret)
-      || (config.payments.webhookSecret && config.payments.webhookSecret !== settings.DEFAULTS.gateway_webhook_secret)
-    ),
+    webhookSecret: Boolean(config.payments.webhookSecret),
+    legacySignature: Boolean(config.payments.secretKey),
   };
+  values.gateway_mode = payments.mode();
+  values.gateway_brand = payments.brand();
   // Keep persisted credentials out of the template locals and rendered HTML.
   delete values.gateway_public_key;
   delete values.gateway_webhook_secret;
@@ -49,6 +74,8 @@ router.get('/', (req, res) => {
     logoSrc: imgSrc(settings.get('logo'), { w: 320, h: 120, name: '', hint: 'generic' }),
     dateFmt,
     gatewayMode: payments.mode(),
+    gatewayModeLocked: config.payments.modeLocked,
+    simulatorEnabled: payments.isSimulator(),
     dbSize: (() => {
       try {
         const fs = require('fs');
@@ -59,12 +86,13 @@ router.get('/', (req, res) => {
 });
 
 router.post('/general', (req, res) => {
-  const allowed = Object.keys(settings.DEFAULTS);
+  const allowed = Object.keys(settings.DEFAULTS).filter(key => settings.GROUPS[key] !== 'notifications');
   const patch = {};
+  const switches = new Set(String(req.body._booleans || '').split(','));
   allowed.forEach((k) => {
     if (req.body[k] === undefined) {
-      // unchecked checkboxes arrive missing
-      if (settings.BOOLEAN_KEYS.has(k)) patch[k] = 'false';
+      // Other settings forms must not silently turn this switch off.
+      if (settings.BOOLEAN_KEYS.has(k) && switches.has(k)) patch[k] = 'false';
       return;
     }
     patch[k] = String(req.body[k]).trim();
@@ -74,6 +102,8 @@ router.post('/general', (req, res) => {
     const field = req.body.image_field || 'logo';
     patch[field] = req.uploaded[0].url;
   }
+  if (!validVat(patch)) return rejectVat(req, res);
+  if (!paymentSettingsAllowed(req, res, patch)) return undefined;
   settings.setMany(patch);
   audit(req, 'settings.update', 'settings', null, { keys: Object.keys(patch).length });
   req.flash('success', 'Settings saved.');
@@ -82,10 +112,11 @@ router.post('/general', (req, res) => {
 
 router.post('/settings/save', (req, res) => {
   const patch = {};
-  Object.keys(req.body).forEach((k) => {
-    if (k === 'tab' || k === 'image_field') return;
-    patch[k] = typeof req.body[k] === 'string' ? req.body[k].trim() : req.body[k];
+  Object.keys(settings.DEFAULTS).filter(key => settings.GROUPS[key] !== 'notifications').forEach(k => {
+    if (req.body[k] !== undefined) patch[k] = String(req.body[k]).trim();
   });
+  if (!validVat(patch)) return rejectVat(req, res);
+  if (!paymentSettingsAllowed(req, res, patch)) return undefined;
   settings.setMany(patch);
   audit(req, 'settings.update', 'settings', null, { keys: Object.keys(patch).length, tab: req.body.tab });
   req.flash('success', 'Settings saved.');
@@ -208,13 +239,14 @@ router.post('/staff/:id/delete', (req, res) => {
 
 /* -------------------------------------------------------- payment gateway */
 router.post('/gateway/test', (req, res) => {
+  if (!payments.isSimulator()) return res.status(403).send('Simulator helpers are disabled.');
   const reference = String(req.body.reference || '').trim();
   const event = String(req.body.event || 'charge.success');
   if (!reference) { req.flash('danger', 'Enter a payment reference to test.'); return res.redirect('/admin/settings?tab=payments'); }
   const payment = payments.findByReference(reference);
   if (!payment) { req.flash('danger', 'No payment found with that reference.'); return res.redirect('/admin/settings?tab=payments'); }
-  const payload = event === 'charge.success' ? payments.buildWebhookPayload(payment)
-    : { event, data: { reference, gateway_response: 'Simulated from the admin panel' } };
+  if (!['simulator', 'biahens-stub'].includes(payment.gateway) || !['charge.success', 'charge.failed', 'charge.abandoned'].includes(event)) return res.status(400).send('Invalid simulator event.');
+  const payload = { ...payments.buildWebhookPayload(payment), event };
   const signature = payments.signPayload(payload);
   const handled = payments.handleWebhook(payload, req);
   audit(req, 'gateway.webhook_test', 'payment', payment.id, { event });
@@ -225,6 +257,7 @@ router.post('/gateway/test', (req, res) => {
 
 /* ------------------------------------------------------------ danger zone */
 router.post('/danger/reset-demo', (req, res) => {
+  if (!payments.isSimulator() || config.storeMode !== 'demo') return res.status(403).send('Demo reset is disabled. No data was changed.');
   if (String(req.body.confirm || '') !== 'RESET') {
     req.flash('danger', 'Type RESET to confirm.');
     return res.redirect('/admin/settings?tab=general');

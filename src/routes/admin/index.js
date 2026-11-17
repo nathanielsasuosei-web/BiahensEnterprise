@@ -12,6 +12,7 @@ const auth = require('../../middleware/auth');
 const { audit } = require('../../utils/log');
 const { money, round2, timeAgo } = require('../../utils/helpers');
 
+const { asyncRoute } = require('../../middleware/errors');
 const router = express.Router();
 
 /* ------------------------------------------------------------- admin login */
@@ -38,7 +39,7 @@ router.get('/login', (req, res) => {
   });
 });
 
-router.post('/login', adminLimiter, (req, res) => {
+router.post('/login', adminLimiter, asyncRoute(async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const password = req.body.password || '';
   const result = auth.credentials(email, password);
@@ -63,12 +64,12 @@ router.post('/login', adminLimiter, (req, res) => {
     return fail('This account does not have control-panel access. Products are uploaded by the store owner only.');
   }
 
-  auth.login(req, result.user);
+  await auth.login(req, result.user);
   delete req.session.adminReturn;
   audit(req, 'admin.login', 'user', result.user.id, { role: result.user.role });
   req.flash('success', `Signed in as ${result.user.role === 'owner' ? 'store owner' : 'staff'}.`);
   return res.redirect('/admin');
-});
+}));
 
 router.post('/logout', (req, res) => {
   audit(req, 'admin.logout', 'user', req.user ? req.user.id : null, {});

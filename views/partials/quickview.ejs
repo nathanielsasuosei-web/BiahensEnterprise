@@ -1,6 +1,7 @@
-<div class="modal" id="quickViewModal" role="dialog" aria-modal="true" aria-labelledby="qvTitle" aria-hidden="true">
+<div class="modal" id="quickViewModal" role="dialog" aria-modal="true" aria-labelledby="quickViewTitle" aria-hidden="true" inert>
   <div class="modal-backdrop" data-qv-close></div>
-  <div class="modal-box">
+  <div class="modal-box" tabindex="-1">
+    <h2 class="sr-only" id="quickViewTitle">Product quick look</h2>
     <button class="modal-close" type="button" data-qv-close aria-label="Close">&times;</button>
     <div id="qvContent" class="qv">
       <div class="qv-media"><div class="muted">Loading…</div></div>

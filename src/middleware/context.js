@@ -3,8 +3,8 @@ const settings = require('../services/settings');
 const catalog = require('../services/catalog');
 const cartSvc = require('../services/cart');
 const helpers = require('../utils/helpers');
-const { icon } = require('../utils/icons');
-const SENSITIVE_SETTINGS = new Set(['gateway_public_key', 'gateway_webhook_secret']);
+const { icon, departmentIcon } = require('../utils/icons');
+const SENSITIVE_SETTINGS = new Set(['gateway_public_key', 'gateway_webhook_secret', 'owner_notification_email', 'owner_notification_whatsapp', 'owner_whatsapp_opt_in']);
 const db = require('../db');
 
 /* menu is queried on every page — cache it and invalidate on category writes */
@@ -12,7 +12,7 @@ let menuCache = null;
 let menuCacheAt = 0;
 function menuCategories() {
   if (menuCache && Date.now() - menuCacheAt < 30000) return menuCache;
-  menuCache = catalog.menuCategories(9);
+  menuCache = catalog.menuCategories(100);
   menuCacheAt = Date.now();
   return menuCache;
 }
@@ -47,11 +47,16 @@ function context(req, res, next) {
   SENSITIVE_SETTINGS.forEach((key) => { delete s[key]; });
   const config = require('../config');
 
+  const payments = require('../services/payments');
+  s.gateway_mode = payments.mode();
+  s.gateway_brand = payments.brand();
+  res.locals.paymentProvider = payments.provider();
+  res.locals.isPaymentSimulator = payments.isSimulator();
   res.locals.settings = s;
   res.locals.setting = (k, f) => SENSITIVE_SETTINGS.has(k) ? f : settings.get(k, f);
   // Templates only need these public runtime values; don't expose the full
   // config object (which contains payment keys, session secrets and passwords).
-  res.locals.cfg = { publicUrl: config.publicUrl, ephemeralFs: config.ephemeralFs };
+  res.locals.cfg = { publicUrl: config.publicUrl, ephemeralFs: config.ephemeralFs, storeMode: config.storeMode, persistent: config.storage.persistent };
   res.locals.h = helpers;
   res.locals.money = helpers.money;
   res.locals.moneyShort = helpers.moneyShort;
@@ -62,6 +67,7 @@ function context(req, res, next) {
   res.locals.imgSrc = require('../utils/images').imgSrc;
   res.locals.STATUS_META = helpers.STATUS_META;
   res.locals.icon = icon;
+  res.locals.departmentIcon = departmentIcon;
   res.locals.stars = (rating) => {
     const r = Math.max(0, Math.min(5, Number(rating) || 0));
     const full = Math.round(r);

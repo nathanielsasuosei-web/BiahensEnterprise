@@ -1,7 +1,7 @@
 'use strict';
 /* eslint-disable no-console */
 /**
- * Seeds pointGh with a realistic Ghanaian fashion storefront:
+ * Seeds POINTGH with a realistic Ghanaian fashion storefront:
  * categories, owner-managed brands and products, variants, customers, reviews,
  * coupons, shipping zones, homepage slides and sample orders across each status.
  *
@@ -15,22 +15,21 @@ const { round2, slugify } = require('../utils/helpers');
 const config = require('../config');
 const bcrypt = require('bcryptjs');
 const DATA = require('./catalog-data');
+const { ensureDepartments } = require('./departments');
 
-// The starter catalogue is intentionally fashion-only. Keep the product seed,
-// its brands and every sample listing inside the two fashion departments.
+// Keep the existing sample stock; all retail departments are available for owner uploads.
 const FASHION_PRODUCT_CATEGORIES = new Set([
   'mens-clothing', 'womens-clothing', 'traditional-wear', 'kids-baby',
   'watches-jewellery', 'sneakers', 'formal-shoes', 'sandals-slippers',
   'handbags', 'backpacks-luggage',
 ]);
-const FASHION_ROOTS = new Set(['fashion', 'shoes-bags']);
 const FASHION_PRODUCTS = DATA.PRODUCTS.filter((p) => FASHION_PRODUCT_CATEGORIES.has(p.cat));
 const FASHION_BRANDS = DATA.BRANDS.filter((b) => FASHION_PRODUCTS.some((p) => p.brand === b.name));
 const FASHION_SLIDES = [
   {
-    title: 'Wear your story. Own every room.',
-    subtitle: 'Modern Ghanaian style, expressive prints and everyday pieces — selected with intention.',
-    badge: 'THE pointGh EDIT', link_text: 'Shop the edit', link_url: '/c/fashion',
+    title: 'Good style. Great finds.',
+    subtitle: 'Everyday essentials. Stand-out pieces. Discover fashion that feels a little more like you.',
+    badge: 'NEW SEASON. NEW ENERGY.', link_text: 'Shop new arrivals', link_url: '/new-arrivals',
     bg: 'linear-gradient(115deg,#201315 0%,#6B343B 58%,#B76A55 100%)',
   },
   {
@@ -58,6 +57,13 @@ const FASHION_IMAGE_BY_CATEGORY = {
   'sandals-slippers': '/img/fashion/sandals.jpg',
   handbags: '/img/fashion/accessories.jpg',
   'backpacks-luggage': '/img/fashion/accessories.jpg',
+};
+
+// Individual product photos take precedence over department imagery.
+const FASHION_IMAGE_BY_PRODUCT = {
+  'unisex-eva-slide-sandals-anti-skid': '/img/storefront/slide-sandals.jpg',
+  'hard-shell-cabin-luggage-20-360-spinner': '/img/storefront/cabin-luggage.jpg',
+  'gold-plated-ankh-pendant-necklace-18': '/img/storefront/gold-necklace.jpg',
 };
 
 const argv = process.argv.slice(2);
@@ -101,7 +107,7 @@ const CITIES = {
 };
 
 function clearAll() {
-  const tables = ['audit_log', 'notifications', 'newsletter', 'slides', 'settings', 'payments',
+  const tables = ['payment_webhook_receipts', 'notification_outbox', 'app_migrations', 'audit_log', 'notifications', 'newsletter', 'slides', 'settings', 'payments',
     'order_events', 'order_items', 'orders', 'shipping_rates', 'coupons', 'reviews', 'wishlists',
     'cart_items', 'variants', 'products', 'brands', 'categories', 'addresses', 'users', 'sessions'];
   db.pragma('foreign_keys = OFF');
@@ -113,17 +119,24 @@ function clearAll() {
 }
 
 function main(opts = {}) {
+  if (config.storeMode !== 'demo' || config.payments.mode === 'live' || config.payments.secretKey.startsWith('sk_live_')) {
+    throw new Error('Demo seeding/reset is forbidden with a live store or live payment keys. No data was reset.');
+  }
   const fresh = opts.fresh === undefined ? FRESH : !!opts.fresh;
   const quiet = !!opts.quiet;
   const hasProducts = db.prepare('SELECT COUNT(*) AS n FROM products').get().n > 0;
   if (hasProducts && !fresh) {
     if (!quiet) console.log('ℹ  Database already contains products. Re-run with --fresh to rebuild.');
     settings.ensureDefaults();
+    ensureDepartments(db);
     return;
   }
   if (fresh) {
     if (!quiet) console.log('↻  Wiping existing data (--fresh)…');
     clearAll();
+    require('./upgrades').applyUpgrades(db);
+    require('./pointgh').applyPointghUpdate(db);
+    require('./commerce').applyCommerceUpgrade(db);
   }
   settings.ensureDefaults();
 
@@ -131,26 +144,7 @@ function main(opts = {}) {
   const ids = {};
 
   /* ------------------------------------------------------------ categories */
-  ids.categories = {};
-  const insCat = db.prepare(
-    `INSERT INTO categories (name, slug, parent_id, description, icon, accent, sort_order, is_active, show_in_menu)
-     VALUES (?,?,?,?,?,?,?,1,1)`
-  );
-  const catTx = db.transaction(() => {
-    DATA.CATEGORIES.filter((parent) => FASHION_ROOTS.has(parent.slug)).forEach((parent, i) => {
-      const info = insCat.run(parent.name, parent.slug, null,
-        `Shop ${parent.name.toLowerCase()} on pointGh with fast delivery across Ghana.`,
-        parent.icon || '🛍', parent.accent || '#0F2A43', i + 1);
-      ids.categories[parent.slug] = info.lastInsertRowid;
-      (parent.children || []).forEach((child, j) => {
-        const cinfo = insCat.run(child.name, child.slug, info.lastInsertRowid,
-          `Browse ${child.name}, selected by pointGh and delivered across Ghana.`,
-          null, parent.accent || '#0F2A43', j + 1);
-        ids.categories[child.slug] = cinfo.lastInsertRowid;
-      });
-    });
-  });
-  catTx();
+  ids.categories = ensureDepartments(db);
   console.log(`✓  categories: ${Object.keys(ids.categories).length}`);
 
   /* ---------------------------------------------------------------- brands */
@@ -169,6 +163,7 @@ function main(opts = {}) {
       const catId = ids.categories[p.cat];
       if (!catId) { console.warn(`  ! unknown category "${p.cat}" for ${p.name}`); return; }
       const brandId = ids.brands[p.brand] || null;
+      const image = FASHION_IMAGE_BY_PRODUCT[slugify(p.name)] || FASHION_IMAGE_BY_CATEGORY[p.cat] || null;
       const id = catalog.saveProduct({
         name: p.name,
         slug: slugify(p.name),
@@ -183,8 +178,8 @@ function main(opts = {}) {
         stock: p.stock,
         low_stock_at: Math.max(3, Math.round(p.stock * 0.2)),
         weight_kg: p.weight || 0.5,
-        image: FASHION_IMAGE_BY_CATEGORY[p.cat] || null,
-        images: FASHION_IMAGE_BY_CATEGORY[p.cat] ? [FASHION_IMAGE_BY_CATEGORY[p.cat]] : [],
+        image,
+        images: image ? [image] : [],
         options: p.var ? p.var.map((v) => ({ name: v.title.split('/')[0].trim(), values: [v.title] })) : [],
         tags: p.tags || '',
         is_active: 1,
@@ -222,11 +217,13 @@ function main(opts = {}) {
      VALUES (?,?,?,?,?,?,?,1)`
   );
 
-  // The owner — the only account allowed to upload products
-  const ownerId = insUser.run(config.owner.name, config.owner.email, config.owner.phone,
+  // db:init may already have created the owner. Preserve that account (and its
+  // password) so the documented init → seed setup works without a constraint error.
+  const existingOwner = db.prepare("SELECT id FROM users WHERE role = 'owner' ORDER BY id LIMIT 1").get();
+  const ownerId = existingOwner ? existingOwner.id : insUser.run(config.owner.name, config.owner.email, config.owner.phone,
     hash(config.owner.password), 'owner', 0, 1,
     new Date(Date.now() - 400 * 86400000).toISOString(), new Date().toISOString()).lastInsertRowid;
-  console.log(`✓  owner account: ${config.owner.email} / ${config.owner.password}`);
+  console.log(`✓  owner account: ${existingOwner ? 'existing account preserved' : config.owner.email}`);
 
   // Optional staff (can manage orders/customers, NOT products or settings)
   const staffId = insUser.run('Aba Support', 'staff@biahensenterprise.com', '+233 20 111 2233',
@@ -340,11 +337,11 @@ function main(opts = {}) {
 
   const insOrder = db.prepare(
     `INSERT INTO orders (order_number, user_id, guest_name, guest_email, status, payment_status,
-      payment_method, subtotal, discount, shipping_fee, tax, total, currency, coupon_id, coupon_code,
+      payment_method, subtotal, discount, shipping_fee, tax, tax_rate, total, currency, coupon_id, coupon_code,
       ship_name, ship_phone, ship_email, ship_region, ship_city, ship_line, ship_landmark,
       delivery_method, delivery_note, tracking_number, carrier, admin_notes, placed_at, updated_at)
      VALUES (@order_number,@user_id,@guest_name,@guest_email,@status,@payment_status,@payment_method,
-      @subtotal,@discount,@shipping_fee,@tax,@total,@currency,@coupon_id,@coupon_code,
+      @subtotal,@discount,@shipping_fee,@tax,@tax_rate,@total,@currency,@coupon_id,@coupon_code,
       @ship_name,@ship_phone,@ship_email,@ship_region,@ship_city,@ship_line,@ship_landmark,
       @delivery_method,@delivery_note,@tracking_number,@carrier,@admin_notes,@placed_at,@updated_at)`
   );
@@ -353,7 +350,7 @@ function main(opts = {}) {
       variant_title, price, qty, total) VALUES (?,?,?,?,?,?,?,?,?,?,?)`
   );
   const insEvent = db.prepare(
-    'INSERT INTO order_events (order_id, status, note, actor, created_at) VALUES (?,?,?,?,?)'
+    'INSERT INTO order_events (order_id, status, note, actor, created_at, is_public) VALUES (?,?,?,?,?,1)'
   );
   const insPayment = db.prepare(
     `INSERT INTO payments (order_id, reference, gateway, method, status, amount, currency, channel,
@@ -421,7 +418,9 @@ function main(opts = {}) {
             else if (c.type === 'free_shipping') shippingFee = 0;
           }
         }
-        const total = round2(Math.max(0, subtotal - discount + shippingFee));
+        const taxRate = Number(settings.get('tax_rate'));
+        const tax = round2(Math.max(0, subtotal - discount) * taxRate / 100);
+        const total = round2(Math.max(0, subtotal - discount + shippingFee + tax));
         const orderNumber = `BX-${placed.getFullYear()}-${String(seq).padStart(4, '0')}${between(1000, 9999)}`;
         seq += 1;
 
@@ -433,7 +432,7 @@ function main(opts = {}) {
           status,
           payment_status: payStatus,
           payment_method: payMethod,
-          subtotal, discount, shipping_fee: shippingFee, tax: 0, total,
+          subtotal, discount, shipping_fee: shippingFee, tax, tax_rate: taxRate, total,
           currency: 'GHS', coupon_id: couponId, coupon_code: couponCode,
           ship_name: shipName, ship_phone: shipPhone, ship_email: shipEmail,
           ship_region: region, ship_city: city,
@@ -442,7 +441,7 @@ function main(opts = {}) {
           delivery_method: delivery,
           delivery_note: chance(0.2) ? pick(['Call before coming', 'Deliver after 5pm', 'Ask for Ama at the gate', 'Please use the back entrance']) : null,
           tracking_number: ['shipped', 'delivered'].includes(status) ? `GH${between(100000000, 999999999)}BX` : null,
-          carrier: ['shipped', 'delivered'].includes(status) ? pick(['pointGh Logistics', 'VIP Parcel', 'Ghana Post EMS', 'CityRider']) : null,
+          carrier: ['shipped', 'delivered'].includes(status) ? pick(['POINTGH Logistics', 'VIP Parcel', 'Ghana Post EMS', 'CityRider']) : null,
           admin_notes: chance(0.12) ? pick(['Repeat customer — prioritise dispatch', 'Requested a receipt for company expense', 'Gift wrap requested']) : null,
           placed_at: placed.toISOString(),
           updated_at: new Date(placed.getTime() + between(1, 72) * 3600000).toISOString(),
@@ -538,14 +537,15 @@ function main(opts = {}) {
   const upd = db.prepare('UPDATE products SET views_count = ?, sold_count = sold_count + ? WHERE id = ?');
   ids.products.forEach((pid) => upd.run(between(40, 4200), between(0, 26), pid));
 
+  db.prepare("INSERT OR IGNORE INTO app_migrations (name) VALUES ('dataset.demo.v1')").run();
+
   console.log(`\n🎉 Seed complete in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   console.log(`   Products : ${ids.products.length}`);
   console.log(`   Customers: ${ids.users.length}`);
   console.log(`   Orders   : ${orderCount}`);
   console.log(`   Reviews  : ${reviewCount}`);
-  console.log(`\n   Owner login  → ${config.owner.email}  /  ${config.owner.password}`);
-  console.log(`   Staff login  → staff@biahensenterprise.com  /  Staff@2026`);
-  console.log(`   Demo shopper → any seeded customer email   /  Customer@2026\n`);
+  console.log('\n   Demo accounts are ready. See .env.example / README for the published demo defaults.');
+  console.log('   Configured owner credentials are never printed to logs.\n');
 }
 
 if (require.main === module) {

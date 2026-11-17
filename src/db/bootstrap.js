@@ -51,7 +51,7 @@ function ensureWritableDb() {
 /** Called once from src/app.js before any route handles a request. */
 function bootstrap() {
   if (done) return require('./index');
-  done = true;
+  require('../config/production').assertRuntime(config);
 
   ensureWritableDb();
 
@@ -71,9 +71,15 @@ function bootstrap() {
     }
   }
 
-  // Uploads directory must exist and be writable.
-  try { fs.mkdirSync(config.uploads.dir, { recursive: true }); } catch (_) { /* read-only fs */ }
+  if (config.storeMode === 'live') {
+    require('./owner').assertNoDemoAccounts(db, config);
+    require('../services/settings').ensureDefaults();
+    require('./owner').ensureOwner(db, config);
+  }
+  require('./departments').ensureDepartments(db);
 
+  fs.mkdirSync(config.uploads.dir, { recursive: true });
+  done = true;
   return db;
 }
 

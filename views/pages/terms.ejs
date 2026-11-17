@@ -26,8 +26,8 @@
 
     <h2>4. Products, prices and stock</h2>
     <p>We take care to describe and photograph fashion items accurately, including fabric, fit, sizing, measurements, colours and care guidance where available. Colours can vary slightly between screens, and fit may vary by design. Please use the size guide and product details before ordering.</p>
-    <p>All prices are shown in Ghana cedis (<%= settings.currency_symbol %>) and include VAT and any applicable levies where we are required to charge them. Delivery fees are shown separately before you pay and are never added afterwards.</p>
-    <p>We publish live stock quantities. An item added to your cart is <b>not</b> reserved until your order is placed; if two customers buy the last unit at the same moment, the first completed order wins and the second is refunded in full.</p>
+    <p>All prices are shown in Ghana cedis (<%= settings.currency_symbol %>).<% if (Number(settings.tax_rate) > 0) { %> A separate <b><%= h.vatLabel(settings.tax_rate) %></b> charge is added to the item subtotal after coupon discounts, excluding delivery.<% } %> VAT, delivery and the full order total are shown in your cart and at checkout before you place the order. Existing orders retain the charges recorded when they were placed.</p>
+    <p>Adding an item to your cart does <b>not</b> reserve it. Stock is allocated when your order is placed. Online payment orders have a 30-minute payment window; unpaid expired or cancelled orders release their reservation. A late payment after a reservation expires requires support review and does not automatically reactivate the order.</p>
     <p>If we cannot supply an item you have paid for — because of a stock error, supplier failure or a pricing mistake — we will tell you as soon as we know and either offer a substitute of equal or greater value or refund you in full. We are not obliged to sell at an obviously incorrect price, and where a pricing error is discovered after dispatch we will contact you rather than charge you retrospectively.</p>
 
     <h2>5. Placing an order</h2>
@@ -35,7 +35,7 @@
     <p>By placing an order you confirm that the delivery details you gave are accurate and that somebody will be available to receive the goods. Please check your address carefully: redelivery caused by an incorrect address may be charged at the applicable regional rate.</p>
 
     <h2>6. Payment</h2>
-    <p>We accept Mobile Money (MTN, Telecel, AT), debit and credit cards, bank transfer, and cash on delivery for orders up to <%= settings.currency_symbol %> 5,000. Card and Mobile Money transactions are processed by a third-party payment gateway; card details are entered on the gateway’s hosted page and are never stored on our servers. We receive only a signed confirmation that the charge succeeded.</p>
+    <p>The enabled methods are shown at checkout: Mobile Money, debit/credit card and cash on delivery where available, with a cash-on-delivery limit of <%= settings.currency_symbol %> 5,000. Real card and Mobile Money payments use Paystack-hosted checkout. POINTGH does not collect your card number or CVV. Our server verifies the provider’s reference, amount, currency, environment and successful status before crediting an order.</p>
     <p>Where you pay cash on delivery, the goods remain our property until the rider has collected the full amount. Refusing a cash-on-delivery delivery at the door without a valid reason relating to the goods may result in the delivery fee being charged to your account before we accept a further order.</p>
 
     <h2>7. Delivery</h2>
@@ -44,10 +44,10 @@
     <p>If we miss a promised express delivery window, contact us and we will refund the express surcharge.</p>
 
     <h2>8. Cancellation by you</h2>
-    <p>You may cancel an order at any time before it is dispatched, through <a href="/account/orders">My orders</a> or by contacting us. Paid orders cancelled before dispatch are refunded in full. After dispatch, cancellation becomes a return under clause 9.</p>
+    <p>You may cancel an order at any time before it is dispatched, through <a href="/account/orders">My orders</a> or by contacting us. For an eligible paid cancellation before dispatch, contact support to arrange the full refund through the payment provider. A cancellation or status change does not itself initiate or confirm a refund. After dispatch, cancellation becomes a return under clause 9.</p>
 
     <h2>9. Returns, refunds and your statutory rights</h2>
-    <p>Our full returns procedure is set out on the <a href="/returns-refunds">Returns &amp; refunds</a> page, which forms part of these terms. In summary: you have <%= settings.return_days %> days from delivery to request a return on eligible, unworn and unwashed fashion items with their tags; faulty, damaged or incorrectly supplied items may be returned at our cost; refunds are issued to the original payment method within 24 hours for Mobile Money and 3–7 working days for card and bank payments.</p>
+    <p>Our full returns procedure is set out on the <a href="/returns-refunds">Returns &amp; refunds</a> page, which forms part of these terms. In summary: you have <%= settings.return_days %> days from delivery to request a return on eligible, unworn and unwashed fashion items with their tags; faulty, damaged or incorrectly supplied items may be returned at our cost; approved online refunds are arranged through the payment provider, and settlement timing depends on the provider and your bank. Cash-on-delivery refunds are arranged with support. A status change does not itself return money.</p>
     <p>Nothing in these terms limits your rights under the <b>Sale of Goods Act, 1962 (Act 137)</b> or any other Ghanaian consumer-protection law, including the requirement that goods be of satisfactory quality, fit for purpose and as described.</p>
 
     <h2>10. Warranty</h2>

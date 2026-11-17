@@ -1,131 +1,77 @@
-# pointGh
+# POINTGH
 
-A fashion-only, single-owner e-commerce store for Ghana — built with **Node.js, Express, EJS and SQLite**. Inspired by the shopping convenience of Jumia, Jiji Ghana, Alibaba and Temu, with a more focused collection and one hard rule: **only the store owner can upload, price or edit products.** Staff accounts can support orders and customers, but cannot access the catalogue.
+A multi-department Ghanaian store built with **Node 22, Express, EJS and SQLite**. Only the owner can upload products or change the catalogue; staff can support orders and customers.
 
-- **Storefront:** layered fashion header (announcement, search, account/bag, category mega-menu and mobile drawer), editorial campaign homepage, clothing/shoes/bags/accessories catalogue, product pages with sizes, reviews and related styles, cart, wishlist, guest or account checkout and order tracking.
-- **Checkout:** Ghana regions and cities, standard/express/pickup delivery, Mobile Money (MTN · Telecel · AT), card and cash on delivery, coupons, and a **Paystack-compatible stub gateway** with a real HMAC SHA-512 webhook handler — drop in live keys and it works unchanged.
-- **Admin panel:** dashboard with KPIs and charts, product CRUD + CSV import/export, inventory valuation, categories/brands/hero slides, order pipeline with timeline and invoices, customer files with notes and segmentation, coupons, review moderation, newsletter list, promotions, analytics reports, payment ledger, email outbox, audit log, system health and notifications.
-- **Currency:** Ghana cedi (GH₵), prices formatted `en-GH`.
+- **Account checkout:** signup/login and a valid phone number are required. Orders, receipts and automatic tracking are private to their customer.
+- **VAT (1%):** added to merchandise after coupon discounts, excluding delivery. Each new order snapshots its rate; historical charges are not rewritten. This is the requested store setting, not a statement about statutory Ghanaian tax obligations.
+- **Real online payments:** Paystack-hosted card/Mobile Money checkout, server-side verification, exact amount/currency/reference/environment checks, raw-body signed webhooks, transactional/idempotent settlement, and a payment-review path for late or duplicate charges. No live PAN/CVV form is served by POINTGH.
+- **Owner alerts:** persistent email + WhatsApp outbox, Resend and Meta Cloud API transports, retry/backoff, explicit WhatsApp opt-in and an owner-only delivery log. Provider acceptance is distinguished from delivery/read confirmation.
+- **Persistent production:** a single Node process with SQLite, sessions, uploads, alert retries and backups under one durable disk mount. Live startup refuses temporary/serverless storage, missing provider configuration and published demo credentials.
 
----
+**Implementation is not deployment.** Provider keys, an attached paid persistent disk, your public HTTPS address, authorized verification sends and a verified live transaction must be configured/checked in your own accounts. No code change alone creates a hosting service or activates provider accounts.
 
-## Quick start
+## Run the isolated local demo
 
-```bash
-npm install
-cp .env.example .env        # optional — every value has a working default
-npm run db:init             # create the schema + owner account
-npm run db:seed             # optional: fashion catalogue, sample orders and customers
-npm start                   # http://localhost:3000
+```sh
+npm ci
+cp .env.example .env
+npm run db:init
+npm run db:seed       # sample catalogue/accounts/orders; DEMO ONLY
+npm run dev          # http://localhost:3000
 ```
+
+Published **demo-only** logins:
 
 | Role | Email | Password |
 | --- | --- | --- |
-| **Owner** (full control, product uploads) | `owner@biahensenterprise.com` | `Biahens@2026` |
-| Staff (orders, customers, marketing) | `staff@biahensenterprise.com` | `Staff@2026` |
-| Demo shopper | any seeded customer email | `Customer@2026` |
+| Owner | `owner@biahensenterprise.com` | `Biahens@2026` |
+| Staff | `staff@biahensenterprise.com` | `Staff@2026` |
+| Shopper | any seeded customer email | `Customer@2026` |
 
-Admin panel: `/admin/login` · Storefront: `/`
+The demo simulator accepts test card `4084 0840 8408 4081`. It never charges money. Do not enter real card details. Notification sending is disabled by default in demo mode.
 
-Test payments (stub gateway): card `4084 0840 8408 4081` succeeds, `5060 6666 6666 6666 666` is declined, `4084 0999 9999 9995` fails for insufficient funds, and any Mobile Money number ending `0000` fails.
+## Deploy the real store
 
----
+Follow **[docs/production.md](docs/production.md)**. For your **existing server**, use the supplied `Dockerfile` with a durable volume and HTTPS reverse proxy, or the managed-Node/VPS instructions in the guide. `render.yaml` is an optional alternative: one paid Node web service with a persistent disk at `/var/data`. No resources are provisioned by these files until you deploy them.
 
-## Deploying
+1. Publish/review this version of the code, choose your hosting service and attach its durable disk.
+2. Configure the private variables listed in `.env.production.example` in the hosting dashboard. Use your existing approved Paystack, verified Resend domain and WhatsApp Business template. **Do not send secrets in chat or commit environment files.**
+3. Start with `NODE_ENV=production`, `STORE_MODE=live`, `PAYMENT_PROVIDER=paystack`, `GATEWAY_MODE=live`, `DATA_DIR=/var/data`, `PERSISTENT_STORAGE=true`. The real store initializes its schema and first owner, **not** demo products, customers or orders.
+4. Register `https://YOUR-STORE/webhooks/paystack` in Paystack. The callback URL is set per transaction by the backend. Review both modern and legacy signature setup in the guide.
+5. Check **Admin → System health → Production readiness**. Explicitly authorize a verification email/WhatsApp send in **Order alerts & delivery**, check both devices, then perform only an authorized payment verification transaction.
+6. Verify survival of a service restart and deployment. Configure encrypted **off-server** backups of both the database and uploads and test recovery.
 
-### Option A — Vercel (ready to go, but read the storage note)
+Do not scale this SQLite deployment to multiple app instances. Vercel's `/tmp` SQLite path remains **demo-only**, with `STORE_MODE=demo`; live startup refuses it. A live Vercel deployment would require a separate managed-database migration, not an environment-variable workaround.
 
-Everything needed is already in the repo:
+### Payment/refund boundaries
 
-| File | Purpose |
+- Customers pay on `checkout.paystack.com`, not a local live card form. Initialization errors keep the order and expose a safe retry/check path, never simulator fallback.
+- Online stock is allocated once for a 30-minute payment window. Unpaid expired/cancelled orders release it once. COD collection does not allocate a second time.
+- Late payments on closed orders and additional successful attempts are recorded as captured funds requiring owner review, without resurrecting fulfilment or consuming stock again.
+- **Refunds are issued and reconciled directly in Paystack.** This app does not initiate or automatically synchronize refunds. The old local-only refund action is disabled. Cancelling an order or editing its status cannot return money or fabricate a paid/refunded state. Cash refunds are handled separately.
+
+## Owner email and WhatsApp alerts
+
+See **[docs/order-alerts.md](docs/order-alerts.md)** for the six-parameter approved template and provider settings. Each order and its two alert jobs are committed together. A worker drains the durable outbox every 30 seconds. Credentials are server-only; no secret is displayed in templates, public APIs or the payment ledger.
+
+## Commands
+
+| Command | Purpose |
 | --- | --- |
-| `vercel.json` | Build command, `public/` as static output, rewrite every dynamic route to the function, cache headers, `lhr1` region |
-| `api/index.js` | Serverless entry — exports the Express app (no `listen()`) |
-| `scripts/vercel-build.js` | Builds a **fully seeded** `data/biahens.sqlite` at build time |
-| `src/db/bootstrap.js` | On cold start, copies that baked database into `/tmp` (or seeds it if missing) |
-| `src/config/index.js` | Detects serverless and moves the DB + uploads into `/tmp` |
+| `npm start` | Long-running server; listens on `0.0.0.0:$PORT` |
+| `npm run dev` | Local watch mode |
+| `npm test` | Isolated storefront, commerce, VAT, provider/payment, safety and persistence tests; mocked external HTTP only |
+| `npm run db:init` | Additive schema/settings/owner setup; no sample dataset |
+| `npm run db:seed` / `npm run db:reset` | Demo-only sample data helpers; refused for live stores/keys |
+| `npm run production:check` | Read-only readiness evidence; makes no provider requests |
+| `npm run notifications:send` | Attempt queued notifications using configured providers |
+| `npm run backup` | Integrity-checked SQLite online backup; copy it and uploads off-server |
+| `npm run vercel:build` | Disposable, demo-only serverless bundle; refuses to overwrite an existing DB |
 
-Deploy:
+Live servers keep seven local database snapshots, approximately daily. A backup on the same disk is **not** disaster recovery. Uploads need a separate off-server copy.
 
-```bash
-npm i -g vercel
-vercel login
-vercel --prod
-```
+## Layout
 
-Or import the GitHub repo at <https://vercel.com/new> — the settings in `vercel.json` are picked up automatically. If you prefer setting them in the dashboard: **Framework Preset** `Other`, **Build Command** `npm run vercel:build`, **Output Directory** `public`, **Install Command** `npm install`.
+`src/config` — environment/safety checks · `src/db` — additive schema, owner bootstrap and persistent sessions · `src/services` — commerce, provider clients, outbox, backups/readiness · `src/routes` — storefront/account/admin/provider endpoints · `views` — EJS · `public` — local assets · `tests` — isolated verification · `docs` — operator setup.
 
-Environment variables to set in the Vercel project (Settings → Environment Variables):
-
-```
-SESSION_SECRET=<long random string>
-OWNER_EMAIL=<your email>
-OWNER_PASSWORD=<strong password>
-GATEWAY_MODE=test            # or live, with the Paystack keys below
-PAYSTACK_SECRET_KEY=sk_live_…
-PAYSTACK_WEBHOOK_SECRET=whsec_…
-```
-
-`PUBLIC_URL` is inferred from Vercel, so you can leave it out.
-
-> ### ⚠️ Storage on Vercel is ephemeral
-> Vercel Functions mount your code **read-only**; only `/tmp` is writable and it is wiped whenever an instance recycles (minutes of idleness, or every new deployment). So on Vercel this app boots with the full demo catalogue, works end to end, but **orders, product edits, uploads and customer sign-ups do not persist**, and concurrent instances each have their own copy.
->
-> That makes Vercel ideal for a **demo, design review or client preview** — not for taking real orders. The admin panel says so loudly on *System → Health* when it detects this mode.
->
-> To run the real shop on Vercel you would need the data layer pointed at a hosted database (Turso/libSQL keeps the SQLite dialect, or Neon/Supabase Postgres). That is a deliberate change to `src/db` and the query layer — say the word and it can be done.
-
-### Option B — a host with a real disk (recommended for production)
-
-The code needs **zero changes** on any platform that gives you a persistent filesystem and a long-lived Node process:
-
-| Platform | Notes |
-| --- | --- |
-| **Railway / Render / Fly.io** | Connect the repo, start command `npm start`, attach a volume mounted at `/app/data` (and `/app/public/uploads`). Free/cheap tiers are fine. |
-| **Any VPS** (DigitalOcean, Hetzner, AWS EC2) | `npm ci && npm run db:init && npm run db:seed && npm start` behind Nginx/Caddy with TLS and `systemd`. |
-| **Docker** | One container, two volumes: `data/` and `public/uploads/`. |
-
-Then set `NODE_ENV=production`, a strong `SESSION_SECRET`, your real `PUBLIC_URL`, and register `https://your-domain/webhooks/paystack` in your Paystack dashboard.
-
-### Production checklist
-
-1. `NODE_ENV=production` + long random `SESSION_SECRET`.
-2. Real `PUBLIC_URL` on HTTPS (session cookies become `Secure` automatically).
-3. Live gateway keys, `GATEWAY_MODE=live`, webhook URL registered.
-4. Connect an SMTP provider in `sendMail()` (`src/utils/log.js`) — until then emails are captured in the admin **Email outbox** instead of being sent.
-5. Replace the placeholder logo/imagery and review the policy pages.
-6. Back up `data/biahens.sqlite` (admin → *System health → Download backup*) on a schedule, off-server.
-
----
-
-## Project layout
-
-```
-api/                     Vercel function entry
-scripts/                 build helpers (vercel-build.js)
-src/
-  config/                env-driven configuration
-  db/                    schema.sql, connection, bootstrap, seed, session store
-  middleware/            auth (owner/staff/customer), context, uploads, errors
-  routes/                site, cart, checkout, pay, auth, account, api
-    admin/               products, catalog, orders, customers, marketing,
-                         settings, analytics, system, uploads
-  services/              catalog, cart, orders, payments, settings, stats
-  utils/                 helpers, icons, images, logging/audit/mail outbox
-views/                   EJS templates (storefront, account, admin, pages)
-public/                  css, js, images, uploads
-data/                    SQLite database (gitignored, created at build/init)
-```
-
-**Owner-only enforcement** lives in `src/middleware/auth.js`: the owner alone can access product management and media uploads; staff are limited to support and order workflows. Fashion-only category validation is enforced in the catalogue service and product create/import routes, so non-fashion inventory cannot appear on the public storefront. Every mutating admin action is written to `audit_log` with actor, role, IP and a before/after payload.
-
-## Scripts
-
-| Command | What it does |
-| --- | --- |
-| `npm start` | Run the server (`PORT`, default 3000) |
-| `npm run dev` | Run with `--watch` |
-| `npm run db:init` | Create/upgrade the schema, ensure the owner account |
-| `npm run db:seed` | Seed demo data (skips if products already exist) |
-| `npm run db:reset` | Wipe and rebuild the demo dataset |
-| `npm run vercel:build` | Bake a seeded database for serverless deploys |
+The working database (`data/`), generated caches, private environment files and uploads are ignored by Git and excluded from the Docker build context. Never reset an existing store to deploy an update.

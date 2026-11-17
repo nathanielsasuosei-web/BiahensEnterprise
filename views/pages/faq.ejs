@@ -19,11 +19,11 @@
         <div class="faq">
           <details>
             <summary>How do I place an order?</summary>
-            <div class="faq-body">Add items to your cart, then choose <b>Proceed to secure checkout</b>. You will go through four short steps: delivery address, delivery method, payment method, and a final review. Once you place the order you get an order number (it looks like <code>BIA-000123</code>) and an email confirmation. You do not need an account — guest checkout works — but an account makes tracking and reordering much easier.</div>
+            <div class="faq-body">Add items to your cart, then choose <b>Proceed to secure checkout</b>. You will go through four short steps: delivery address, delivery method, payment method, and a final review. Once you place the order you get an order number (it looks like <code>BIA-000123</code>) and an email confirmation. Sign in or create an account with a valid phone number before ordering. Your orders appear automatically in your account for private tracking.</div>
           </details>
           <details>
             <summary>Can I order by phone or WhatsApp instead?</summary>
-            <div class="faq-body">Yes. Call <%= settings.support_phone %> or WhatsApp us during <%= settings.support_hours || 'business hours' %> and our team will place the order for you, then send you the order number and a payment link. Phone orders are held for 24 hours.</div>
+            <div class="faq-body">Call <%= settings.support_phone %> or WhatsApp us during <%= settings.support_hours || 'business hours' %> for help choosing products. You must sign in or create an account to place an order, so payment and tracking stay private to you. Online payment orders reserve stock for 30 minutes.</div>
           </details>
           <details>
             <summary>Why does a product suddenly say “out of stock”?</summary>
@@ -49,14 +49,13 @@
               <ul style="margin:.4rem 0">
                 <li><b>Mobile Money</b> — MTN MoMo, Telecel Cash and AT Money. You approve the prompt on your handset.</li>
                 <li><b>Debit / credit card</b> — Visa, Mastercard and Verve, processed by our PCI-DSS compliant gateway.</li>
-                <li><b>Bank transfer</b> — major Ghanaian banks through the gateway.</li>
                 <li><b>Cash on delivery</b> — pay the rider in cash, available for orders up to <%= settings.currency_symbol %> 5,000.</li>
               </ul>
             </div>
           </details>
           <details>
             <summary>Is it safe to pay by card on this site?</summary>
-            <div class="faq-body">Card numbers are entered on the payment gateway’s own hosted page and never touch our servers or database. We only receive a cryptographically signed webhook confirming that the charge succeeded. All traffic is served over HTTPS.</div>
+            <div class="faq-body">For real payments, card details are entered on Paystack’s hosted checkout, not on POINTGH. Our server checks Paystack’s verification response or signed webhook before recording payment. Never send your card number, CVV or Mobile Money PIN to support. The demo simulator is for displayed test details only.</div>
           </details>
           <details>
             <summary>Why is cash on delivery capped at <%= settings.currency_symbol %> 5,000?</summary>
@@ -64,11 +63,11 @@
           </details>
           <details>
             <summary>My payment failed but the money left my account. What now?</summary>
-            <div class="faq-body">Do not pay twice. Send us the order number and a screenshot of the MoMo/card notification on WhatsApp. We check the gateway ledger the same day; if the charge was captured we mark the order paid, and if it was not we ask the gateway to reverse it — reversals typically land within 24 hours for MoMo and 3–7 working days for cards.</div>
+            <div class="faq-body">Do not pay twice. Open your saved order and choose <b>Check payment</b> after approving any phone prompt. If it is still unresolved, contact support with your order number. A screenshot can help the investigation but is not payment verification. We check the provider record; any required refund is arranged through the provider, with timing confirmed by the provider or your bank.</div>
           </details>
           <details>
             <summary>Do you issue receipts?</summary>
-            <div class="faq-body">Yes. Every order has a printable receipt with our TIN, available from <b>My orders → Receipt</b> or on the confirmation page. Receipts are suitable for business expense claims and warranty registration.</div>
+            <div class="faq-body">Every order has a printable statement from <b>My orders → Receipt</b> or the confirmation page. It shows items, VAT, delivery, the total and the recorded payment status. An unpaid order statement is not proof of payment. Contact support if you need a business tax invoice.</div>
           </details>
         </div>
       </section>
@@ -96,7 +95,7 @@
           </details>
           <details>
             <summary>How do I track my order?</summary>
-            <div class="faq-body">Use <a href="/track-order">Track an order</a> with your order number plus the phone number or email you checked out with. Signed-in customers see a live timeline under <a href="/account/orders">My orders</a>, including when the rider leaves the warehouse.</div>
+            <div class="faq-body">Sign in and open <a href="/track-order">Track my orders</a>. Your own orders appear automatically, with status and delivery updates that refresh while the page is open. You do not need to enter your phone number or email again.</div>
           </details>
           <details>
             <summary>Do you deliver to rural areas?</summary>
@@ -118,7 +117,7 @@
           </details>
           <details>
             <summary>How long do refunds take?</summary>
-            <div class="faq-body">Once the returned item reaches our warehouse and passes inspection, refunds are issued to the original payment method. Mobile Money refunds usually land within 24 hours; card and bank refunds take 3–7 working days depending on your bank. Cash-on-delivery orders are refunded by MoMo to a number you give us.</div>
+            <div class="faq-body">Our team arranges an approved online refund through the payment provider and confirms the amount and reference with you. Timing depends on the provider and your bank. Cash-on-delivery refunds are arranged directly with support. Cancelling an order or changing its status does not automatically move money.</div>
           </details>
           <details>
             <summary>Do I pay for return delivery?</summary>
@@ -150,7 +149,7 @@
         <div class="faq">
           <details>
             <summary>Do I need an account to buy?</summary>
-            <div class="faq-body">No — guest checkout is available. But an account gives you order history, a wishlist, saved addresses, one-tap reordering and a private spending summary. Creating one takes about 30 seconds and there is no fee.</div>
+            <div class="faq-body">Yes. Sign in or create an account with a valid phone number before placing an order. Your account includes private order tracking, a wishlist, saved addresses and one-tap reordering. Creating one takes about 30 seconds and there is no fee.</div>
           </details>
           <details>
             <summary>I forgot my password.</summary>

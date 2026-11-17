@@ -8,7 +8,9 @@ const config = require('../config');
 const settings = require('../services/settings');
 const auth = require('../middleware/auth');
 const { sendMail, audit } = require('../utils/log');
+const { normalizePhone, isGhanaPhone } = require('../utils/phone');
 
+const { asyncRoute } = require('../middleware/errors');
 const router = express.Router();
 
 const loginLimiter = rateLimit({
@@ -20,7 +22,7 @@ const loginLimiter = rateLimit({
   handler(req, res, _next, options) {
     if (req.xhr || req.headers.accept === 'application/json') return res.status(429).json(options.message);
     req.flash('danger', options.message.message);
-    return res.status(429).render('auth/login', { pageTitle: 'Sign in', bodyClass: 'page-auth', error: options.message.message, values: {} });
+    return res.status(429).render('auth/login', { pageTitle: 'Sign in', bodyClass: 'page-auth', error: options.message.message, values: {}, returnTo: null, demoHint: !config.isProd });
   },
 });
 
@@ -31,6 +33,7 @@ const registerLimiter = rateLimit({
 
 /* ------------------------------------------------------------------ login */
 router.get('/login', auth.guestOnly, (req, res) => {
+  if (req.query.next) req.session.returnTo = auth.safeReturnTo(req.query.next);
   res.render('auth/login', {
     pageTitle: `Sign in | ${settings.get('store_name')}`,
     bodyClass: 'page-auth',
@@ -41,7 +44,7 @@ router.get('/login', auth.guestOnly, (req, res) => {
   });
 });
 
-router.post('/login', loginLimiter, auth.guestOnly, (req, res) => {
+router.post('/login', loginLimiter, auth.guestOnly, asyncRoute(async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const password = req.body.password || '';
   const result = auth.credentials(email, password);
@@ -59,8 +62,8 @@ router.post('/login', loginLimiter, auth.guestOnly, (req, res) => {
     });
   }
 
-  auth.login(req, result.user);
-  const returnTo = req.session.returnTo;
+  await auth.login(req, result.user);
+  const returnTo = auth.safeReturnTo(req.session.returnTo);
   const adminReturn = req.session.adminReturn;
   delete req.session.returnTo;
   delete req.session.adminReturn;
@@ -69,10 +72,11 @@ router.post('/login', loginLimiter, auth.guestOnly, (req, res) => {
   if (req.xhr) return res.json({ ok: true, redirect: adminReturn || returnTo || '/account' });
   if (adminReturn || (result.user.role !== 'customer')) return res.redirect(adminReturn || '/admin');
   return res.redirect(returnTo || '/account');
-});
+}));
 
 /* --------------------------------------------------------------- register */
 router.get('/register', auth.guestOnly, (req, res) => {
+  if (req.query.next) req.session.returnTo = auth.safeReturnTo(req.query.next);
   res.render('auth/register', {
     pageTitle: `Create your account | ${settings.get('store_name')}`,
     bodyClass: 'page-auth',
@@ -81,11 +85,11 @@ router.get('/register', auth.guestOnly, (req, res) => {
   });
 });
 
-router.post('/register', registerLimiter, auth.guestOnly, (req, res) => {
+router.post('/register', registerLimiter, auth.guestOnly, asyncRoute(async (req, res) => {
   const values = {
     name: (req.body.name || '').trim(),
     email: (req.body.email || '').trim().toLowerCase(),
-    phone: (req.body.phone || '').replace(/[\s-]/g, ''),
+    phone: normalizePhone(req.body.phone),
     password: req.body.password || '',
     confirm: req.body.confirm_password || '',
   };
@@ -93,7 +97,7 @@ router.post('/register', registerLimiter, auth.guestOnly, (req, res) => {
 
   if (values.name.length < 3) errors.name = 'Enter your full name (at least 3 characters).';
   if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(values.email)) errors.email = 'Enter a valid email address.';
-  if (values.phone && !/^(\+233|0)\d{9}$/.test(values.phone)) errors.phone = 'Enter a valid Ghanaian phone number.';
+  if (!isGhanaPhone(values.phone)) errors.phone = 'A valid phone number is required, e.g. 0241234567 or +233241234567.';
   if (values.password.length < 8) errors.password = 'Password must be at least 8 characters.';
   if (!/[A-Z]/.test(values.password)) errors.password = 'Include at least one capital letter.';
   if (!/[0-9]/.test(values.password)) errors.password = 'Include at least one number.';
@@ -116,20 +120,20 @@ router.post('/register', registerLimiter, auth.guestOnly, (req, res) => {
   const info = db.prepare(
     `INSERT INTO users (name, email, phone, password_hash, role, email_verified)
      VALUES (?,?,?,?, 'customer', 0)`
-  ).run(values.name, values.email, values.phone || null, bcrypt.hashSync(values.password, 10));
+  ).run(values.name, values.email, values.phone, bcrypt.hashSync(values.password, 10));
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
-  auth.login(req, user);
+  await auth.login(req, user);
   sendMail({
     to: user.email, subject: `Welcome to ${settings.get('store_name')}!`,
     text: `Hi ${user.name},\n\nYour account is ready. Track orders, save your wishlist and check out faster next time.\n\n${config.publicUrl}/account`,
   });
   audit(req, 'auth.register', 'user', user.id, {});
-  req.flash('success', 'Your account is ready — welcome to pointGh!');
-  const returnTo = req.session.returnTo;
+  req.flash('success', 'Your account is ready — welcome to POINTGH!');
+  const returnTo = auth.safeReturnTo(req.session.returnTo);
   delete req.session.returnTo;
   return res.redirect(returnTo || '/account');
-});
+}));
 
 /* ----------------------------------------------------------------- logout */
 router.post('/logout', (req, res) => {
@@ -140,12 +144,9 @@ router.post('/logout', (req, res) => {
   if (req.xhr) return res.json({ ok: true, redirect: wasAdmin ? '/admin/login' : '/' });
   return res.redirect(wasAdmin ? '/admin/login' : '/');
 });
-router.get('/logout', (req, res) => {
-  auth.logout(req);
-  return res.redirect('/');
-});
+router.get('/logout', (_req, res) => res.redirect('/account'));
 
-/* -------------------------------------------------- password reset (stub) */
+/* -------------------------------------------------------- password reset */
 router.get('/forgot-password', auth.guestOnly, (req, res) => {
   res.render('auth/forgot', {
     pageTitle: `Reset your password | ${settings.get('store_name')}`,
@@ -153,7 +154,7 @@ router.get('/forgot-password', auth.guestOnly, (req, res) => {
   });
 });
 
-router.post('/forgot-password', auth.guestOnly, (req, res) => {
+router.post('/forgot-password', loginLimiter, auth.guestOnly, (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   const generic = {
@@ -161,8 +162,7 @@ router.post('/forgot-password', auth.guestOnly, (req, res) => {
     bodyClass: 'page-auth', sent: true, email, token: null, error: null,
   };
   if (!user) {
-    // Never reveal whether an account exists.
-    sendMail({ to: email, subject: 'Password reset requested', text: 'No account was found for this address.' });
+    // Generic browser response, but never send unsolicited mail to an unknown address.
     return res.render('auth/forgot', generic);
   }
   const token = crypto.randomBytes(24).toString('hex');
@@ -197,7 +197,7 @@ router.get('/reset-password/:token', auth.guestOnly, (req, res) => {
   });
 });
 
-router.post('/reset-password/:token', auth.guestOnly, (req, res) => {
+router.post('/reset-password/:token', loginLimiter, auth.guestOnly, (req, res) => {
   const hash = crypto.createHash('sha256').update(req.params.token).digest('hex');
   const row = db.prepare(
     `SELECT * FROM password_resets WHERE token_hash = ? AND used_at IS NULL AND datetime(expires_at) > datetime('now')`
@@ -221,6 +221,8 @@ router.post('/reset-password/:token', auth.guestOnly, (req, res) => {
   db.prepare(`UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE email = ?`)
     .run(bcrypt.hashSync(password, 10), row.email);
   db.prepare(`UPDATE password_resets SET used_at = datetime('now') WHERE id = ?`).run(row.id);
+  const account = db.prepare('SELECT id FROM users WHERE email = ?').get(row.email);
+  if (account) db.prepare("DELETE FROM sessions WHERE json_extract(sess, '$.userId') = ?").run(account.id);
   audit(req, 'auth.password_reset_used', 'user', null, { email: row.email });
   req.flash('success', 'Password updated — you can sign in now.');
   return res.redirect('/login');

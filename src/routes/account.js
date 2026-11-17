@@ -10,6 +10,7 @@ const stats = require('../services/stats');
 const auth = require('../middleware/auth');
 const { GHANA_REGIONS, round2 } = require('../utils/helpers');
 const { audit } = require('../utils/log');
+const { normalizePhone, isGhanaPhone } = require('../utils/phone');
 
 const router = express.Router();
 router.use(auth.requireUser);
@@ -17,7 +18,7 @@ router.use(auth.requireUser);
 function decorateOrder(o) {
   o.items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(o.id);
   o.item_count = o.items.reduce((s, i) => s + i.qty, 0);
-  o.events = db.prepare('SELECT * FROM order_events WHERE order_id = ? ORDER BY created_at, id').all(o.id);
+  o.events = db.prepare('SELECT * FROM order_events WHERE order_id = ? AND is_public = 1 ORDER BY created_at, id').all(o.id);
   return o;
 }
 
@@ -87,6 +88,7 @@ router.get('/orders', (req, res) => {
 router.get('/orders/:number', (req, res, next) => {
   const order = orders.getOrderByNumber(req.params.number);
   if (!order || (order.user_id !== req.user.id && req.user.role === 'customer')) return next();
+  order.events = orders.customerEvents(order);
   const reviewedIds = new Set(db.prepare('SELECT product_id FROM reviews WHERE user_id = ?').all(req.user.id).map((r) => r.product_id));
   const canReorder = true;
   res.render('account/order-detail', {
@@ -161,13 +163,13 @@ router.get('/profile', (req, res) => {
 router.post('/profile', (req, res) => {
   const values = {
     name: (req.body.name || '').trim(),
-    phone: (req.body.phone || '').replace(/[\s-]/g, ''),
+    phone: normalizePhone(req.body.phone),
     email: (req.body.email || '').trim().toLowerCase(),
   };
   const errors = {};
   if (values.name.length < 3) errors.name = 'Enter your full name.';
   if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(values.email)) errors.email = 'Enter a valid email address.';
-  if (values.phone && !/^(\+233|0)\d{9}$/.test(values.phone)) errors.phone = 'Enter a valid Ghanaian phone number.';
+  if (!isGhanaPhone(values.phone)) errors.phone = 'A valid Ghanaian phone number is required.';
   const clash = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(values.email, req.user.id);
   if (clash) errors.email = 'Another account already uses that email.';
 
@@ -181,6 +183,10 @@ router.post('/profile', (req, res) => {
     .run(Object.assign({ id: req.user.id }, values));
   audit(req, 'account.profile_update', 'user', req.user.id, {});
   req.flash('success', 'Your profile has been updated.');
+  if (req.session.returnTo === '/checkout') {
+    delete req.session.returnTo;
+    return res.redirect('/checkout');
+  }
   return res.redirect('/account/profile');
 });
 
@@ -201,7 +207,7 @@ router.post('/addresses', (req, res) => {
   const v = {
     label: (req.body.label || 'Home').trim(),
     receiver: (req.body.receiver || '').trim(),
-    phone: (req.body.phone || '').replace(/[\s-]/g, ''),
+    phone: normalizePhone(req.body.phone),
     region: (req.body.region || '').trim(),
     city: (req.body.city || '').trim(),
     line: (req.body.line || '').trim(),

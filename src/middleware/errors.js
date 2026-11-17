@@ -7,7 +7,7 @@ function notFound(req, res) {
   }
   res.status(404);
   return res.render('errors/404', {
-    pageTitle: 'Page not found — pointGh',
+    pageTitle: 'Page not found — POINTGH',
     bodyClass: 'page-error',
     path: req.path,
   });
@@ -18,7 +18,9 @@ function handler(err, req, res, _next) {
   const status = err.status || err.statusCode || 500;
   if (status === 404) return notFound(req, res);
 
-  console.error(`\n✖  ${req.method} ${req.originalUrl}\n   ${err.stack || err.message}\n`);
+  const safePath = req.path.replace(/^(\/reset-password\/)[^/]+/, '$1[redacted]');
+  if (config.isProd) console.error(`[request error] ${req.method} ${safePath} — ${err.code || err.name || 'Error'}`);
+  else console.error(`\n✖  ${req.method} ${req.originalUrl}\n   ${err.stack || err.message}\n`);
 
   const message = status < 500 || !config.isProd ? err.message : 'Something went wrong on our side.';
   if (req.xhr || req.path.startsWith('/api') || req.headers.accept === 'application/json') {
@@ -26,7 +28,7 @@ function handler(err, req, res, _next) {
   }
   res.status(status);
   return res.render('errors/error', {
-    pageTitle: 'Error — pointGh',
+    pageTitle: 'Error — POINTGH',
     bodyClass: 'page-error',
     status,
     message,

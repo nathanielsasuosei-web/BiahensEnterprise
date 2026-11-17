@@ -5,23 +5,30 @@
   const flow = ['pending_payment', 'paid', 'processing', 'shipped', 'delivered'];
   const curIdx = flow.indexOf(order.status);
   const paid = order.payment_status === 'paid';
+  const paymentReview = order.payments.some(function (payment) { return payment.needs_review; }) || (paid && order.status === 'cancelled');
+  const activePayment = order.payments.find(function (payment) { return payment.gateway === 'paystack'; });
   const methodLabel = order.payment_method === 'momo' ? 'Mobile Money' : order.payment_method === 'cod' ? 'Cash on delivery' : 'Card';
   const deliveryLabel = order.delivery_method === 'express' ? 'Express (within 24 hours)' : order.delivery_method === 'pickup' ? 'Warehouse pickup' : 'Standard delivery';
 %>
 <main class="container" id="main" style="padding:1.2rem 0 2.6rem">
   <div class="confirm-hero">
-    <% if (justPaid) { %>
+    <% if (paymentReview) { %>
+      <div class="tick" style="background:#FFF6E5;color:#B7791F">!</div>
+      <h1>Your payment needs a review</h1>
+      <p class="muted" style="max-width:60ch;margin:.4rem auto 0">We received a payment for <b><%= order.order_number %></b>, but it needs our team’s attention before fulfilment. Please do not pay again. Contact support with your order number. No automatic refund has been sent.</p>
+    <% } else if (justPaid) { %>
+
       <div class="tick">&#10003;</div>
       <h1>Payment received — thank you!</h1>
       <p class="muted" style="max-width:60ch;margin:.4rem auto 0">We have confirmed <b><%= settings.currency_symbol %> <%= money(order.total) %></b> for order <b><%= order.order_number %></b>. Your items are being picked from our Accra warehouse now.</p>
     <% } else if (order.status === 'pending_payment' && !paid) { %>
       <div class="tick" style="background:#FFF6E5;color:#B7791F">&#8987;</div>
-      <h1>Your order is reserved — awaiting payment</h1>
-      <p class="muted" style="max-width:60ch;margin:.4rem auto 0">Order <b><%= order.order_number %></b> for <b><%= settings.currency_symbol %> <%= money(order.total) %></b> is saved. Complete the payment below and we will start packing immediately.</p>
+      <h1>Your order is saved — awaiting payment</h1>
+      <p class="muted" style="max-width:60ch;margin:.4rem auto 0">Order <b><%= order.order_number %></b> for <b><%= settings.currency_symbol %> <%= money(order.total) %></b> is saved. Complete payment within 30 minutes to keep your items reserved. Approve any Mobile Money prompt, then check payment before retrying.</p>
     <% } else { %>
       <div class="tick">&#10003;</div>
       <h1>Order <%= order.order_number %> confirmed</h1>
-      <p class="muted" style="max-width:60ch;margin:.4rem auto 0">Placed <%= dateFmt(order.placed_at, 'dddd, D MMMM YYYY [at] h:mm a') %>. Keep this order number — you will need it to track your delivery.</p>
+      <p class="muted" style="max-width:60ch;margin:.4rem auto 0">Placed <%= dateFmt(order.placed_at, 'dddd, D MMMM YYYY [at] h:mm a') %>. This order is saved to your account. Track its progress below.</p>
     <% } %>
 
     <div class="row" style="justify-content:center;gap:.5rem;flex-wrap:wrap;margin-top:1.3rem">
@@ -33,9 +40,14 @@
 
     <div class="row" style="justify-content:center;gap:.55rem;flex-wrap:wrap;margin-top:1.3rem">
       <% if (!paid && order.status === 'pending_payment') { %>
-        <% const ref = order.payments && order.payments.length ? order.payments[0].reference : null; %>
-        <a class="btn primary lg" href="/pay/<%= ref %>"><%- icon('wallet') %> Pay <%= settings.currency_symbol %> <%= money(order.total) %> now</a>
+        <form action="/order/<%= order.order_number %>/pay" method="post">
+          <button class="btn primary lg" type="submit"><%- icon('wallet') %> Pay <%= settings.currency_symbol %> <%= money(order.total) %> now</button>
+        </form>
+        <% if (activePayment) { %>
+          <form action="/pay/<%= activePayment.reference %>/check" method="post"><button class="btn ghost lg" type="submit"><%- icon('refresh') %> Check payment</button></form>
+        <% } %>
       <% } %>
+      <a class="btn primary lg" href="/track-order?order=<%= encodeURIComponent(order.order_number) %>"><%- icon('truck') %> Track this order</a>
       <a class="btn ghost lg" href="/order/<%= order.order_number %>/receipt" target="_blank"><%- icon('printer') %> Print receipt</a>
       <a class="btn ghost lg" href="/"><%- icon('home') %> Continue shopping</a>
       <% if (user && (!order.user_id || order.user_id === user.id)) { %>
@@ -52,7 +64,7 @@
     </div>
   <% } %>
 
-  <div class="grid g-3" style="grid-template-columns:2fr 1fr;gap:1.1rem;margin-top:1.4rem">
+  <div class="confirmation-layout">
     <div>
       <div class="card">
         <div class="summary-head"><span><%- icon('box') %> What you ordered</span><span class="small"><%= order.order_number %></span></div>
@@ -77,7 +89,7 @@
             <div class="sum-row"><span>Subtotal</span><b><%= settings.currency_symbol %> <%= money(order.subtotal) %></b></div>
             <% if (order.discount > 0) { %><div class="sum-row"><span>Discount <%= order.coupon_code ? '(' + order.coupon_code + ')' : '' %></span><b class="save">− <%= settings.currency_symbol %> <%= money(order.discount) %></b></div><% } %>
             <div class="sum-row"><span>Delivery (<%= deliveryLabel %>)</span><b><%= order.shipping_fee > 0 ? settings.currency_symbol + ' ' + money(order.shipping_fee) : 'FREE' %></b></div>
-            <% if (order.tax > 0) { %><div class="sum-row"><span>Tax</span><b><%= settings.currency_symbol %> <%= money(order.tax) %></b></div><% } %>
+            <% if (order.tax_rate > 0 || order.tax > 0) { %><div class="sum-row" data-vat-row><span><%= h.vatLabel(order.tax_rate) %></span><b><%= settings.currency_symbol %> <%= money(order.tax, { symbol: false }) %></b></div><% } %>
             <div class="sum-row total"><span>Total <%= paid ? 'paid' : 'due' %></span><b><%= settings.currency_symbol %> <%= money(order.total) %></b></div>
           </div>
         </div>
