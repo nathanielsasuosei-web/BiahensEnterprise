@@ -4,6 +4,7 @@ const catalog = require('../services/catalog');
 const cartSvc = require('../services/cart');
 const helpers = require('../utils/helpers');
 const { icon } = require('../utils/icons');
+const SENSITIVE_SETTINGS = new Set(['gateway_public_key', 'gateway_webhook_secret']);
 const db = require('../db');
 
 /* menu is queried on every page — cache it and invalidate on category writes */
@@ -40,11 +41,17 @@ function takeFlash(req) {
 
 /** Attach everything EJS templates need. */
 function context(req, res, next) {
-  const s = settings.all();
+  // Never make payment credentials available to EJS templates. The app's
+  // server-side services still read the full settings/config directly.
+  const s = { ...settings.all() };
+  SENSITIVE_SETTINGS.forEach((key) => { delete s[key]; });
+  const config = require('../config');
 
   res.locals.settings = s;
-  res.locals.setting = (k, f) => settings.get(k, f);
-  res.locals.cfg = require('../config');
+  res.locals.setting = (k, f) => SENSITIVE_SETTINGS.has(k) ? f : settings.get(k, f);
+  // Templates only need these public runtime values; don't expose the full
+  // config object (which contains payment keys, session secrets and passwords).
+  res.locals.cfg = { publicUrl: config.publicUrl, ephemeralFs: config.ephemeralFs };
   res.locals.h = helpers;
   res.locals.money = helpers.money;
   res.locals.moneyShort = helpers.moneyShort;
