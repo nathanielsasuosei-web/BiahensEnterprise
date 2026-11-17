@@ -233,7 +233,7 @@ router.get('/fulfilment/picklist', (req, res) => {
     out += `   ${String(r.qty).padStart(3)}× ${r.name}${r.variant_title ? ` [${r.variant_title}]` : ''}${r.sku ? ` (${r.sku})` : ''}\n`;
     return out;
   });
-  return res.send(`BIAHENS ENTERPRISE — WAREHOUSE PICK LIST\nGenerated ${new Date().toLocaleString('en-GB')}\n${lines.join('')}`);
+  return res.send(`pointGh — WAREHOUSE PICK LIST\nGenerated ${new Date().toLocaleString('en-GB')}\n${lines.join('')}`);
 });
 
 module.exports = router;

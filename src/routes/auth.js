@@ -125,7 +125,7 @@ router.post('/register', registerLimiter, auth.guestOnly, (req, res) => {
     text: `Hi ${user.name},\n\nYour account is ready. Track orders, save your wishlist and check out faster next time.\n\n${config.publicUrl}/account`,
   });
   audit(req, 'auth.register', 'user', user.id, {});
-  req.flash('success', 'Your account is ready — welcome to Biahens Enterprise!');
+  req.flash('success', 'Your account is ready — welcome to pointGh!');
   const returnTo = req.session.returnTo;
   delete req.session.returnTo;
   return res.redirect(returnTo || '/account');

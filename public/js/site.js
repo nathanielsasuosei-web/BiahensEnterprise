@@ -1,5 +1,5 @@
 /* ============================================================================
-   BIAHENS ENTERPRISE — storefront behaviour
+   pointGh — storefront behaviour
    No dependencies. Everything degrades gracefully without JS.
    ========================================================================== */
 (function () {
@@ -611,5 +611,5 @@
     on(window, 'scroll', () => header.classList.toggle('scrolled', window.scrollY > 8), { passive: true });
   }
 
-  console.log('%c Biahens Enterprise ', 'background:#0F2A43;color:#FFB300;font-weight:700;border-radius:4px', 'storefront ready');
+  console.log('%c pointGh ', 'background:#0F2A43;color:#FFB300;font-weight:700;border-radius:4px', 'storefront ready');
 })();

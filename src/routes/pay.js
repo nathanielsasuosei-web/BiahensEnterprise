@@ -135,7 +135,7 @@ router.post('/pay/:reference/simulate-webhook', async (req, res) => {
 
 /* ---------------------------------------------------------------- webhook */
 // Paystack pings the endpoint with GET when you set it in the dashboard.
-router.get('/webhooks/paystack', (_req, res) => res.status(200).send('Biahens Enterprise webhook endpoint is live.'));
+router.get('/webhooks/paystack', (_req, res) => res.status(200).send('pointGh webhook endpoint is live.'));
 
 /**
  * Mounted with express.raw() in app.js so we can verify the HMAC over the

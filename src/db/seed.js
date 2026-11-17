@@ -1,7 +1,7 @@
 'use strict';
 /* eslint-disable no-console */
 /**
- * Seeds Biahens Enterprise with a realistic Ghanaian fashion storefront:
+ * Seeds pointGh with a realistic Ghanaian fashion storefront:
  * categories, owner-managed brands and products, variants, customers, reviews,
  * coupons, shipping zones, homepage slides and sample orders across each status.
  *
@@ -30,7 +30,7 @@ const FASHION_SLIDES = [
   {
     title: 'Wear your story. Own every room.',
     subtitle: 'Modern Ghanaian style, expressive prints and everyday pieces — selected with intention.',
-    badge: 'THE BIAHENS EDIT', link_text: 'Shop the edit', link_url: '/c/fashion',
+    badge: 'THE pointGh EDIT', link_text: 'Shop the edit', link_url: '/c/fashion',
     bg: 'linear-gradient(115deg,#201315 0%,#6B343B 58%,#B76A55 100%)',
   },
   {
@@ -139,12 +139,12 @@ function main(opts = {}) {
   const catTx = db.transaction(() => {
     DATA.CATEGORIES.filter((parent) => FASHION_ROOTS.has(parent.slug)).forEach((parent, i) => {
       const info = insCat.run(parent.name, parent.slug, null,
-        `Shop ${parent.name.toLowerCase()} on Biahens Enterprise with fast delivery across Ghana.`,
+        `Shop ${parent.name.toLowerCase()} on pointGh with fast delivery across Ghana.`,
         parent.icon || '🛍', parent.accent || '#0F2A43', i + 1);
       ids.categories[parent.slug] = info.lastInsertRowid;
       (parent.children || []).forEach((child, j) => {
         const cinfo = insCat.run(child.name, child.slug, info.lastInsertRowid,
-          `Browse ${child.name}, selected by Biahens Enterprise and delivered across Ghana.`,
+          `Browse ${child.name}, selected by pointGh and delivered across Ghana.`,
           null, parent.accent || '#0F2A43', j + 1);
         ids.categories[child.slug] = cinfo.lastInsertRowid;
       });
@@ -442,7 +442,7 @@ function main(opts = {}) {
           delivery_method: delivery,
           delivery_note: chance(0.2) ? pick(['Call before coming', 'Deliver after 5pm', 'Ask for Ama at the gate', 'Please use the back entrance']) : null,
           tracking_number: ['shipped', 'delivered'].includes(status) ? `GH${between(100000000, 999999999)}BX` : null,
-          carrier: ['shipped', 'delivered'].includes(status) ? pick(['Biahens Logistics', 'VIP Parcel', 'Ghana Post EMS', 'CityRider']) : null,
+          carrier: ['shipped', 'delivered'].includes(status) ? pick(['pointGh Logistics', 'VIP Parcel', 'Ghana Post EMS', 'CityRider']) : null,
           admin_notes: chance(0.12) ? pick(['Repeat customer — prioritise dispatch', 'Requested a receipt for company expense', 'Gift wrap requested']) : null,
           placed_at: placed.toISOString(),
           updated_at: new Date(placed.getTime() + between(1, 72) * 3600000).toISOString(),

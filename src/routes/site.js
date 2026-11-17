@@ -109,7 +109,7 @@ router.get('/c/:slug', (req, res, next) => {
     activeFilters: active,
     view: {
       pageTitle: `${cat.name} — Price in Ghana | ${settings.get('store_name')}`,
-      metaDescription: `Shop ${cat.name} in Ghana, selected and sold directly by Biahens Enterprise. Secure checkout and delivery across all 16 regions.`,
+      metaDescription: `Shop ${cat.name} in Ghana, selected and sold directly by pointGh. Secure checkout and delivery across all 16 regions.`,
       heading: cat.name,
       subheading: cat.description || `${catalog.queryProducts({ categoryIds: ids }).pager.total} products available with fast delivery across Ghana`,
       hero: { icon: cat.icon, accent: cat.accent, image: cat.image },
@@ -130,7 +130,7 @@ router.get('/b/:slug', (req, res, next) => {
     query,
     view: {
       pageTitle: `${brand.name} products in Ghana | ${settings.get('store_name')}`,
-      metaDescription: `Shop ${brand.name} fashion in Ghana, selected and sold directly by Biahens Enterprise. ${brand.tagline || 'Secure checkout and nationwide delivery.'}`,
+      metaDescription: `Shop ${brand.name} fashion in Ghana, selected and sold directly by pointGh. ${brand.tagline || 'Secure checkout and nationwide delivery.'}`,
       heading: brand.name,
       subheading: brand.tagline || `${brand.name} pieces in the owner-curated fashion edit.`,
       hero: { icon: '🏷', accent: '#0F2A43', image: brand.logo },
@@ -171,7 +171,7 @@ router.get('/deals', (req, res) => {
       pageTitle: `Today's Deals & Offers in Ghana | ${settings.get('store_name')}`,
       metaDescription: 'Discover considered fashion offers in Ghana — clothing, Ankara, Kente, shoes and accessories selected by the owner, with secure checkout and nationwide delivery.',
       heading: "Today's Deals",
-      subheading: 'A little something off the pieces we love. Every item is selected and sold directly by Biahens Enterprise.',
+      subheading: 'A little something off the pieces we love. Every item is selected and sold directly by pointGh.',
       hero: { icon: '🔥', accent: '#F26B21' },
       dealsPage: true,
       breadcrumbs: [{ label: 'Deals', url: '/deals' }],
@@ -322,7 +322,7 @@ router.post('/track-order', (req, res) => {
 
 /* ----------------------------------------------------------- static pages */
 const PAGES = [
-  { path: '/about', view: 'pages/about', title: 'About Biahens Enterprise' },
+  { path: '/about', view: 'pages/about', title: 'About pointGh' },
   { path: '/contact', view: 'pages/contact', title: 'Contact Us' },
   { path: '/faq', view: 'pages/faq', title: 'Frequently Asked Questions' },
   { path: '/shipping-delivery', view: 'pages/shipping', title: 'Shipping & Delivery' },
