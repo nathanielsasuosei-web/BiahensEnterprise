@@ -42,9 +42,16 @@ function takeFlash(req) {
 function context(req, res, next) {
   const s = settings.all();
 
+  const cfg = require('../config');
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+  if (cfg.isServerless && host && cfg.publicUrl.includes('localhost')) {
+    cfg.publicUrl = `${proto}://${host}`.replace(/\/$/, '');
+  }
+
   res.locals.settings = s;
   res.locals.setting = (k, f) => settings.get(k, f);
-  res.locals.cfg = require('../config');
+  res.locals.cfg = cfg;
   res.locals.h = helpers;
   res.locals.money = helpers.money;
   res.locals.moneyShort = helpers.moneyShort;

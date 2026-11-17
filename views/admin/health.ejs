@@ -41,7 +41,7 @@
       <% if (cfg.ephemeralFs) { %>
         <div class="inline-alert danger" style="margin-bottom:1rem">
           <%- icon('alert') %>
-          <span><b>This deployment runs on ephemeral storage.</b> The platform (Vercel / serverless) mounts the code read-only, so the database lives in <code>/tmp/biahens.sqlite</code> and uploads in <code>/tmp/uploads</code>. Both are wiped when the function instance recycles — orders, products and photos added here will disappear. It is fine for a demo or a design review; for a real shop either move to a host with a persistent disk (Railway, Render, Fly.io, any VPS) or point the app at a hosted database. See <b>README → Deploying</b>.</span>
+          <span><b>This deployment runs on ephemeral storage.</b> The platform (Netlify / Vercel / serverless) mounts the code read-only, so the database lives in <code>/tmp/biahens.sqlite</code> and uploads in <code>/tmp/uploads</code>. Both are wiped when the function instance recycles — orders, products and photos added here will disappear. It is fine for a demo or a design review; for a real shop either move to a host with a persistent disk (Railway, Render, Fly.io, any VPS) or point the app at a hosted database. See <b>README → Deploying</b>.</span>
         </div>
       <% } %>
 
