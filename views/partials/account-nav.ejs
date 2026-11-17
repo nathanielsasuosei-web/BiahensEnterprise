@@ -18,6 +18,7 @@
     <span><%= user.email %></span>
     <% if (user.role !== 'customer') { %><span class="badge gold" style="margin-top:.4rem"><%= user.role.toUpperCase() %></span><% } %>
   </div>
+  <div class="acc-nav-links">
   <% items.forEach(function (it) { %>
     <a href="<%= it[1] %>" class="<%= accountNav === it[0] ? 'active' : '' %>">
       <%- icon(it[3]) %> <%= it[2] %>
@@ -25,7 +26,8 @@
       <% if (it[0] === 'wishlist' && wishlistCount) { %><span class="n"><%= wishlistCount %></span><% } %>
     </a>
   <% }); %>
-  <form action="/logout" method="post" style="padding:.6rem 1rem;border-top:1px solid #E8EDF3">
+  </div>
+  <form action="/logout" method="post" class="acc-nav-logout" style="padding:.6rem 1rem;border-top:1px solid #E8EDF3">
     <button class="btn ghost sm block" type="submit" style="width:100%;justify-content:center"><%- icon('logout') %> Sign out</button>
   </form>
 </nav>

@@ -85,7 +85,7 @@
         <button class="btn ghost block sm" type="button" id="filterToggle"><%- icon('filter') %> Show / hide filters</button>
       </div>
 
-      <div id="filterBody">
+      <div id="filterBody" class="collapse-mobile">
       <div class="filter-card">
         <h4><%- icon('filter') %> Refine results</h4>
         <form action="<%= basePath %>" method="get" id="filterForm">
@@ -290,7 +290,15 @@
   // mobile filter toggle + brand checkbox navigation
   document.addEventListener('DOMContentLoaded', function () {
     var body = document.getElementById('filterBody');
-    function toggle() { if (body) body.style.display = body.style.display === 'none' ? '' : 'none'; }
+    function toggle() {
+      if (!body) return;
+      if (body.classList.contains('collapse-mobile')) {
+        body.classList.remove('collapse-mobile');
+        body.style.display = 'block';
+      } else {
+        body.style.display = body.style.display === 'none' ? 'block' : 'none';
+      }
+    }
     ['filterToggle', 'filterToggle2'].forEach(function (id) {
       var b = document.getElementById(id); if (b) b.addEventListener('click', toggle);
     });

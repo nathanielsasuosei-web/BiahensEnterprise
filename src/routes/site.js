@@ -339,7 +339,7 @@ router.post('/track-order', auth.requireUser, (req, res) => {
 
 /* ----------------------------------------------------------- static pages */
 const PAGES = [
-  { path: '/about', view: 'pages/about', title: 'About POINTGH' },
+  { path: '/about', view: 'pages/about', title: 'Our Story' },
   { path: '/contact', view: 'pages/contact', title: 'Contact Us' },
   { path: '/faq', view: 'pages/faq', title: 'Frequently Asked Questions' },
   { path: '/shipping-delivery', view: 'pages/shipping', title: 'Shipping & Delivery' },
