@@ -15,7 +15,7 @@ const root = (() => {
   }
   return path.resolve(__dirname, '..', '..');
 })();
-const bool = (v, d = false) => (v === undefined ? d : String(v).toLowerCase() === 'true');
+const bool = (v, d = false) => (v === undefined ? d : ['true', '1', 'yes'].includes(String(v).toLowerCase()));
 const num = (v, d) => (v === undefined || v === '' || Number.isNaN(Number(v)) ? d : Number(v));
 
 /*

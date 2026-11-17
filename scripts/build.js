@@ -7,7 +7,7 @@
  *
  *   npm run build
  */
-process.env.BIAHENS_BUILD = '1';           // keep ./data paths instead of /tmp
+process.env.BIAHENS_BUILD = 'true';        // keep ./data paths instead of /tmp
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 process.env.BIAHENS_QUIET = process.env.BIAHENS_QUIET || '';
 

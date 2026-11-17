@@ -1,10 +1,9 @@
 [build]
-  command = "npm run build"
+  command = "npm rebuild better-sqlite3 --if-present && npm run build"
   publish = "public"
-  functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
 
 [functions]
   directory = "netlify/functions"
