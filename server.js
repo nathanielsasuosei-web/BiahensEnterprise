@@ -10,7 +10,7 @@ const server = app.listen(config.port, config.host, () => {
 
   console.log('\n┌──────────────────────────────────────────────────────────────┐');
   console.log(`│  ${settings.get('store_name').padEnd(58)} │`);
-  console.log('│  Biahens Enterprise — e-commerce platform (Express + EJS)    │');
+  console.log('│  pointGh — e-commerce platform (Express + EJS)    │');
   console.log('└──────────────────────────────────────────────────────────────┘');
   console.log(`   ▸ Listening   http://${config.host}:${config.port}   (${config.env})`);
   console.log(`   ▸ Database    ${config.db.file}`);

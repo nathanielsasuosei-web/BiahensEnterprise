@@ -58,7 +58,7 @@ router.post('/categories', (req, res) => {
   const existing = id ? db.prepare('SELECT * FROM categories WHERE id = ?').get(id) : null;
   const editingFashionRoot = !!(existing && !existing.parent_id && catalog.FASHION_ROOT_SLUGS.includes(existing.slug));
   if (id && (!existing || !catalog.isFashionCategory(id))) {
-    req.flash('danger', 'Biahens Enterprise only manages fashion categories.');
+    req.flash('danger', 'pointGh only manages fashion categories.');
     return res.redirect('/admin/categories');
   }
   if ((data.parent_id && !catalog.isFashionCategory(data.parent_id))

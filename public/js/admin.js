@@ -1,5 +1,5 @@
 /* =========================================================================
-   BIAHENS ENTERPRISE — admin panel behaviour
+   pointGh — admin panel behaviour
    Vanilla JS, no dependencies. Loaded with `defer` on every admin page.
    Everything is feature-detected, so a page that lacks a widget simply skips it.
    ========================================================================= */

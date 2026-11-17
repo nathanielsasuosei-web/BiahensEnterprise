@@ -1,5 +1,5 @@
 -- ============================================================================
---  Biahens Enterprise -- database schema (SQLite / better-sqlite3)
+--  pointGh -- database schema (SQLite / better-sqlite3)
 -- ============================================================================
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;

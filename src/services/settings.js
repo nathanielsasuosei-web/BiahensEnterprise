@@ -4,8 +4,8 @@ const { parseJson } = require('../utils/helpers');
 
 const DEFAULTS = {
   // --- identity
-  store_name: 'Biahens Enterprise',
-  store_short: 'Biahens',
+  store_name: 'pointGh',
+  store_short: 'pointGh',
   tagline: 'Fashion with a little more meaning.',
   logo: '',
   favicon: '',
@@ -42,7 +42,7 @@ const DEFAULTS = {
   warranty_note: 'Carefully checked fashion, with 7-day easy returns on eligible items.',
 
   // --- banners / homepage
-  announcement: 'New-season fashion, chosen by the owner — explore the latest Biahens edit',
+  announcement: 'New-season fashion, chosen by the owner — explore the latest pointGh edit',
   announcement_on: 'true',
   rail_flash: 'true',
   rail_featured: 'true',
@@ -59,15 +59,15 @@ const DEFAULTS = {
   maintenance_message: 'We are upgrading our store. Please check back shortly.',
 
   // --- seo
-  meta_title: 'Biahens Enterprise — Fashion, Style & Ghanaian Heritage',
+  meta_title: 'pointGh — Fashion, Style & Ghanaian Heritage',
   meta_description: 'Discover owner-curated fashion in Ghana: contemporary clothing, Ankara, Kente, shoes and accessories, with secure checkout and nationwide delivery.',
-  meta_keywords: 'Biahens Enterprise, fashion Ghana, Ankara, Kente, clothing Accra, shoes, bags, Ghanaian fashion',
+  meta_keywords: 'pointGh, fashion Ghana, Ankara, Kente, clothing Accra, shoes, bags, Ghanaian fashion',
 
   // --- payments (stub gateway)
   gateway_mode: 'test',
   gateway_public_key: '',
   gateway_webhook_secret: 'whsec_biahens_local_test_secret',
-  gateway_brand: 'Biahens Pay (Paystack-compatible test gateway)',
+  gateway_brand: 'pointGh Pay (Paystack-compatible test gateway)',
 };
 
 const GROUPS = {

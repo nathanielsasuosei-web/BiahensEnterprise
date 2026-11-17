@@ -107,7 +107,7 @@ function validate(data) {
   }
   if (!data.category_id) errors.category_id = 'Choose a fashion category so shoppers can find this product.';
   else if (!catalog.isFashionCategory(data.category_id)) {
-    errors.category_id = 'Biahens Enterprise is a fashion-only store. Choose clothing, shoes, bags or accessories.';
+    errors.category_id = 'pointGh is a fashion-only store. Choose clothing, shoes, bags or accessories.';
   }
   if (data.stock < 0) errors.stock = 'Stock cannot be negative.';
   if (data.short_description.length > 240) errors.short_description = 'Keep the short description under 240 characters.';
@@ -422,7 +422,7 @@ router.post('/import', (req, res) => {
     const cat = db.prepare('SELECT id FROM categories WHERE slug = ? OR LOWER(name) = LOWER(?)').get(slugify(row.category), row.category);
     if (!cat) { row.error = `Unknown category “${row.category}”`; result.skipped += 1; return; }
     if (!catalog.isFashionCategory(cat.id)) {
-      row.error = 'Biahens Enterprise is a fashion-only store. Only fashion categories can be imported.';
+      row.error = 'pointGh is a fashion-only store. Only fashion categories can be imported.';
       result.skipped += 1;
       return;
     }

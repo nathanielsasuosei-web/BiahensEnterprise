@@ -5,7 +5,7 @@ const { paginate, parseJson, slugify, round2, discountPercent } = require('../ut
 
 /* ------------------------------------------------------------- categories */
 
-// Biahens Enterprise is a fashion-only single-seller store. These are the
+// pointGh is a fashion-only single-seller store. These are the
 // only public catalogue roots; descendants inherit the same restriction.
 const FASHION_ROOT_SLUGS = Object.freeze(['fashion', 'shoes-bags']);
 

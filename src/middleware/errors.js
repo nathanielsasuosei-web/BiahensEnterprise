@@ -7,7 +7,7 @@ function notFound(req, res) {
   }
   res.status(404);
   return res.render('errors/404', {
-    pageTitle: 'Page not found — Biahens Enterprise',
+    pageTitle: 'Page not found — pointGh',
     bodyClass: 'page-error',
     path: req.path,
   });
@@ -26,7 +26,7 @@ function handler(err, req, res, _next) {
   }
   res.status(status);
   return res.render('errors/error', {
-    pageTitle: 'Error — Biahens Enterprise',
+    pageTitle: 'Error — pointGh',
     bodyClass: 'page-error',
     status,
     message,

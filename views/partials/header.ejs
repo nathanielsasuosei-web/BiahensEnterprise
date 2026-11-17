@@ -99,9 +99,9 @@
               </div>
               <div class="dd-foot"><form action="/logout" method="post" style="margin:0"><button class="btn ghost sm block" type="submit">Sign out</button></form></div>
             <% } else { %>
-              <div class="dd-head"><b>Welcome to Biahens</b><span>Discover your next favourite look.</span></div>
+              <div class="dd-head"><b>Welcome to pointGh</b><span>Discover your next favourite look.</span></div>
               <div class="dd-list"><a href="/login"><%- icon('user') %> Sign in</a><a href="/register"><%- icon('plus') %> Create an account</a><a href="/track-order"><%- icon('package') %> Track an order</a></div>
-              <div class="dd-foot"><a class="btn primary sm block" href="/register">Join Biahens</a></div>
+              <div class="dd-foot"><a class="btn primary sm block" href="/register">Join pointGh</a></div>
             <% } %>
           </div>
         </div>
@@ -170,7 +170,7 @@
           </div>
         <% }); %>
         <div class="mega-promo">
-          <span class="mega-kicker">THE BIAHENS STANDARD</span>
+          <span class="mega-kicker">THE pointGh STANDARD</span>
           <b>Only considered pieces make the cut.</b>
           <p>One owner. Every item personally selected, quality-checked and ready to wear.</p>
           <a class="text-link" href="/about">Our point of view <span aria-hidden="true">→</span></a>
@@ -189,13 +189,13 @@
     </div>
     <div class="drawer-body">
       <nav class="drawer-nav">
-        <a href="/new-arrivals">New in</a><a href="/deals">The Biahens edit</a><a href="/best-sellers">Most loved</a>
+        <a href="/new-arrivals">New in</a><a href="/deals">The pointGh edit</a><a href="/best-sellers">Most loved</a>
         <div class="group-title">Shop fashion</div>
         <% roots.forEach(function (root) { %>
           <a href="/c/<%= root.slug %>"><%= root.name %></a>
           <% (root.children || []).forEach(function (child) { %><a class="sub" href="/c/<%= child.slug %>"><%= child.name %></a><% }); %>
         <% }); %>
-        <div class="group-title">Your Biahens</div>
+        <div class="group-title">Your pointGh</div>
         <a href="<%= user ? '/account' : '/login' %>">My account</a><a href="<%= user ? '/account/wishlist' : '/login' %>">Saved styles</a><a href="/account/orders">Order history</a>
         <% if (!user) { %><a href="/admin/login">Owner sign in</a><% } else if (user.role !== 'customer') { %><a href="/admin">Owner studio</a><% } %>
         <div class="group-title">Help</div>

@@ -1,4 +1,4 @@
-# Biahens Enterprise
+# pointGh
 
 A fashion-only, single-owner e-commerce store for Ghana — built with **Node.js, Express, EJS and SQLite**. Inspired by the shopping convenience of Jumia, Jiji Ghana, Alibaba and Temu, with a more focused collection and one hard rule: **only the store owner can upload, price or edit products.** Staff accounts can support orders and customers, but cannot access the catalogue.
 
