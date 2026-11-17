@@ -7,8 +7,15 @@ require('dotenv').config();
 
 const path = require('path');
 
-const root = path.resolve(__dirname, '..', '..');
-const bool = (v, d = false) => (v === undefined ? d : String(v).toLowerCase() === 'true');
+const fs = require('fs');
+
+const root = (() => {
+  if (process.env.LAMBDA_TASK_ROOT && fs.existsSync(path.join(process.env.LAMBDA_TASK_ROOT, 'views'))) {
+    return process.env.LAMBDA_TASK_ROOT;
+  }
+  return path.resolve(__dirname, '..', '..');
+})();
+const bool = (v, d = false) => (v === undefined ? d : ['true', '1', 'yes'].includes(String(v).toLowerCase()));
 const num = (v, d) => (v === undefined || v === '' || Number.isNaN(Number(v)) ? d : Number(v));
 
 /*
@@ -16,7 +23,7 @@ const num = (v, d) => (v === undefined || v === '' || Number.isNaN(Number(v)) ? 
  * only /tmp is writable, and even that is wiped when the instance recycles.
  * At *build* time the filesystem IS writable, so we build a seeded database
  * into ./data and copy it into /tmp on the first request of each instance.
- * BIAHENS_BUILD=1 is set by scripts/vercel-build.js to opt out of /tmp paths.
+ * BIAHENS_BUILD=1 is set by scripts/build.js to opt out of /tmp paths.
  */
 const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.NETLIFY;
 const isBuilding = bool(process.env.BIAHENS_BUILD, false);
@@ -24,6 +31,9 @@ const ephemeralFs = isServerless && !isBuilding;
 
 const publicUrl = (() => {
   if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/$/, '');
+  if (process.env.DEPLOY_PRIME_URL) return process.env.DEPLOY_PRIME_URL.replace(/\/$/, '');
+  if (process.env.URL) return process.env.URL.replace(/\/$/, '');
+  if (process.env.DEPLOY_URL) return process.env.DEPLOY_URL.replace(/\/$/, '');
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return `http://localhost:${num(process.env.PORT, 3000)}`;
@@ -35,6 +45,7 @@ const config = {
   isProd: (process.env.NODE_ENV || 'development') === 'production',
   isServerless,
   isVercel: !!process.env.VERCEL,
+  isNetlify: !!process.env.NETLIFY,
   ephemeralFs,
   port: num(process.env.PORT, 3000),
   host: process.env.HOST || '0.0.0.0',

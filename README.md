@@ -33,19 +33,50 @@ Test payments (stub gateway): card `4084 0840 8408 4081` succeeds, `5060 6666 66
 
 ## Deploying
 
-### Option A — Vercel (ready to go, but read the storage note)
+### Option A — Netlify & Vercel (ready to go, but read the storage note)
 
-Everything needed is already in the repo:
+Everything needed for serverless deployments and deploy previews is already in the repo:
 
 | File | Purpose |
 | --- | --- |
-| `vercel.json` | Build command, `public/` as static output, rewrite every dynamic route to the function, cache headers, `lhr1` region |
-| `api/index.js` | Serverless entry — exports the Express app (no `listen()`) |
-| `scripts/vercel-build.js` | Builds a **fully seeded** `data/biahens.sqlite` at build time |
+| `netlify.toml` | Build command (`npm run build`), `public/` publish directory, function bundling (`nft`), rewrite rules for Express, cache headers |
+| `netlify/functions/api.js` | Netlify Function entry wrapping Express with `serverless-http` |
+| `vercel.json` | Vercel build command, `public/` static output, rewrite every dynamic route to the function, cache headers, `lhr1` region |
+| `api/index.js` | Vercel Function entry — exports the Express app |
+| `scripts/build.js` | Builds a **fully seeded** `data/biahens.sqlite` at build time |
 | `src/db/bootstrap.js` | On cold start, copies that baked database into `/tmp` (or seeds it if missing) |
-| `src/config/index.js` | Detects serverless and moves the DB + uploads into `/tmp` |
+| `src/config/index.js` | Detects serverless (Netlify, Vercel, Lambda) and moves the DB + uploads into `/tmp`, resolving live preview URLs automatically |
 
-Deploy:
+#### Deploy on Netlify
+
+Connect the repository in the Netlify dashboard (<https://app.netlify.com/start>) or deploy via Netlify CLI:
+
+```bash
+npm i -g netlify-cli
+netlify login
+netlify deploy --build --prod
+```
+
+Netlify automatically picks up `netlify.toml`:
+- **Build command:** `npm run build`
+- **Publish directory:** `public`
+- **Functions directory:** `netlify/functions`
+- **Deploy Previews:** pull requests get isolated Deploy Previews (`https://deploy-preview-*.netlify.app`) with working catalogue, cart, search, and admin panel.
+
+Environment variables to set in Netlify (Site configuration → Environment variables):
+
+```
+SESSION_SECRET=<long random string>
+OWNER_EMAIL=<your email>
+OWNER_PASSWORD=<strong password>
+GATEWAY_MODE=test            # or live, with the Paystack keys below
+PAYSTACK_SECRET_KEY=sk_live_…
+PAYSTACK_WEBHOOK_SECRET=whsec_…
+```
+
+`PUBLIC_URL` is automatically inferred from `DEPLOY_PRIME_URL` or `URL` on Netlify, so previews work without setting it.
+
+#### Deploy on Vercel
 
 ```bash
 npm i -g vercel
@@ -53,7 +84,7 @@ vercel login
 vercel --prod
 ```
 
-Or import the GitHub repo at <https://vercel.com/new> — the settings in `vercel.json` are picked up automatically. If you prefer setting them in the dashboard: **Framework Preset** `Other`, **Build Command** `npm run vercel:build`, **Output Directory** `public`, **Install Command** `npm install`.
+Or import the GitHub repo at <https://vercel.com/new> — the settings in `vercel.json` are picked up automatically. If you prefer setting them in the dashboard: **Framework Preset** `Other`, **Build Command** `npm run build`, **Output Directory** `public`, **Install Command** `npm install`.
 
 Environment variables to set in the Vercel project (Settings → Environment Variables):
 
@@ -68,12 +99,12 @@ PAYSTACK_WEBHOOK_SECRET=whsec_…
 
 `PUBLIC_URL` is inferred from Vercel, so you can leave it out.
 
-> ### ⚠️ Storage on Vercel is ephemeral
-> Vercel Functions mount your code **read-only**; only `/tmp` is writable and it is wiped whenever an instance recycles (minutes of idleness, or every new deployment). So on Vercel this app boots with the full demo catalogue, works end to end, but **orders, product edits, uploads and customer sign-ups do not persist**, and concurrent instances each have their own copy.
+> ### ⚠️ Storage on Netlify and Vercel is ephemeral
+> Serverless Functions mount your code **read-only**; only `/tmp` is writable and it is wiped whenever an instance recycles (minutes of idleness, or every new deployment). So on Netlify or Vercel this app boots with the full demo catalogue, works end to end, but **orders, product edits, uploads and customer sign-ups do not persist**, and concurrent instances each have their own copy.
 >
-> That makes Vercel ideal for a **demo, design review or client preview** — not for taking real orders. The admin panel says so loudly on *System → Health* when it detects this mode.
+> That makes Netlify and Vercel ideal for a **demo, design review or client preview** — not for taking real orders. The admin panel says so loudly on *System → Health* when it detects this mode.
 >
-> To run the real shop on Vercel you would need the data layer pointed at a hosted database (Turso/libSQL keeps the SQLite dialect, or Neon/Supabase Postgres). That is a deliberate change to `src/db` and the query layer — say the word and it can be done.
+> To run the real shop on serverless platforms you would need the data layer pointed at a hosted database (Turso/libSQL keeps the SQLite dialect, or Neon/Supabase Postgres). That is a deliberate change to `src/db` and the query layer — say the word and it can be done.
 
 ### Option B — a host with a real disk (recommended for production)
 

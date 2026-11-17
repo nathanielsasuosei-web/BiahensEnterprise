@@ -10,7 +10,9 @@
     "db:init": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
     "db:reset": "node src/db/reset.js",
-    "vercel:build": "node scripts/vercel-build.js",
+    "build": "node scripts/build.js",
+    "netlify:build": "node scripts/build.js",
+    "vercel:build": "node scripts/build.js",
     "vercel:dev": "vercel dev"
   },
   "engines": {
@@ -29,6 +31,7 @@
     "express-session": "^1.19.0",
     "morgan": "^1.12.1",
     "multer": "^2.4.0",
+    "serverless-http": "^4.0.0",
     "sharp": "^0.35.4"
   }
 }
