@@ -9,6 +9,7 @@
 <link rel="icon" href="/img/favicon.svg">
 <link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/css/admin.css?v=1.1">
+<% if (typeof extraCss !== 'undefined' && extraCss) { %><link rel="stylesheet" href="<%= extraCss %>"><% } %>
 <script>
   window.BIAHENS = {
     currency: <%- JSON.stringify(settings.currency_symbol) %>,

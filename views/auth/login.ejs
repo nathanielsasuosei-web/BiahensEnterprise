@@ -1,29 +1,13 @@
-<%- include('../partials/head') %>
-<div class="auth-wrap">
-  <aside class="auth-side">
-    <a href="/" class="row" style="gap:.6rem;margin-bottom:2rem;position:relative;z-index:1">
-      <span style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#F26B21,#FFB300);display:grid;place-items:center;font-weight:900;font-size:1.2rem;color:#3A1A00">P</span>
-      <span><b style="color:#fff;font-size:1.05rem;display:block;line-height:1.2"><%= settings.store_name %></b>
-      <span style="font-size:.75rem;color:#9FB4C6"><%= settings.tagline || 'Ghana’s trusted online store' %></span></span>
-    </a>
-    <h2>Welcome back to <%= settings.store_name %></h2>
-    <p>Sign in to track your orders, keep your wishlist, check out in seconds and see prices in Ghana cedis with delivery to your doorstep.</p>
-    <div class="auth-perks">
-      <span class="row"><span class="ico"><%- icon('truck') %></span> Free delivery in Greater Accra above <%= settings.currency_symbol %> <%= Number(settings.free_shipping_threshold).toFixed(0) %></span>
-      <span class="row"><span class="ico"><%- icon('wallet') %></span> Pay with MTN MoMo, Telecel Cash, AT Money, card or cash on delivery</span>
-      <span class="row"><span class="ico"><%- icon('shield') %></span> <%= settings.warranty_note || 'Warranty on every electronic item' %> · <%= settings.return_days %>-day returns</span>
-      <span class="row"><span class="ico"><%- icon('store') %></span> Everything stocked by us — no third-party sellers, no surprises</span>
-    </div>
-
-  </aside>
-
+<%- include('../partials/head', { extraCss: '/css/signin.css?v=1.0', plainFlash: true }) %>
+<main class="auth-wrap auth-wrap--signin" id="main">
   <div class="auth-main">
     <div class="auth-card">
+      <a class="signin-brand" href="/"><%= settings.store_name %></a>
       <h1>Sign in</h1>
-      <p class="sub">New here? <a href="/register" style="color:#F26B21;font-weight:800">Create a free account</a></p>
+      <p class="sub">New here? <a class="signin-link" href="/register">Create a free account</a></p>
 
       <% if (error) { %>
-        <div class="inline-alert danger"><%- icon('alert') %> <%= error %></div>
+        <div class="inline-alert danger" role="alert"><%= error %></div>
       <% } %>
       <% if (returnTo) { %>
         <div class="inline-alert">You will be returned to <b><%= returnTo %></b> after signing in.</div>
@@ -37,16 +21,13 @@
         </div>
         <div class="field">
           <label class="label" for="password">Password</label>
-          <div class="pw-wrap">
-            <input class="input" id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••">
-            <button type="button" class="pw-toggle" data-toggle-pw="password" aria-label="Show password"><%- icon('eye') %></button>
-          </div>
+          <input class="input" id="password" name="password" type="password" required autocomplete="current-password" placeholder="••••••••">
         </div>
         <div class="row between" style="margin-bottom:1rem">
           <label class="checkbox"><input type="checkbox" name="remember" value="1" checked> <span class="small">Keep me signed in</span></label>
-          <a class="small" href="/forgot-password" style="color:#F26B21;font-weight:700">Forgot password?</a>
+          <a class="small signin-link" href="/forgot-password">Forgot password?</a>
         </div>
-        <button class="btn primary lg block" type="submit"><%- icon('login') %> Sign in</button>
+        <button class="btn primary lg block" type="submit">Sign in</button>
       </form>
 
       <% if (demoHint) { %>
@@ -61,12 +42,11 @@
       <% } %>
 
       <div class="auth-alt">
-        <a href="/" class="btn ghost sm"><%- icon('arrow-left') %> Back to the store</a>
-        <p class="tiny muted" style="margin-top:.9rem">Protected by rate limiting. By signing in you agree to our <a href="/terms">terms</a> and <a href="/privacy">privacy policy</a>.</p>
+        <a href="/" class="btn ghost sm">Back to the store</a>
       </div>
     </div>
   </div>
-</div>
+</main>
 <script src="/js/site.js?v=2.1" defer></script>
 </body>
 </html>

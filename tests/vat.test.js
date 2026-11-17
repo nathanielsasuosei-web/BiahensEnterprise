@@ -56,7 +56,9 @@ test('POINTGH is the default identity in branding, metadata, public pages and se
     const response = await request(route);
     assert.equal(response.status, 200, route);
     const html = await response.text();
-    assert.match(html, ['/login', '/register'].includes(route) ? /<b[^>]*>POINTGH<\/b>/ : /class="brand-name">POINTGH/, route);
+    const brand = route === '/login' ? /class="signin-brand"[^>]*>POINTGH<\/a>/
+      : route === '/register' ? /<b[^>]*>POINTGH<\/b>/ : /class="brand-name">POINTGH/;
+    assert.match(html, brand, route);
     assert.match(html, /property="og:site_name" content="POINTGH"/, route);
     assert.ok(!html.includes('pointGh'), route);
   }

@@ -52,6 +52,40 @@ after(async () => {
   fs.rmSync(temporary, { recursive: true, force: true });
 });
 
+test('customer and admin sign-in screens omit promotional copy, security footnotes and decorative icons', async () => {
+  const forbidden = [
+    'Sign in to track your orders', 'Free delivery in Greater Accra above', 'Pay with MTN MoMo',
+    'Carefully checked products', 'Everything stocked by us', 'Protected by rate limiting',
+    'By signing in you agree', 'Owner control panel', 'Full control of the store.',
+    'Products, pricing, inventory, orders', 'Upload and price products', 'Move orders through payment',
+    'Revenue, margin, category', 'Role-based access:', 'Payment ledger, webhook tester',
+    'Signed-in sessions expire after inactivity', 'Products can only be uploaded by the store owner',
+  ];
+  const assertClean = html => {
+    for (const copy of forbidden) assert.ok(!html.includes(copy), copy);
+    assert.doesNotMatch(html, /<svg\b|&#(?:10003|9888|8505);|\p{Extended_Pictographic}/u);
+    assert.match(html, /id="email"[^>]*required/);
+    assert.match(html, /id="password"[^>]*required/);
+    assert.ok(html.includes('/css/signin.css?v=1.0'));
+  };
+  for (const route of ['/login', '/admin/login']) {
+    const request = client(), page = await request(route);
+    assert.equal(page.status, 200); const html = await page.text(); assertClean(html);
+    assert.ok(html.includes(`action="${route}"`));
+    assert.ok(!html.includes('class="auth-side"')); assert.ok(!html.includes('class="login-left"'));
+    const failed = await request(route, form({ email: 'not-registered@pointgh.test', password: 'NotARealPassword@2026' }));
+    assert.equal(failed.status, 401); const errorPage = await failed.text(); assertClean(errorPage);
+    assert.ok(errorPage.includes('No account found'));
+  }
+  const checkout = client(); await checkout('/checkout');
+  const redirected = await (await checkout('/login')).text(); assertClean(redirected);
+  assert.ok(redirected.includes('after signing in'));
+  const registration = await (await client()('/register')).text();
+  assert.ok(registration.includes('href="/terms"')); assert.ok(registration.includes('href="/privacy"'));
+  assert.ok(registration.includes('name="terms"'));
+  assert.equal((await client()('/css/signin.css?v=1.0')).status, 200);
+});
+
 test('customer login rotates the guest session, preserves the bag and checkout return, and rejects the old cookie', async () => {
   await register('login-session@pointgh.test');
   const request = client();
