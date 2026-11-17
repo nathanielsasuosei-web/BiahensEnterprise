@@ -508,13 +508,16 @@
                   <span class="hint">Live mode still requires valid keys in your environment file, otherwise checkout falls back to the simulator.</span>
                 </div>
                 <div class="field">
-                  <label class="label" for="gateway_public_key">Public / publishable key</label>
-                  <input class="input mono" id="gateway_public_key" name="gateway_public_key" value="<%= val('gateway_public_key') %>" placeholder="pk_test_…" autocomplete="off">
-                </div>
-                <div class="field">
-                  <label class="label" for="gateway_webhook_secret">Webhook secret</label>
-                  <input class="input mono" id="gateway_webhook_secret" name="gateway_webhook_secret" type="password" value="<%= val('gateway_webhook_secret') %>" placeholder="whsec_…" autocomplete="off">
-                  <span class="hint">Verifies the HMAC SHA-512 signature on <code>POST /webhooks/paystack</code>. Keep it secret — anyone with it can forge payment confirmations.</span>
+                  <label class="label">Payment API credentials</label>
+                  <div class="credential-status" role="status">
+                    <p>API keys are never displayed in the admin page. Configure or rotate them in your hosting environment settings.</p>
+                    <div class="credential-list">
+                      <div><span>Publishable key</span><b class="badge <%= paymentCredentials.publicKey ? 'success' : 'muted' %>"><%= paymentCredentials.publicKey ? 'Configured' : 'Not configured' %></b></div>
+                      <div><span>Secret key</span><b class="badge <%= paymentCredentials.secretKey ? 'success' : 'muted' %>"><%= paymentCredentials.secretKey ? 'Configured' : 'Not configured' %></b></div>
+                      <div><span>Webhook signing secret</span><b class="badge <%= paymentCredentials.webhookSecret ? 'success' : 'muted' %>"><%= paymentCredentials.webhookSecret ? 'Configured' : 'Not configured' %></b></div>
+                    </div>
+                    <span class="hint">Use <code>PAYSTACK_PUBLIC_KEY</code>, <code>PAYSTACK_SECRET_KEY</code> and <code>PAYSTACK_WEBHOOK_SECRET</code>. Values are intentionally omitted from this page and its HTML.</span>
+                  </div>
                 </div>
                 <div class="divider"></div>
                 <div class="stat-line row between"><span class="muted">Webhook endpoint</span><b class="mono" style="font-size:.76rem"><%= cfg.publicUrl %>/webhooks/paystack</b></div>

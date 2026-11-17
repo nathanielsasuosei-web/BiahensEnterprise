@@ -18,14 +18,31 @@ router.use(auth.requireOwner);
 router.get('/', (req, res) => {
   const tab = ['general', 'contact', 'commerce', 'payments', 'homepage', 'policy', 'seo'].includes(req.query.tab)
     ? req.query.tab : 'general';
+  const values = { ...settings.all() };
+  const defaults = { ...settings.DEFAULTS };
+  const paymentCredentials = {
+    publicKey: Boolean(values.gateway_public_key || config.payments.publicKey),
+    secretKey: Boolean(config.payments.secretKey),
+    webhookSecret: Boolean(
+      (values.gateway_webhook_secret && values.gateway_webhook_secret !== settings.DEFAULTS.gateway_webhook_secret)
+      || (config.payments.webhookSecret && config.payments.webhookSecret !== settings.DEFAULTS.gateway_webhook_secret)
+    ),
+  };
+  // Keep persisted credentials out of the template locals and rendered HTML.
+  delete values.gateway_public_key;
+  delete values.gateway_webhook_secret;
+  delete defaults.gateway_public_key;
+  delete defaults.gateway_webhook_secret;
+
   res.render('admin/settings/index', {
     layout: false,
     pageTitle: 'Store settings | Admin',
     bodyClass: 'admin admin-settings',
     adminNav: 'settings',
     tab,
-    values: settings.all(),
-    defaults: settings.DEFAULTS,
+    values,
+    defaults,
+    paymentCredentials,
     zones: db.prepare('SELECT * FROM shipping_rates ORDER BY sort_order, region').all(),
     regions: GHANA_REGIONS,
     staff: db.prepare(`SELECT id, name, email, phone, role, is_blocked, last_login_at, created_at FROM users WHERE role != 'customer' ORDER BY role DESC, name`).all(),
