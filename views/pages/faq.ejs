@@ -5,7 +5,7 @@
   <h1>Frequently asked questions</h1>
   <p class="muted" style="max-width:80ch;margin:0 0 1.4rem">Everything shoppers ask us most often — ordering, payment, delivery, returns and warranty. Cannot find your answer? <a href="/contact" style="color:#F26B21;font-weight:800">Contact us</a> or WhatsApp <%= settings.support_whatsapp || settings.support_phone %>.</p>
 
-  <div class="grid" style="grid-template-columns:200px 1fr;gap:1.4rem;align-items:start">
+  <div class="grid faq-grid">
     <nav class="acc-nav card" style="position:sticky;top:calc(var(--header-h) + 14px)">
       <div class="head" style="padding:.8rem 1rem;text-align:left"><b style="font-size:.88rem">Jump to</b></div>
       <% [['ordering', 'Ordering'], ['payment', 'Payment'], ['delivery', 'Delivery'], ['returns', 'Returns & refunds'], ['warranty', 'Warranty & authenticity'], ['account', 'Your account'], ['business', 'Bulk & business']].forEach(function (s) { %>
