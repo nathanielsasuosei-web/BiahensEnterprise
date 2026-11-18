@@ -963,3 +963,16 @@ button{touch-action:manipulation}
 }
 .preview-notice{padding:10px 20px;background:#fff0ca;color:#463712;text-align:center;font-size:13px;line-height:1.6}
 @media print{.newsletter-section{display:none}}
+
+/* Slightly larger storefront type for easier reading. */
+body{font-size:17px}
+.shop-section-heading p,.everyday-banner p,.owner-promise p,.newsletter-copy p{font-size:16px}
+.shop-hero p{font-size:17px}
+.p-name{font-size:16px}
+.p-brand{font-size:13px}
+.p-rating,.p-rating>b,.p-compare{font-size:14px}
+.p-add-btn,.btn{font-size:15px}
+.shop-category__label h3{font-size:15px}
+.shop-category__label>span{font-size:13.5px}
+.hdr-nav .nav-link,.cat-trigger,.text-link{font-size:15px}
+.footer-brand p{font-size:15px}
