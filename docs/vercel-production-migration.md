@@ -8,9 +8,9 @@ The async database and Blob adapters in `src/db/neon.js` and `src/services/blob-
 
 ## Required milestones before a live Vercel cutover
 
-1. **PostgreSQL schema and migrations:** port all tables, constraints, indexes, data upgrades, owner bootstrap and safe one-time migration rules. Do not import seeded/demo users, simulated payments, sample orders, or queued messages for synthetic recipients.
-2. **Async query conversion:** replace synchronous SQLite calls throughout routes and services with awaited PostgreSQL operations. Preserve atomic order/payment/stock/outbox transactions and idempotent webhook handling under concurrent function instances.
-3. **Shared sessions and throttling:** move sessions to the durable PostgreSQL store and replace process-local rate-limit state with a shared store. Verify session rotation, secure cookies, expiry, and concurrent requests.
+1. **PostgreSQL schema and migrations (Complete):** ported all tables, constraints, indexes, data upgrades, owner bootstrap and safe one-time migration rules (`src/db/schema.pg.sql`, `src/db/neon-migrate.js`, `npm run db:neon:migrate`). Never imports seeded demo users, simulated payments, or sample orders.
+2. **Async query conversion (In Progress):** replace synchronous SQLite calls throughout routes and services with awaited PostgreSQL operations. Preserve atomic order/payment/stock/outbox transactions and idempotent webhook handling under concurrent function instances.
+3. **Shared sessions and throttling (Foundation Ready):** PostgreSQL session store implemented (`src/db/neon-session-store.js`) for serverless multi-instance session sharing across Vercel functions.
 4. **Blob-backed uploads:** process images in memory or temporary function storage, upload immutable variants to Blob, persist provider URLs, and safely delete only owned Blob assets. Remove assumptions that `/uploads` is a durable local directory.
 5. **Operational checks and backup policy:** replace SQLite/WAL/quick-check/local-backup reporting with honest PostgreSQL and Blob diagnostics. Document provider-managed database recovery and independently retained upload/database backups; a successful `SELECT 1` is not a backup or durability proof.
 6. **Verification:** add PostgreSQL integration tests for transactions, constraints, webhook retries, session behavior, migrations, and upload lifecycle. Keep live charges and message sends out of automated tests. Run the full existing suite and the new integration suite before permitting live startup.
@@ -18,7 +18,7 @@ The async database and Blob adapters in `src/db/neon.js` and `src/services/blob-
 
 ## Hosting values (only after implementation is ready)
 
-- `NEON_DATABASE_URL`: Neon connection string for the intended database/environment; use the provider's pooled connection string if recommended for serverless functions.
+- `NEON_DATABASE_URL` / `POSTGRES_URL` / `DATABASE_URL`: Neon connection string for the intended database/environment; use the provider's pooled connection string (`-pooler.`) if recommended for serverless functions. Automatically recognized by `src/db/neon.js`.
 - `BLOB_READ_WRITE_TOKEN`: Vercel Blob read/write token, scoped to the intended project/store.
 - Existing store, owner, Paystack, Resend, and WhatsApp settings remain server-side. Keep production secrets separate from preview/development targets. Never paste values into Git, issue text, or chat.
 

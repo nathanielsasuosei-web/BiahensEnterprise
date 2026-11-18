@@ -69,9 +69,15 @@ function createNeonDatabase({ pool }) {
 }
 
 function createFromEnvironment(env = process.env) {
-  const connectionString = String(env.NEON_DATABASE_URL || '').trim();
+  const connectionString = String(
+    env.NEON_DATABASE_URL ||
+    env.POSTGRES_URL ||
+    env.DATABASE_URL ||
+    env.POSTGRES_PRISMA_URL ||
+    ''
+  ).trim();
   if (!connectionString) {
-    const error = new Error('Set NEON_DATABASE_URL in the hosting environment.');
+    const error = new Error('Set NEON_DATABASE_URL or POSTGRES_URL in the hosting environment.');
     error.code = 'NEON_DATABASE_URL_REQUIRED';
     throw error;
   }

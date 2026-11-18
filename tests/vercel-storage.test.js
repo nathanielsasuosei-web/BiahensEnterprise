@@ -55,6 +55,19 @@ test('Neon environment factory fails closed when no database URL is configured',
   assert.throws(() => createFromEnvironment({}), { code: 'NEON_DATABASE_URL_REQUIRED' });
 });
 
+test('Neon environment factory accepts NEON_DATABASE_URL, POSTGRES_URL, or DATABASE_URL', async () => {
+  const dummy = 'postgres://user:pass@ep-test.neon.tech/neondb';
+  const db1 = createFromEnvironment({ NEON_DATABASE_URL: dummy });
+  assert.equal(typeof db1.query, 'function');
+  const db2 = createFromEnvironment({ POSTGRES_URL: dummy });
+  assert.equal(typeof db2.query, 'function');
+  const db3 = createFromEnvironment({ DATABASE_URL: dummy });
+  assert.equal(typeof db3.query, 'function');
+  await db1.close();
+  await db2.close();
+  await db3.close();
+});
+
 test('Blob adapter uploads public assets with explicit content metadata and returns provider URLs', async () => {
   const calls = [];
   const blob = createBlobStorage({
