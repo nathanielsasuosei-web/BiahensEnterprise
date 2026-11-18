@@ -74,8 +74,10 @@ async function migrateNeon(db, config) {
 }
 
 async function main() {
+  const cliUrl = process.argv[2] && process.argv[2].startsWith('postgres') ? process.argv[2] : null;
+  const env = cliUrl ? { ...process.env, NEON_DATABASE_URL: cliUrl } : process.env;
   const config = require('../config');
-  const db = createFromEnvironment(process.env);
+  const db = createFromEnvironment(env);
   try {
     console.log('Running Neon PostgreSQL migrations...');
     await migrateNeon(db, config);

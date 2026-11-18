@@ -396,3 +396,21 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
   sent_at         TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_notification_outbox_status ON notification_outbox(status, next_attempt_at);
+
+-- -------------------------------------------------- baseline data & settings ----
+INSERT INTO app_migrations (name, applied_at)
+VALUES
+  ('schema.pg.v1', NOW()),
+  ('orders.public-events.v1', NOW()),
+  ('store.pointgh-vat.v1', NOW()),
+  ('commerce.verified-payments.v1', NOW())
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO settings (key, value, grp, type, label, updated_at)
+VALUES
+  ('store_name', 'POINTGH', 'identity', 'text', 'store_name', NOW()),
+  ('store_short', 'POINTGH', 'identity', 'text', 'store_short', NOW()),
+  ('tax_rate', '1', 'commerce', 'number', 'VAT (%)', NOW()),
+  ('currency', 'GHS', 'commerce', 'text', 'Currency', NOW())
+ON CONFLICT (key) DO NOTHING;
+
